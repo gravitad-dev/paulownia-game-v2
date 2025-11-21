@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
+import { RetroBackground } from '@/components/ui/RetroBackground';
 import { Header } from '@/components/layout/Header';
 
 export default function GameLayout({
@@ -33,7 +34,8 @@ export default function GameLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
+    <div className="min-h-screen bg-transparent text-foreground selection:bg-primary/30 relative">
+      <RetroBackground />
       <Header />
       <main 
         className="pt-24 px-4 sm:px-6 lg:px-8 mx-auto min-h-screen flex flex-col"
