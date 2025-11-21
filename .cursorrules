@@ -1,0 +1,34 @@
+# Reglas del Proyecto
+
+Aquí puedes definir las reglas específicas para este proyecto que el asistente de IA debe seguir.
+
+## Preferencias Generales
+- Idioma UI: Español
+- Framework: Next.js
+- Stores: Zustand
+- State Management: Zustand
+- UI: Shadcn 
+- UI: TailwindCSS
+- Animations: GSAP
+- Conection: Strapi
+- HTTP: Axios
+- Icons: react-icons 
+- test: jest
+- clases custom tailwindcss: clsx
+
+## Estilo de Código
+- Usar TypeScript
+- Preferir componentes funcionales
+- Respetar codigo limpio
+- Usar nombres descriptivos
+- Usar nombres en inglés
+- Idioma Código: Ingles
+- Idioma Documentación: Español
+- SOLID Principles
+- Clean Architecture
+- Prohibido hacer componentes gigantes, tienes que hacer componentes pequeños y reutilizables 
+- aunque usemos next la mayoria de componetes sera del lado del cliente
+
+## Comportamiento del Asistente
+- Ser conciso
+- Explicar los cambios importantes
