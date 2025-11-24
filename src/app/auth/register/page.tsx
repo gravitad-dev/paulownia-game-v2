@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
+import { gsap } from "gsap";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -24,6 +25,107 @@ export default function RegisterPage() {
   const router = useRouter();
   const toast = useToast();
 
+  const formRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const fieldsRef = useRef<HTMLDivElement[]>([]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!formRef.current) return;
+
+    const ctx = gsap.context(() => {
+      // Animación de entrada del formulario
+      gsap.fromTo(
+        formRef.current,
+        {
+          opacity: 0,
+          y: 30,
+        },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.6,
+          ease: "power3.out",
+        }
+      );
+
+      // Animación del título
+      if (titleRef.current) {
+        gsap.fromTo(
+          titleRef.current,
+          {
+            opacity: 0,
+            y: -20,
+          },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            delay: 0.2,
+            ease: "power2.out",
+          }
+        );
+      }
+
+      // Animación escalonada de los campos
+      fieldsRef.current.forEach((field, index) => {
+        if (field) {
+          gsap.fromTo(
+            field,
+            {
+              opacity: 0,
+              x: -20,
+            },
+            {
+              opacity: 1,
+              x: 0,
+              duration: 0.5,
+              delay: 0.3 + index * 0.1,
+              ease: "power2.out",
+            }
+          );
+        }
+      });
+
+      // Animación del botón
+      if (buttonRef.current) {
+        gsap.fromTo(
+          buttonRef.current,
+          {
+            opacity: 0,
+            scale: 0.9,
+          },
+          {
+            opacity: 1,
+            scale: 1,
+            duration: 0.5,
+            delay: 0.9,
+            ease: "back.out(1.7)",
+          }
+        );
+      }
+
+      // Animación del footer
+      if (footerRef.current) {
+        gsap.fromTo(
+          footerRef.current,
+          {
+            opacity: 0,
+          },
+          {
+            opacity: 1,
+            duration: 0.5,
+            delay: 1.0,
+            ease: "power2.out",
+          }
+        );
+      }
+    }, formRef);
+
+    return () => ctx.revert();
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -32,9 +134,31 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Animación del botón al hacer click
+    if (buttonRef.current) {
+      gsap.to(buttonRef.current, {
+        scale: 0.95,
+        duration: 0.1,
+        yoyo: true,
+        repeat: 1,
+        ease: "power2.inOut",
+      });
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast.error("Las contraseñas no coinciden.");
       setLoading(false);
+      
+      // Animación de shake en caso de error
+      if (formRef.current) {
+        gsap.to(formRef.current, {
+          x: -10,
+          duration: 0.1,
+          repeat: 5,
+          yoyo: true,
+          ease: "power2.inOut",
+        });
+      }
       return;
     }
 
@@ -59,18 +183,39 @@ export default function RegisterPage() {
         )?.response?.data?.error?.message ||
         "Error al registrarse. Inténtalo de nuevo.";
       toast.error(errorMessage);
+
+      // Animación de shake en caso de error
+      if (formRef.current) {
+        gsap.to(formRef.current, {
+          x: -10,
+          duration: 0.1,
+          repeat: 5,
+          yoyo: true,
+          ease: "power2.inOut",
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-card p-8 rounded-lg shadow-lg border border-border w-full max-w-md mx-auto">
-      <h3 className="text-xl font-semibold mb-6 text-center text-card-foreground">
+    <div
+      ref={formRef}
+      className="bg-card p-8 rounded-lg shadow-lg border border-border w-full max-w-md mx-auto"
+    >
+      <h3
+        ref={titleRef}
+        className="text-xl font-semibold mb-6 text-center text-card-foreground"
+      >
         Crear Cuenta
       </h3>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
+        <div
+          ref={(el) => {
+            if (el) fieldsRef.current[0] = el;
+          }}
+        >
           <label className="block text-sm font-medium text-muted-foreground">
             Usuario *
           </label>
@@ -83,7 +228,11 @@ export default function RegisterPage() {
             onChange={handleChange}
           />
         </div>
-        <div>
+        <div
+          ref={(el) => {
+            if (el) fieldsRef.current[1] = el;
+          }}
+        >
           <label className="block text-sm font-medium text-muted-foreground">
             Email *
           </label>
@@ -96,7 +245,11 @@ export default function RegisterPage() {
             onChange={handleChange}
           />
         </div>
-        <div>
+        <div
+          ref={(el) => {
+            if (el) fieldsRef.current[2] = el;
+          }}
+        >
           <label className="block text-sm font-medium text-muted-foreground">
             Contraseña *
           </label>
@@ -122,7 +275,11 @@ export default function RegisterPage() {
             </button>
           </div>
         </div>
-        <div>
+        <div
+          ref={(el) => {
+            if (el) fieldsRef.current[3] = el;
+          }}
+        >
           <label className="block text-sm font-medium text-muted-foreground">
             Confirmar Contraseña *
           </label>
@@ -150,15 +307,34 @@ export default function RegisterPage() {
         </div>
 
         <Button
+          ref={buttonRef}
           type="submit"
           disabled={loading}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          onMouseEnter={() => {
+            if (buttonRef.current && !loading) {
+              gsap.to(buttonRef.current, {
+                scale: 1.02,
+                duration: 0.2,
+                ease: "power2.out",
+              });
+            }
+          }}
+          onMouseLeave={() => {
+            if (buttonRef.current && !loading) {
+              gsap.to(buttonRef.current, {
+                scale: 1,
+                duration: 0.2,
+                ease: "power2.out",
+              });
+            }
+          }}
         >
           {loading ? "Registrando..." : "Registrarse"}
         </Button>
       </form>
 
-      <div className="mt-6 text-center text-sm">
+      <div ref={footerRef} className="mt-6 text-center text-sm">
         <span className="text-muted-foreground">¿Ya tienes una cuenta? </span>
         <Link
           href="/auth/login"
