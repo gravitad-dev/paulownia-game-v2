@@ -8,7 +8,6 @@ import {
   User as UserIcon,
   Home,
   Settings,
-  Gamepad2,
   Layers,
   Gift,
   Target,
@@ -17,6 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 import {
@@ -26,7 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserService } from "@/services/user.service";
 import gsap from "gsap";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 
 const navigation = [
   { name: "Inicio", href: "/game", icon: Home },
@@ -37,7 +40,7 @@ const navigation = [
 ];
 
 export function Header() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -48,6 +51,31 @@ export function Header() {
     logout();
     router.push("/auth/login");
   };
+
+  // Cargar datos del usuario automáticamente al montar el componente
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+
+      try {
+        const userData = await UserService.getMe();
+        updateUser(userData);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        if (user?.id) {
+          try {
+            const userDataById = await UserService.getById(user.id);
+            updateUser(userDataById);
+          } catch (innerError) {
+            console.error("Error fetching user data by ID:", innerError);
+          }
+        }
+      }
+    };
+
+    fetchUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Animación de hover en items del menú
   useEffect(() => {
@@ -103,18 +131,43 @@ export function Header() {
     }
   }, [isDropdownOpen]);
 
+  const avatarUrl = user?.avatar?.url
+    ? user.avatar.url.startsWith("http")
+      ? user.avatar.url
+      : `${API_URL}${user.avatar.url}`
+    : null;
+
+  const initials = user?.username
+    ? user.username
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "U";
+
   return (
     <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-[1200px] px-4">
       <div className="bg-card/80 backdrop-blur-md border border-border rounded-full shadow-lg px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Columna 1: Logo / Brand */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="bg-primary/10 p-2 rounded-full">
-            <Gamepad2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+        <Link
+          href="/game"
+          className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <div className="flex items-center justify-center">
+            <Image
+              src="/brand/Logo.png"
+              alt="Paulownia Logo"
+              width={32}
+              height={32}
+              className="h-6 w-6 sm:h-8 sm:w-8 object-contain"
+              priority
+            />
           </div>
           <span className="font-bold text-base sm:text-lg hidden sm:block text-foreground">
             Paulownia
           </span>
-        </div>
+        </Link>
 
         {/* Columna 2: Navigation Menu */}
         <nav className="flex items-center gap-1 flex-1 justify-center">
@@ -148,8 +201,18 @@ export function Header() {
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1.5 sm:gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full p-1 transition-all">
-                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs ring-2 ring-background">
-                  {user?.username?.charAt(0).toUpperCase() || (
+                <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs ring-2 ring-background overflow-hidden">
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt={user?.username || "Avatar"}
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : user?.username ? (
+                    initials
+                  ) : (
                     <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   )}
                 </div>
