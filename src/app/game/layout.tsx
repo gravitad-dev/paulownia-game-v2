@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/useAuthStore';
-import { RetroBackground } from '@/components/ui/RetroBackground';
-import { Header } from '@/components/layout/Header';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/useAuthStore";
+import { RetroBackground } from "@/components/ui/RetroBackground";
+import { Header } from "@/components/layout/Header";
 
 export default function GameLayout({
   children,
@@ -21,12 +21,12 @@ export default function GameLayout({
 
   useEffect(() => {
     if (mounted && !isAuthenticated) {
-      router.push('/auth/login');
+      router.push("/auth/login");
     }
   }, [isAuthenticated, mounted, router]);
 
   if (!mounted) {
-    return null; 
+    return null;
   }
 
   if (!isAuthenticated) {
@@ -37,11 +37,11 @@ export default function GameLayout({
     <div className="min-h-screen bg-transparent text-foreground selection:bg-primary/30 relative">
       <RetroBackground />
       <Header />
-      <main 
-        className="pt-24 px-4 sm:px-6 lg:px-8 mx-auto min-h-screen flex flex-col"
-        style={{ 
-          maxWidth: '1200px',
-          width: '100%'
+      <main
+        className="pt-32 px-4 sm:px-6 lg:px-8 mx-auto min-h-screen flex flex-col"
+        style={{
+          maxWidth: "1200px",
+          width: "100%",
         }}
       >
         {children}
