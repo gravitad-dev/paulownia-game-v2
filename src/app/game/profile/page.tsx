@@ -11,6 +11,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Save, ChevronDown, Loader2, Plus } from "lucide-react";
 import { Guardian, User, CreateGuardianInput, Media } from "@/types/user";
+import { useToast } from "@/hooks/useToast";
 
 // Tipo para los datos del guardian en el formulario
 export interface GuardianFormData {
@@ -51,10 +52,6 @@ import {
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
   const [isMinor, setIsMinor] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   // Snapshot del servidor para comparar cambios al submit
@@ -66,6 +63,7 @@ export default function ProfilePage() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
 
   const [guardiansOpen, setGuardiansOpen] = useState(true);
+  const toast = useToast();
 
   // React Hook Form
   const form = useForm<ProfileFormData>({
@@ -215,11 +213,7 @@ export default function ProfilePage() {
     // Validar máximo 2 padres
     const currentGuardians = form.getValues("guardians") || [];
     if (currentGuardians.length >= 2) {
-      setMessage({
-        type: "error",
-        text: "Solo se pueden agregar máximo 2 padres.",
-      });
-      setTimeout(() => setMessage(null), 5000);
+      toast.error("Máximo 2 padres permitidos.");
       return;
     }
 
@@ -253,7 +247,6 @@ export default function ProfilePage() {
 
   const onSubmit: SubmitHandler<ProfileFormData> = async (data) => {
     setLoading(true);
-    setMessage(null);
 
     try {
       if (!user?.id) throw new Error("User ID not found");
@@ -455,14 +448,10 @@ export default function ProfilePage() {
       setPendingAvatarFile(null);
 
       setIsEditing(false);
-
-      setMessage({
-        type: "success",
-        text: "Perfil actualizado correctamente.",
-      });
+      toast.success("Perfil actualizado correctamente.");
     } catch (err: unknown) {
       console.error("Update error:", err);
-      setMessage({ type: "error", text: "Error al actualizar el perfil." });
+      toast.error("Error al actualizar el perfil.");
     } finally {
       setLoading(false);
     }
@@ -529,23 +518,9 @@ export default function ProfilePage() {
   return (
     <FormProvider {...form}>
       <form className="space-y-6 pb-12" onSubmit={form.handleSubmit(onSubmit)}>
-        {message && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className={`rounded-md border px-4 py-3 text-sm ${
-              message.type === "success"
-                ? "border-success/20 bg-success/10 text-success"
-                : "border-destructive/30 bg-destructive/10 text-destructive"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
         <div className="space-y-0">
           <ProfileTabs />
-          <Card className="rounded-t-none rounded-b-lg border border-border/60 shadow-lg">
+          <Card className="rounded-b-lg border border-border/60 shadow-lg">
             <CardHeader className="space-y-0 p-0">
               <div className="flex flex-col gap-4 border-b border-border/50 px-6 pt-6 pb-4 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-2xl font-bold">

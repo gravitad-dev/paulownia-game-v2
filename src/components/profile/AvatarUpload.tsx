@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useMemo, useRef, useState, useEffect } from 'react';
-import Image from 'next/image';
-import { UploadCloud } from 'lucide-react';
+import { useMemo, useRef, useState, useEffect } from "react";
+import Image from "next/image";
+import { UploadCloud } from "lucide-react";
 
-import { User } from '@/types/user';
-import { Button } from '@/components/ui/button';
+import { User } from "@/types/user";
+import { Button } from "@/components/ui/button";
 
 interface AvatarUploadProps {
   user: User | null;
@@ -14,35 +14,43 @@ interface AvatarUploadProps {
   previewUrl?: string | null;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 const MAX_FILE_SIZE_MB = 2;
 
 // Tipos de imagen permitidos
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
 
 // Magic numbers (firmas de archivo) para validación de seguridad
 const MAGIC_NUMBERS: Record<string, number[][]> = {
-  'image/jpeg': [[0xff, 0xd8, 0xff]],
-  'image/png': [[0x89, 0x50, 0x4e, 0x47]],
-  'image/gif': [[0x47, 0x49, 0x46, 0x38]],
-  'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF - necesita validación adicional
+  "image/jpeg": [[0xff, 0xd8, 0xff]],
+  "image/png": [[0x89, 0x50, 0x4e, 0x47]],
+  "image/gif": [[0x47, 0x49, 0x46, 0x38]],
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF - necesita validación adicional
 };
 
 /**
  * Lee los primeros bytes de un archivo para validar su magic number
  */
-const readFileHeader = async (file: File, bytesToRead: number = 12): Promise<Uint8Array> => {
+const readFileHeader = async (
+  file: File,
+  bytesToRead: number = 12
+): Promise<Uint8Array> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result instanceof ArrayBuffer) {
         resolve(new Uint8Array(e.target.result));
       } else {
-        reject(new Error('Error al leer el archivo'));
+        reject(new Error("Error al leer el archivo"));
       }
     };
-    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.onerror = () => reject(new Error("Error al leer el archivo"));
     reader.readAsArrayBuffer(file.slice(0, bytesToRead));
   });
 };
@@ -50,22 +58,25 @@ const readFileHeader = async (file: File, bytesToRead: number = 12): Promise<Uin
 /**
  * Valida el magic number del archivo contra su MIME type declarado
  */
-const validateMagicNumber = async (file: File, mimeType: string): Promise<boolean> => {
+const validateMagicNumber = async (
+  file: File,
+  mimeType: string
+): Promise<boolean> => {
   try {
     const header = await readFileHeader(file);
     const magicNumbers = MAGIC_NUMBERS[mimeType];
-    
+
     if (!magicNumbers) {
       return false;
     }
 
     // Validación especial para WebP (debe contener RIFF y WEBP)
-    if (mimeType === 'image/webp') {
+    if (mimeType === "image/webp") {
       if (header.length < 12) return false;
       const riffBytes = header.slice(0, 4);
       const webpBytes = header.slice(8, 12);
-      const riff = String.fromCharCode(...riffBytes) === 'RIFF';
-      const webp = String.fromCharCode(...webpBytes) === 'WEBP';
+      const riff = String.fromCharCode(...riffBytes) === "RIFF";
+      const webp = String.fromCharCode(...webpBytes) === "WEBP";
       return riff && webp;
     }
 
@@ -83,7 +94,7 @@ const validateMagicNumber = async (file: File, mimeType: string): Promise<boolea
 
     return false;
   } catch (error) {
-    console.error('[AvatarUpload] Error validating magic number:', error);
+    console.error("[AvatarUpload] Error validating magic number:", error);
     return false;
   }
 };
@@ -96,29 +107,29 @@ const sanitizeFileName = (fileName: string): string => {
   const name = fileName.split(/[/\\]/).pop() || fileName;
   // Remover caracteres peligrosos y espacios
   return name
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
-    .replace(/_{2,}/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_{2,}/g, "_")
     .toLowerCase()
     .substring(0, 100); // Limitar longitud
 };
 
-export function AvatarUpload({ 
-  user, 
-  disabled, 
+export function AvatarUpload({
+  user,
+  disabled,
   onFileSelected,
-  previewUrl: externalPreviewUrl
+  previewUrl: externalPreviewUrl,
 }: AvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [internalPreview, setInternalPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Usar preview externo si existe, sino usar el interno
   const preview = externalPreviewUrl ?? internalPreview;
 
   const avatarUrl = useMemo(() => {
     if (preview) return preview;
     if (user?.avatar?.url) {
-      return user.avatar.url.startsWith('http')
+      return user.avatar.url.startsWith("http")
         ? user.avatar.url
         : `${API_URL}${user.avatar.url}`;
     }
@@ -126,11 +137,11 @@ export function AvatarUpload({
   }, [preview, user]);
 
   const initials = useMemo(() => {
-    if (!user?.username) return 'U';
+    if (!user?.username) return "U";
     return user.username
-      .split(' ')
+      .split(" ")
       .map((word) => word[0])
-      .join('')
+      .join("")
       .toUpperCase()
       .slice(0, 2);
   }, [user]);
@@ -141,20 +152,26 @@ export function AvatarUpload({
   const validateFile = async (file: File): Promise<void> => {
     // 1. Validar que el archivo existe
     if (!file) {
-      throw new Error('No se seleccionó ningún archivo.');
+      throw new Error("No se seleccionó ningún archivo.");
     }
 
     // 2. Validar extensión del archivo
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
     if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
       throw new Error(
-        `Formato no permitido. Solo se permiten: ${ALLOWED_EXTENSIONS.join(', ').replace(/\./g, '')}`
+        `Formato no permitido. Solo se permiten: ${ALLOWED_EXTENSIONS.join(
+          ", "
+        ).replace(/\./g, "")}`
       );
     }
 
     // 3. Validar MIME type
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      throw new Error('Tipo de archivo no permitido. Solo se permiten imágenes.');
+      throw new Error(
+        "Tipo de archivo no permitido. Solo se permiten imágenes."
+      );
     }
 
     // 4. Validar tamaño del archivo
@@ -165,17 +182,19 @@ export function AvatarUpload({
 
     // 5. Validar que el archivo no esté vacío
     if (file.size === 0) {
-      throw new Error('El archivo está vacío.');
+      throw new Error("El archivo está vacío.");
     }
 
     // 6. Validar magic number (firma del archivo) - crítica para seguridad
     const isValidMagicNumber = await validateMagicNumber(file, file.type);
     if (!isValidMagicNumber) {
-      throw new Error('El archivo no es una imagen válida o está corrupto.');
+      throw new Error("El archivo no es una imagen válida o está corrupto.");
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!user?.id) return;
     const file = event.target.files?.[0];
     if (!file) return;
@@ -188,7 +207,9 @@ export function AvatarUpload({
 
       // Sanitizar nombre del archivo
       const sanitizedName = sanitizeFileName(file.name);
-      const sanitizedFile = new File([file], sanitizedName, { type: file.type });
+      const sanitizedFile = new File([file], sanitizedName, {
+        type: file.type,
+      });
 
       // Crear preview local
       previewUrl = URL.createObjectURL(sanitizedFile);
@@ -199,13 +220,15 @@ export function AvatarUpload({
       // Notificar al componente padre del archivo seleccionado
       onFileSelected?.(sanitizedFile);
     } catch (err) {
-      console.error('[AvatarUpload] Error validating file:', err);
-      setError(err instanceof Error ? err.message : 'Error al validar el archivo.');
+      console.error("[AvatarUpload] Error validating file:", err);
+      setError(
+        err instanceof Error ? err.message : "Error al validar el archivo."
+      );
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     } finally {
-      event.target.value = '';
+      event.target.value = "";
     }
   };
 
@@ -239,13 +262,15 @@ export function AvatarUpload({
           {avatarUrl ? (
             <Image
               src={avatarUrl}
-              alt={user?.username || 'Avatar'}
+              alt={user?.username || "Avatar"}
               width={112}
               height={112}
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-2xl font-semibold text-muted-foreground">{initials}</span>
+            <span className="text-2xl font-semibold text-muted-foreground">
+              {initials}
+            </span>
           )}
         </div>
 
@@ -274,4 +299,3 @@ export function AvatarUpload({
     </div>
   );
 }
-
