@@ -38,7 +38,7 @@ export default function GameLayout({
       <RetroBackground />
       <Header />
       <main
-        className="pt-32 px-4 sm:px-6 lg:px-8 mx-auto min-h-screen flex flex-col"
+        className="pt-32 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8 mx-auto min-h-screen flex flex-col"
         style={{
           maxWidth: "1200px",
           width: "100%",

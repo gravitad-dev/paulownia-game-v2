@@ -32,4 +32,3 @@ export function useToast() {
     warning,
   };
 }
-

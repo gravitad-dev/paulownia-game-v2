@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { ProfileFormData, GuardianFormData } from '@/app/game/profile/page';
+import { ProfileFormData, GuardianFormData } from '@/types/profile';
 import { getCountryCode } from '@/lib/countries';
 import { CountryCode } from 'libphonenumber-js';
 

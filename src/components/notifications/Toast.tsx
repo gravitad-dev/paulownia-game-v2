@@ -76,4 +76,3 @@ export function ToastItem({ toast, onClose }: ToastProps) {
     </div>
   );
 }
-
