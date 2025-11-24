@@ -20,10 +20,9 @@ import { GuardiansList } from "@/components/profile/GuardiansList";
 import { UserService, UpdateUserInput } from "@/services/user.service";
 import { GuardianService } from "@/services/guardian.service";
 import { MediaService, UploadedFile } from "@/services/media.service";
-import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { ChangePasswordModal } from "@/components/profile/ChangePasswordModal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -499,132 +498,127 @@ export default function ProfilePage() {
   return (
     <FormProvider {...form}>
       <form
-        className="flex flex-col h-[calc(100vh-9rem)] sm:h-[calc(100vh-9.5rem)] lg:h-[calc(100vh-10rem)]"
+        className="flex flex-col h-full"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="flex flex-col flex-1 min-h-0">
-          <ProfileTabs />
-          <Card className="flex-1 flex flex-col rounded-b-lg border border-border/60 shadow-lg overflow-hidden">
-            <CardHeader className="space-y-0 p-0 shrink-0 border-b border-border/50">
-              <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
-                <CardTitle className="text-lg font-semibold sm:text-xl">
-                  Configuración
-                </CardTitle>
-                <div className="flex items-center gap-2 shrink-0">
-                  {isEditing ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancelEditing}
-                        disabled={loading}
-                        size="sm"
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        size="sm"
-                        className="gap-2"
-                      >
-                        {loading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4" />
-                        )}
-                        {loading ? "Guardando..." : "Guardar"}
-                      </Button>
-                    </>
-                  ) : (
+        <CardHeader className="space-y-0 p-0 shrink-0 border-b border-border/50">
+          <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
+            <CardTitle className="text-lg font-semibold sm:text-xl">
+              Configuración
+            </CardTitle>
+            <div className="flex items-center gap-2 shrink-0">
+              {isEditing ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEditing}
+                    disabled={loading}
+                    size="sm"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {loading ? "Guardando..." : "Guardar"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  disabled={loading}
+                  size="sm"
+                >
+                  Editar
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6 px-6 py-6">
+          <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <AvatarUpload
+              user={user ?? null}
+              disabled={!isEditing || loading}
+              onFileSelected={handleFileSelected}
+              previewUrl={avatarPreviewUrl}
+            />
+            <ChangePasswordModal />
+          </div>
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+            <div className="rounded-lg border border-border/30 p-3 sm:p-4">
+              <PersonalDataForm disabled={!isEditing} />
+            </div>
+            <div className="rounded-lg border border-border/30 p-3 sm:p-4">
+              <ContactDataForm disabled={!isEditing} />
+            </div>
+          </div>
+
+          {isMinor && (
+            <Collapsible
+              open={guardiansOpen}
+              onOpenChange={setGuardiansOpen}
+              className="rounded-lg border border-border/30"
+            >
+              <div className="flex flex-col gap-3 border-b border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Responsables legales
+                  </p>
+                  <h3 className="text-base font-medium sm:text-lg">
+                    Padres
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    onClick={addGuardian}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 flex-1 sm:flex-initial"
+                    disabled={!isEditing}
+                  >
+                    <Plus className="h-4 w-4" /> Añadir
+                  </Button>
+                  <CollapsibleTrigger asChild>
                     <Button
                       type="button"
-                      onClick={() => setIsEditing(true)}
-                      disabled={loading}
+                      variant="ghost"
                       size="sm"
+                      className="gap-2 flex-1 sm:flex-initial"
                     >
-                      Editar
+                      {guardiansOpen ? "Ocultar" : "Mostrar"}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          guardiansOpen ? "rotate-180" : ""
+                        }`}
+                      />
                     </Button>
-                  )}
+                  </CollapsibleTrigger>
                 </div>
               </div>
-            </CardHeader>
-
-            <CardContent className="flex-1 overflow-y-auto space-y-6 px-6 py-6 min-h-0">
-              <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
-                <AvatarUpload
-                  user={user ?? null}
-                  disabled={!isEditing || loading}
-                  onFileSelected={handleFileSelected}
-                  previewUrl={avatarPreviewUrl}
+              <CollapsibleContent className="px-3 py-3 sm:px-4 sm:py-4">
+                <GuardiansList
+                  isMinor={isMinor}
+                  removeGuardian={removeGuardian}
+                  disabled={!isEditing}
+                  fields={guardiansFieldArray.fields}
                 />
-                <ChangePasswordModal />
-              </div>
-              <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-                <div className="rounded-lg border border-border/30 p-3 sm:p-4">
-                  <PersonalDataForm disabled={!isEditing} />
-                </div>
-                <div className="rounded-lg border border-border/30 p-3 sm:p-4">
-                  <ContactDataForm disabled={!isEditing} />
-                </div>
-              </div>
-
-              {isMinor && (
-                <Collapsible
-                  open={guardiansOpen}
-                  onOpenChange={setGuardiansOpen}
-                  className="rounded-lg border border-border/30"
-                >
-                  <div className="flex flex-col gap-3 border-b border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Responsables legales
-                      </p>
-                      <h3 className="text-base font-medium sm:text-lg">
-                        Padres
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        onClick={addGuardian}
-                        size="sm"
-                        variant="outline"
-                        className="gap-2 flex-1 sm:flex-initial"
-                        disabled={!isEditing}
-                      >
-                        <Plus className="h-4 w-4" /> Añadir
-                      </Button>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="gap-2 flex-1 sm:flex-initial"
-                        >
-                          {guardiansOpen ? "Ocultar" : "Mostrar"}
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              guardiansOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
-                  </div>
-                  <CollapsibleContent className="px-3 py-3 sm:px-4 sm:py-4">
-                    <GuardiansList
-                      isMinor={isMinor}
-                      removeGuardian={removeGuardian}
-                      disabled={!isEditing}
-                      fields={guardiansFieldArray.fields}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </CardContent>
       </form>
     </FormProvider>
   );

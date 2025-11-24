@@ -4,8 +4,7 @@ import { useEffect } from "react";
 import Image from "next/image";
 import { useAuthStore } from "@/store/useAuthStore";
 import { UserService } from "@/services/user.service";
-import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 
@@ -52,39 +51,34 @@ export default function ProfilePage() {
     : "U";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)] sm:h-[calc(100vh-9.5rem)] lg:h-[calc(100vh-10rem)]">
-      <ProfileTabs />
-      <Card className="flex-1 flex flex-col rounded-b-lg border border-border/60 shadow-lg overflow-hidden">
-        <CardContent className="flex-1 overflow-y-auto px-6 py-8">
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-            <div className="flex-shrink-0">
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt={user?.username || "Avatar"}
-                  width={128}
-                  height={128}
-                  className="h-24 w-24 rounded-full object-cover border-2 border-border sm:h-32 sm:w-32"
-                />
-              ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted border-2 border-border text-2xl font-semibold text-muted-foreground sm:h-32 sm:w-32 sm:text-3xl">
-                  {initials}
-                </div>
-              )}
+    <CardContent className="px-6 py-8">
+      <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+        <div className="shrink-0">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={user?.username || "Avatar"}
+              width={128}
+              height={128}
+              className="h-24 w-24 rounded-full object-cover border-2 border-border sm:h-32 sm:w-32"
+            />
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted border-2 border-border text-2xl font-semibold text-muted-foreground sm:h-32 sm:w-32 sm:text-3xl">
+              {initials}
             </div>
-            <div className="flex-1 text-center sm:text-left">
-              <h1 className="text-2xl font-bold sm:text-3xl">
-                {user?.username || "Usuario"}
-              </h1>
-              {user?.name && user?.lastname && (
-                <p className="mt-1 text-muted-foreground">
-                  {user.name} {user.lastname}
-                </p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          )}
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {user?.username || "Usuario"}
+          </h1>
+          {user?.name && user?.lastname && (
+            <p className="mt-1 text-muted-foreground">
+              {user.name} {user.lastname}
+            </p>
+          )}
+        </div>
+      </div>
+    </CardContent>
   );
 }
