@@ -32,3 +32,28 @@ Aquí puedes definir las reglas específicas para este proyecto que el asistente
 ## Comportamiento del Asistente
 - Ser conciso
 - Explicar los cambios importantes
+
+## Reglas para llamadas a Strapi
+
+- **No usar `id` numérico**, salvo en el plugin `users-permissions` (`/api/users`), donde Strapi lo exige.
+- **Colecciones Document Service (todas menos `/api/users`)**:
+  - Crear registros con `POST /api/<collection>` usando payload `{ data: { ... } }`.
+  - Leer/actualizar/eliminar un registro con `GET/PUT/PATCH/DELETE /api/<collection>/:documentId`.
+- **Rutas con `uuid`** (`/api/<collection>/uuid/:uuid`):
+  - Usarlas solo para **GET/PUT/DELETE de un único registro** cuando ya se tiene el `uuid` del elemento.
+  - No usarlas para listados; los listados siempre van por `/api/<collection>?filters[...]`.
+- **Listados y relaciones**:
+  - Usar siempre paginación page-based: `pagination[page]` y `pagination[pageSize]`.
+  - Para obtener relaciones, usar `populate=*` o `populate[campo]`.
+  - Para “mis X” (datos ligados al usuario autenticado) sin endpoint custom:
+    - Filtrar por la relación `users_permissions_user` priorizando `documentId`:
+      - `filters[users_permissions_user][documentId][$eq]=<user.documentId>`.
+      - Solo usar `filters[users_permissions_user][id][$eq]=<user.id>` cuando el modelo lo requiera explícitamente.
+- **Endpoints custom que usan el usuario del JWT** (por ejemplo `/api/achievements/my-achievements`, `/api/daily-rewards/my-status`, `/api/rewards/spin`):
+  - No pasar `id`, `documentId` ni `uuid` de usuario en la URL o el body.
+  - Confiar en el token (`Authorization: Bearer <token>`) que ya añade `api` desde `src/lib/api.ts`.
+- **Patrón de servicios en frontend**:
+  - Cada colección debe tener su propio servicio en `src/services`, creado con `withBasePath("/api/<collection>")`.
+  - Los servicios deben exponer métodos claros como:
+    - `list(params)`, `listByUserDocumentId(documentId, params)`, `getByDocumentId`, `getByUuid`, `create`, `updateByDocumentId`, `updateByUuid`, `deleteByDocumentId`, `deleteByUuid`, etc.
+  - Tipar siempre las respuestas: `{ data: T }` o `{ data: T[]; meta: { pagination } }`.

@@ -36,7 +36,34 @@ export interface UserReward {
 
 export interface UserGameHistory {
   id: number;
-  // Define fields
+  /**
+   * Identificador único estable del registro en Strapi.
+   * Todas las operaciones GET/PUT/DELETE deben usar este campo en la ruta `/uuid/:uuid`.
+   */
+  uuid: string;
+  /**
+   * Relación con el usuario propietario del historial.
+   * Normalmente será un ID numérico del usuario de `users-permissions`.
+   */
+  users_permissions_user?: number;
+  /**
+   * Relación con el nivel jugado.
+   * Se modela de forma mínima para poder mostrar información en la UI.
+   */
+  level?:
+    | {
+        id: number;
+        name?: string;
+      }
+    | number
+    | null;
+  score: number;
+  duration: number;
+  completedAt: string;
+  coinsEarned: number;
+  completed: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserTransactionHistory {

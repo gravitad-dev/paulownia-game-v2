@@ -37,15 +37,10 @@ export default function ProfileLayout({
     <div className="flex flex-col h-[calc(100vh-9rem)] sm:h-[calc(100vh-9.5rem)] lg:h-[calc(100vh-10rem)]">
       <ProfileTabs />
       <Card className="relative z-20 flex-1 flex flex-col -mt-px rounded-b-lg border-t-0 border-x border-b border-border/60 shadow-lg overflow-hidden">
-        <div
-          ref={contentRef}
-          className="flex-1 overflow-y-auto"
-          key={pathname}
-        >
+        <div ref={contentRef} className="flex-1 overflow-y-auto" key={pathname}>
           {children}
         </div>
       </Card>
     </div>
   );
 }
-

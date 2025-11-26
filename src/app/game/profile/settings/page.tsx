@@ -501,7 +501,7 @@ export default function ProfilePage() {
         className="flex flex-col h-full"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <CardHeader className="space-y-0 p-0 shrink-0 border-b border-border/50">
+        <CardHeader className="sticky top-0 z-10 bg-card space-y-0 p-0 shrink-0 border-b border-border/50">
           <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
             <CardTitle className="text-lg font-semibold sm:text-xl">
               Configuración
@@ -576,9 +576,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted-foreground">
                     Responsables legales
                   </p>
-                  <h3 className="text-base font-medium sm:text-lg">
-                    Padres
-                  </h3>
+                  <h3 className="text-base font-medium sm:text-lg">Padres</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
