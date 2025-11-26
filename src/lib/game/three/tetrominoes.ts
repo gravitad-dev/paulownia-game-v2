@@ -1,4 +1,15 @@
-export type TetrominoType = "I" | "O" | "T" | "S" | "Z" | "J" | "L";
+export type TetrominoType =
+  | "I"
+  | "O"
+  | "T"
+  | "S"
+  | "Z"
+  | "J"
+  | "L"
+  | "I3"
+  | "I2"
+  | "O2"
+  | "L2";
 
 export interface TetrominoCell {
   x: number;
@@ -56,6 +67,28 @@ export const TETROMINO_SHAPES: Record<TetrominoType, TetrominoShape> = {
     { x: -1, y: 0, z: 0 },
     { x: 0, y: 0, z: 0 },
     { x: 1, y: 0, z: 0 },
+    { x: 1, y: 0, z: 1 },
+  ],
+  // I pequeña (3 bloques verticales)
+  I3: [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 1 },
+    { x: 0, y: 0, z: 2 },
+  ],
+  // I muy pequeña (2 bloques verticales)
+  I2: [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 1 },
+  ],
+  // O pequeña (2 bloques horizontales)
+  O2: [
+    { x: 0, y: 0, z: 0 },
+    { x: 1, y: 0, z: 0 },
+  ],
+  // L pequeña (2 verticales + 1 horizontal abajo)
+  L2: [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 1 },
     { x: 1, y: 0, z: 1 },
   ],
 };

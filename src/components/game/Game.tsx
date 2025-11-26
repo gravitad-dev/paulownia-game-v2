@@ -227,7 +227,19 @@ export default function Game({ difficulty }: GameProps) {
         });
 
         // Generar nueva pieza
-        const types: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+        const types: TetrominoType[] = [
+          "I",
+          "O",
+          "T",
+          "S",
+          "Z",
+          "J",
+          "L",
+          "I3",
+          "I2",
+          "O2",
+          "L2",
+        ];
         const randomType =
           types[Math.floor(Math.random() * types.length)] ?? "I";
 
