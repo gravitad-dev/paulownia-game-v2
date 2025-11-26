@@ -12,6 +12,14 @@ interface AuthState {
   updateUser: (user: Partial<User>) => void;
 }
 
+// Helper function to check if authenticated
+const checkIsAuthenticated = (token: string | null, user: User | null): boolean => {
+  if (!token || !user) return false;
+  // Also check cookie to ensure sync
+  const cookieToken = Cookies.get('auth_token');
+  return !!cookieToken;
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -20,19 +28,29 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       login: (user, token) => {
         Cookies.set('auth_token', token, { expires: 7 }); // Expires in 7 days
-        set({ user, token, isAuthenticated: true });
+        set({ user, token, isAuthenticated: checkIsAuthenticated(token, user) });
       },
       logout: () => {
         Cookies.remove('auth_token');
         set({ user: null, token: null, isAuthenticated: false });
       },
       updateUser: (updatedUser) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...updatedUser } : null,
-        })),
+        set((state) => {
+          const updatedUserData = state.user ? { ...state.user, ...updatedUser } : null;
+          return {
+            user: updatedUserData,
+            isAuthenticated: checkIsAuthenticated(state.token, updatedUserData),
+          };
+        }),
     }),
     {
       name: 'auth-storage',
+      // Rehydrate and check authentication on load
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.isAuthenticated = checkIsAuthenticated(state.token, state.user);
+        }
+      },
     }
   )
 );

@@ -13,6 +13,8 @@ import {
   TETROMINO_SHAPES,
   rotateShapeHorizontal,
 } from "@/lib/game/three/tetrominoes";
+import { useCameraConfigStore } from "@/store/useCameraConfigStore";
+import { CameraConfigPanel } from "./CameraConfigPanel";
 
 interface GameProps {
   difficulty: GameDifficulty;
@@ -20,6 +22,7 @@ interface GameProps {
 
 export default function Game({ difficulty }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
+  const cameraConfig = useCameraConfigStore((state) => state.config);
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [cameraViewIndex, setCameraViewIndex] = useState<0 | 1 | 2 | 3>(0);
   const targetPositionRef = useRef<THREE.Vector3 | null>(null);
@@ -50,23 +53,24 @@ export default function Game({ difficulty }: GameProps) {
 
   const halfSize = size / 2;
 
-  // 4 posiciones fijas de cámara (asimétricas para vista más frontal)
+  // 4 posiciones fijas de cámara (configurables desde el store)
   const cameraPositions = useMemo(() => {
-    const height = size * 2; // Altura igual al original (stage.width * 2)
-    const offset = 5; // Offset para vista más frontal
+    const height = size * cameraConfig.heightMultiplier;
+    const offset = cameraConfig.offset;
+    const distance = size * cameraConfig.distanceMultiplier;
 
-    // Posiciones asimétricas con offset para vista más frontal (no tan diagonal)
+    // Posiciones asimétricas con offset para vista más frontal
     return [
       // Vista 0: Más frontal (X reducido por offset)
-      new THREE.Vector3(size - offset, height, size),
+      new THREE.Vector3(distance - offset, height, distance),
       // Vista 1: Rotada 90°
-      new THREE.Vector3(size, height, -size + offset),
+      new THREE.Vector3(distance, height, -distance + offset),
       // Vista 2: Rotada 180°
-      new THREE.Vector3(-size + offset, height, -size),
+      new THREE.Vector3(-distance + offset, height, -distance),
       // Vista 3: Rotada 270°
-      new THREE.Vector3(-size, height, size - offset),
+      new THREE.Vector3(-distance, height, distance - offset),
     ];
-  }, [size]);
+  }, [size, cameraConfig]);
 
   const isInsideBounds = useCallback(
     (x: number, y: number, z: number): boolean =>
@@ -99,6 +103,81 @@ export default function Game({ difficulty }: GameProps) {
         return gridToCheck[block.x][block.y][block.z] === "filled";
       }),
     [grid, isInsideBounds]
+  );
+
+  // Calcular posición donde caería la pieza
+  const calculateDropPosition = useCallback((): {
+    x: number;
+    y: number;
+    z: number;
+  }[] => {
+    let dropOffset = 0;
+
+    // Simular caída hasta encontrar colisión
+    while (true) {
+      const testBlocks = activeShape.map((cell) => ({
+        x: activePosition.x + cell.x,
+        y: activePosition.y - dropOffset - 1 + cell.y,
+        z: activePosition.z + cell.z,
+      }));
+
+      if (checkCollision(testBlocks)) {
+        break;
+      }
+      dropOffset++;
+
+      // Prevenir bucle infinito si la pieza está fuera de bounds
+      if (activePosition.y - dropOffset < 0) {
+        break;
+      }
+    }
+
+    // Retornar bloques en la posición de caída
+    return activeShape.map((cell) => ({
+      x: activePosition.x + cell.x,
+      y: activePosition.y - dropOffset + cell.y,
+      z: activePosition.z + cell.z,
+    }));
+  }, [activeShape, activePosition, checkCollision]);
+
+  // Memoizar la posición de caída para optimizar
+  const dropPositionBlocks = useMemo(
+    () => calculateDropPosition(),
+    [calculateDropPosition]
+  );
+
+  // Material de shader para mostrar solo bordes en los cubos ghost
+  const ghostMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          u_thickness: { value: 0.03 },
+          u_color: { value: new THREE.Color("#ffff00") },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          uniform float u_thickness;
+          uniform vec3 u_color;
+          void main() {
+            float thickness = u_thickness;
+            if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
+                vUv.x < thickness || vUv.x > 1.0 - thickness) {
+              gl_FragColor = vec4(u_color, 0.8);
+            } else {
+              gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+            }
+          }
+        `,
+        transparent: true,
+      }),
+    []
   );
 
   const cameraCorrection = useCallback(
@@ -440,44 +519,59 @@ export default function Game({ difficulty }: GameProps) {
     cameraCorrection,
   ]);
 
+  // Actualizar cámara cuando cambie la configuración
+  useEffect(() => {
+    if (
+      cameraRef.current &&
+      cameraRef.current instanceof THREE.PerspectiveCamera
+    ) {
+      cameraRef.current.fov = cameraConfig.fov;
+      cameraRef.current.zoom = cameraConfig.zoom;
+      cameraRef.current.updateProjectionMatrix();
+    }
+  }, [cameraConfig.fov, cameraConfig.zoom]);
+
+  // Actualizar posición de cámara cuando cambien las posiciones
+  useEffect(() => {
+    if (cameraRef.current && targetPositionRef.current === null) {
+      cameraRef.current.position.copy(cameraPositions[cameraViewIndex]);
+      cameraRef.current.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+  }, [cameraPositions, cameraViewIndex]);
+
   return (
-    <Canvas
-      camera={{
-        fov: 120,
-        zoom: 2.4,
-        near: 0.1,
-        far: 1000,
-        position: [size, size * 2, size],
-      }}
-      onCreated={({ camera }) => {
-        cameraRef.current = camera;
-        // Posicionar cámara en la vista inicial (0)
-        camera.position.copy(cameraPositions[0]);
-        // lookAt al origen (0,0,0) donde está centrado el grid
-        camera.lookAt(new THREE.Vector3(0, 0, 0));
-      }}
-    >
-      <ambientLight intensity={0.14} />
-      <directionalLight position={[10, 15, 20]} color="white" intensity={1.1} />
+    <>
+      <CameraConfigPanel />
+      <Canvas
+        camera={{
+          fov: cameraConfig.fov,
+          zoom: cameraConfig.zoom,
+          near: 0.1,
+          far: 1000,
+          position: [size, size * 2, size],
+        }}
+        onCreated={({ camera }) => {
+          cameraRef.current = camera;
+          // Posicionar cámara en la vista inicial (0)
+          camera.position.copy(cameraPositions[0]);
+          // lookAt al origen (0,0,0) donde está centrado el grid
+          camera.lookAt(new THREE.Vector3(0, 0, 0));
+        }}
+      >
+        <ambientLight intensity={0.14} />
+        <directionalLight
+          position={[10, 15, 20]}
+          color="white"
+          intensity={1.1}
+        />
 
-      {/* Ejes de referencia X (rojo), Y (verde), Z (azul) */}
-      <axesHelper args={[size * 1.2]} />
+        {/* Ejes de referencia X (rojo), Y (verde), Z (azul) */}
+        <axesHelper args={[size * 1.2]} />
 
-      {/* Paredes que se muestran/ocultan según la vista de cámara (como en el repo original) */}
-      <group>
-        {/* Suelo - siempre visible */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -halfSize, 0]}>
-          <planeGeometry args={[size, size, size, size]} />
-          <meshBasicMaterial
-            color="#4b5563"
-            wireframe
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-
-        {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
-        {(cameraViewIndex === 0 || cameraViewIndex === 1) && (
-          <mesh rotation={[0, Math.PI / 2, 0]} position={[-halfSize, 0, 0]}>
+        {/* Paredes que se muestran/ocultan según la vista de cámara (como en el repo original) */}
+        <group>
+          {/* Suelo - siempre visible */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -halfSize, 0]}>
             <planeGeometry args={[size, size, size, size]} />
             <meshBasicMaterial
               color="#4b5563"
@@ -485,82 +579,117 @@ export default function Game({ difficulty }: GameProps) {
               side={THREE.DoubleSide}
             />
           </mesh>
-        )}
 
-        {/* Pared trasera (B) - visible en vistas 0 y 3 */}
-        {(cameraViewIndex === 0 || cameraViewIndex === 3) && (
-          <mesh rotation={[0, 0, 0]} position={[0, 0, -halfSize]}>
-            <planeGeometry args={[size, size, size, size]} />
-            <meshBasicMaterial
-              color="#4b5563"
-              wireframe
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        )}
+          {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
+          {(cameraViewIndex === 0 || cameraViewIndex === 1) && (
+            <mesh rotation={[0, Math.PI / 2, 0]} position={[-halfSize, 0, 0]}>
+              <planeGeometry args={[size, size, size, size]} />
+              <meshBasicMaterial
+                color="#4b5563"
+                wireframe
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
 
-        {/* Pared derecha (R) - visible en vistas 2 y 3 */}
-        {(cameraViewIndex === 2 || cameraViewIndex === 3) && (
-          <mesh rotation={[0, -Math.PI / 2, 0]} position={[halfSize, 0, 0]}>
-            <planeGeometry args={[size, size, size, size]} />
-            <meshBasicMaterial
-              color="#4b5563"
-              wireframe
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        )}
+          {/* Pared trasera (B) - visible en vistas 0 y 3 */}
+          {(cameraViewIndex === 0 || cameraViewIndex === 3) && (
+            <mesh rotation={[0, 0, 0]} position={[0, 0, -halfSize]}>
+              <planeGeometry args={[size, size, size, size]} />
+              <meshBasicMaterial
+                color="#4b5563"
+                wireframe
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
 
-        {/* Pared frontal (F) - visible en vistas 1 y 2 */}
-        {(cameraViewIndex === 1 || cameraViewIndex === 2) && (
-          <mesh rotation={[0, Math.PI, 0]} position={[0, 0, halfSize]}>
-            <planeGeometry args={[size, size, size, size]} />
-            <meshBasicMaterial
-              color="#4b5563"
-              wireframe
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        )}
+          {/* Pared derecha (R) - visible en vistas 2 y 3 */}
+          {(cameraViewIndex === 2 || cameraViewIndex === 3) && (
+            <mesh rotation={[0, -Math.PI / 2, 0]} position={[halfSize, 0, 0]}>
+              <planeGeometry args={[size, size, size, size]} />
+              <meshBasicMaterial
+                color="#4b5563"
+                wireframe
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
 
-        {/* Piezas activas: cubos de la pieza actual */}
-        {activeWorldBlocks.map((block, index) => (
-          <mesh
-            key={`active-${index}`}
-            position={[
-              block.x - halfSize + 0.5,
-              block.y - halfSize + 0.5,
-              block.z - halfSize + 0.5,
-            ]}
-          >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color="#22c55e" />
-          </mesh>
-        ))}
+          {/* Pared frontal (F) - visible en vistas 1 y 2 */}
+          {(cameraViewIndex === 1 || cameraViewIndex === 2) && (
+            <mesh rotation={[0, Math.PI, 0]} position={[0, 0, halfSize]}>
+              <planeGeometry args={[size, size, size, size]} />
+              <meshBasicMaterial
+                color="#4b5563"
+                wireframe
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
 
-        {/* Piezas apiladas en el grid */}
-        {grid.map((plane, x) =>
-          plane.map((row, y) =>
-            row.map((cell, z) => {
-              if (cell !== "filled") return null;
+          {/* Piezas activas: cubos de la pieza actual */}
+          {activeWorldBlocks.map((block, index) => (
+            <mesh
+              key={`active-${index}`}
+              position={[
+                block.x - halfSize + 0.5,
+                block.y - halfSize + 0.5,
+                block.z - halfSize + 0.5,
+              ]}
+            >
+              <boxGeometry args={[1, 1, 1]} />
+              <meshStandardMaterial color="#22c55e" />
+            </mesh>
+          ))}
 
-              return (
-                <mesh
-                  key={`stacked-${x}-${y}-${z}`}
-                  position={[
-                    x - halfSize + 0.5,
-                    y - halfSize + 0.5,
-                    z - halfSize + 0.5,
-                  ]}
-                >
-                  <boxGeometry args={[1, 1, 1]} />
-                  <meshStandardMaterial color="#6b7280" />
-                </mesh>
-              );
-            })
-          )
-        )}
-      </group>
-    </Canvas>
+          {/* Preview de caída (ghost) */}
+          {dropPositionBlocks.map((block, index) => {
+            // No mostrar si está en la misma posición que la pieza activa
+            const isActive = activeWorldBlocks.some(
+              (ab) => ab.x === block.x && ab.y === block.y && ab.z === block.z
+            );
+            if (isActive) return null;
+
+            return (
+              <mesh
+                key={`ghost-${index}`}
+                position={[
+                  block.x - halfSize + 0.5,
+                  block.y - halfSize + 0.5,
+                  block.z - halfSize + 0.5,
+                ]}
+                material={ghostMaterial}
+              >
+                <boxGeometry args={[1, 1, 1]} />
+              </mesh>
+            );
+          })}
+
+          {/* Piezas apiladas en el grid */}
+          {grid.map((plane, x) =>
+            plane.map((row, y) =>
+              row.map((cell, z) => {
+                if (cell !== "filled") return null;
+
+                return (
+                  <mesh
+                    key={`stacked-${x}-${y}-${z}`}
+                    position={[
+                      x - halfSize + 0.5,
+                      y - halfSize + 0.5,
+                      z - halfSize + 0.5,
+                    ]}
+                  >
+                    <boxGeometry args={[1, 1, 1]} />
+                    <meshStandardMaterial color="#6b7280" />
+                  </mesh>
+                );
+              })
+            )
+          )}
+        </group>
+      </Canvas>
+    </>
   );
 }

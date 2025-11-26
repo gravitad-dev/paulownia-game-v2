@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
@@ -11,8 +10,7 @@ export default function GameLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useAuthStore();
-  const router = useRouter();
+  const { isAuthenticated, token, user } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -20,16 +18,23 @@ export default function GameLayout({
   }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
-      router.push("/auth/login");
+    if (mounted) {
+      // Check both isAuthenticated flag and actual token/user presence
+      const hasValidSession = isAuthenticated && token && user;
+      
+      if (!hasValidSession) {
+        // Use window.location for forced redirect that works even with navigation errors
+        window.location.href = "/auth/login";
+      }
     }
-  }, [isAuthenticated, mounted, router]);
+  }, [isAuthenticated, token, user, mounted]);
 
   if (!mounted) {
     return null;
   }
 
-  if (!isAuthenticated) {
+  // Double check before rendering
+  if (!isAuthenticated || !token || !user) {
     return null;
   }
 

@@ -26,7 +26,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 or other global errors here if needed
+    // Handle 401 Unauthorized - token expired or invalid
+    if (error.response?.status === 401) {
+      const { logout } = useAuthStore.getState();
+      logout();
+      
+      // Redirect to login page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/login';
+      }
+    }
     return Promise.reject(error);
   }
 );

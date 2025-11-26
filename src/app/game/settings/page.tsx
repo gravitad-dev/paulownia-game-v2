@@ -1,5 +1,9 @@
 'use client';
 
+import { Card } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CameraConfigForm } from "@/components/game/CameraConfigForm";
+
 export default function SettingsPage() {
   return (
     <div className="w-full space-y-8">
@@ -10,11 +14,14 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-center justify-center h-32 text-muted-foreground">
-          Próximamente: Configuración de audio, gráficos y notificaciones.
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuración de Cámara</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CameraConfigForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }
