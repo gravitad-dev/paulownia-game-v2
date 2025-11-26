@@ -15,6 +15,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import Game from "@/components/game/Game";
+import { mapLevelDifficultyToGameDifficulty } from "@/lib/game/three/grid3d";
 
 const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = {
   easy: "Fácil",
@@ -72,6 +74,7 @@ export default function LevelDetailPage() {
 
   const coverUrl = getStrapiImageUrl(level?.cover?.url);
   const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty;
+  const gameDifficulty = mapLevelDifficultyToGameDifficulty(difficulty);
   const puzzleImages = level?.puzzleImage || [];
 
   if (loading) {
@@ -119,10 +122,9 @@ export default function LevelDetailPage() {
       </Button>
 
       <div className="w-full h-full bg-white/80 backdrop-blur-md border-border my-8 p-4 flex items-center justify-center rounded-lg">
-        <div
-          id="game-container"
-          className="w-[600px] h-[600px] bg-gray-700"
-        ></div>
+        <div id="game-container" className="w-full h-[600px] bg-gray-700">
+          <Game difficulty={gameDifficulty} />
+        </div>
       </div>
 
       <Collapsible open={isCardExpanded} onOpenChange={setIsCardExpanded}>

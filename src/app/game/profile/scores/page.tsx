@@ -63,7 +63,6 @@ export default function ScoresPage() {
     };
 
     fetchHistories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasUserDocumentId, userDocumentId, pagination.page, pagination.pageSize]);
 
   const handlePageChange = (page: number) => {
