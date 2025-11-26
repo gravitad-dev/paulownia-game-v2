@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   LuAward,
+  LuBell,
   LuMedal,
   LuRefreshCw,
   LuSettings,
@@ -61,6 +62,13 @@ const profileTabs: ProfileTab[] = [
     href: "/game/profile/changes",
     icon: LuRefreshCw,
     group: "public",
+  },
+  {
+    value: "notifications",
+    label: "Notificaciones",
+    href: "/game/profile/notifications",
+    icon: LuBell,
+    group: "settings",
   },
   {
     value: "settings",
