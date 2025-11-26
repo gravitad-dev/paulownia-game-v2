@@ -118,8 +118,11 @@ export default function LevelDetailPage() {
         Volver a niveles
       </Button>
 
-      <div className="w-full h-full bg-white/80 backdrop-blur-md border-border my-8">
-        game
+      <div className="w-full h-full bg-white/80 backdrop-blur-md border-border my-8 p-4 flex items-center justify-center rounded-lg">
+        <div
+          id="game-container"
+          className="w-[600px] h-[600px] bg-gray-700"
+        ></div>
       </div>
 
       <Collapsible open={isCardExpanded} onOpenChange={setIsCardExpanded}>
