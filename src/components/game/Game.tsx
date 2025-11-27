@@ -258,11 +258,20 @@ interface GameProps {
 }
 
 // Función helper para crear geometría de líneas del grid (solo horizontal/vertical, sin diagonales)
+// Cache de geometrías por tamaño para evitar recálculos
+const geometryCache = new Map<string, THREE.BufferGeometry>();
+
 const createGridLinesGeometry = (
   width: number,
   height: number,
   segments: number
 ): THREE.BufferGeometry => {
+  const cacheKey = `${width}-${height}-${segments}`;
+
+  if (geometryCache.has(cacheKey)) {
+    return geometryCache.get(cacheKey)!;
+  }
+
   const geometry = new THREE.BufferGeometry();
   const points: number[] = [];
 
@@ -287,58 +296,12 @@ const createGridLinesGeometry = (
     "position",
     new THREE.Float32BufferAttribute(points, 3)
   );
+
+  geometryCache.set(cacheKey, geometry);
   return geometry;
 };
 
-// Componente para marcador de intersección (cruz)
-interface GridIntersectionMarkerProps {
-  position: [number, number, number];
-  size?: number;
-  color?: string;
-}
-
-function GridIntersectionMarker({
-  position,
-  size = 0.2,
-  color = "#4b5563",
-}: GridIntersectionMarkerProps) {
-  const halfSize = size / 2;
-
-  // Geometría para la línea horizontal
-  const horizontalGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute([-halfSize, 0, 0, halfSize, 0, 0], 3)
-    );
-    return geometry;
-  }, [halfSize]);
-
-  // Geometría para la línea vertical
-  const verticalGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute([0, -halfSize, 0, 0, halfSize, 0], 3)
-    );
-    return geometry;
-  }, [halfSize]);
-
-  return (
-    <group position={position}>
-      {/* Línea horizontal de la cruz */}
-      <lineSegments geometry={horizontalGeometry}>
-        <lineBasicMaterial color={color} />
-      </lineSegments>
-      {/* Línea vertical de la cruz */}
-      <lineSegments geometry={verticalGeometry}>
-        <lineBasicMaterial color={color} />
-      </lineSegments>
-    </group>
-  );
-}
-
-// Componente completo para una superficie del grid (con líneas y marcadores)
+// Componente completo para una superficie del grid (simplificado, sin marcadores)
 interface GridPlaneProps {
   width: number;
   height: number;
@@ -346,6 +309,7 @@ interface GridPlaneProps {
   position: [number, number, number];
   rotation: [number, number, number];
   color?: string;
+  visible?: boolean;
 }
 
 function GridPlane({
@@ -355,44 +319,19 @@ function GridPlane({
   position,
   rotation,
   color = "#4b5563",
+  visible = true,
 }: GridPlaneProps) {
   const linesGeometry = useMemo(
     () => createGridLinesGeometry(width, height, segments),
     [width, height, segments]
   );
 
-  // Generar posiciones de los marcadores en las intersecciones
-  const markers = useMemo(() => {
-    const markerPositions: [number, number, number][] = [];
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
-
-    for (let i = 0; i <= segments; i++) {
-      for (let j = 0; j <= segments; j++) {
-        const x = -halfWidth + (i / segments) * width;
-        const y = -halfHeight + (j / segments) * height;
-        markerPositions.push([x, y, 0]);
-      }
-    }
-
-    return markerPositions;
-  }, [width, height, segments]);
-
   return (
-    <group position={position} rotation={rotation}>
+    <group position={position} rotation={rotation} visible={visible}>
       {/* Líneas del grid */}
       <lineSegments geometry={linesGeometry}>
         <lineBasicMaterial color={color} />
       </lineSegments>
-
-      {/* Marcadores en las intersecciones */}
-      {markers.map((markerPos, index) => (
-        <GridIntersectionMarker
-          key={`marker-${index}`}
-          position={markerPos}
-          color={color}
-        />
-      ))}
     </group>
   );
 }
@@ -1433,51 +1372,48 @@ export default function Game({ difficulty }: GameProps) {
             segments={size}
             position={[0, -halfSize, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
+            visible={true}
           />
 
           {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
-          {(cameraViewIndex === 0 || cameraViewIndex === 1) && (
-            <GridPlane
-              width={size}
-              height={size}
-              segments={size}
-              position={[-halfSize, 0, 0]}
-              rotation={[0, Math.PI / 2, 0]}
-            />
-          )}
+          <GridPlane
+            width={size}
+            height={size}
+            segments={size}
+            position={[-halfSize, 0, 0]}
+            rotation={[0, Math.PI / 2, 0]}
+            visible={cameraViewIndex === 0 || cameraViewIndex === 1}
+          />
 
           {/* Pared trasera (B) - visible en vistas 0 y 3 */}
-          {(cameraViewIndex === 0 || cameraViewIndex === 3) && (
-            <GridPlane
-              width={size}
-              height={size}
-              segments={size}
-              position={[0, 0, -halfSize]}
-              rotation={[0, 0, 0]}
-            />
-          )}
+          <GridPlane
+            width={size}
+            height={size}
+            segments={size}
+            position={[0, 0, -halfSize]}
+            rotation={[0, 0, 0]}
+            visible={cameraViewIndex === 0 || cameraViewIndex === 3}
+          />
 
           {/* Pared derecha (R) - visible en vistas 2 y 3 */}
-          {(cameraViewIndex === 2 || cameraViewIndex === 3) && (
-            <GridPlane
-              width={size}
-              height={size}
-              segments={size}
-              position={[halfSize, 0, 0]}
-              rotation={[0, -Math.PI / 2, 0]}
-            />
-          )}
+          <GridPlane
+            width={size}
+            height={size}
+            segments={size}
+            position={[halfSize, 0, 0]}
+            rotation={[0, -Math.PI / 2, 0]}
+            visible={cameraViewIndex === 2 || cameraViewIndex === 3}
+          />
 
           {/* Pared frontal (F) - visible en vistas 1 y 2 */}
-          {(cameraViewIndex === 1 || cameraViewIndex === 2) && (
-            <GridPlane
-              width={size}
-              height={size}
-              segments={size}
-              position={[0, 0, halfSize]}
-              rotation={[0, Math.PI, 0]}
-            />
-          )}
+          <GridPlane
+            width={size}
+            height={size}
+            segments={size}
+            position={[0, 0, halfSize]}
+            rotation={[0, Math.PI, 0]}
+            visible={cameraViewIndex === 1 || cameraViewIndex === 2}
+          />
 
           {/* Piezas activas: cubos de la pieza actual (blanco con bordes oscuros) */}
           {activeWorldBlocks.map((block, index) => (
