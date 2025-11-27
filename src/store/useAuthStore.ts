@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 import Cookies from "js-cookie";
 import { User } from "@/types/user";
 import { useDailyRewardsStore } from "./useDailyRewardsStore";
+import { useAchievementsStore } from "./useAchievementsStore";
+import { usePlayerStatsStore } from "./usePlayerStatsStore";
 
 interface AuthState {
   user: User | null;
@@ -25,8 +27,10 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: () => {
         Cookies.remove("auth_token");
-        // Reset daily rewards state to prevent data leaking between users
+        // Reset stores to prevent data leaking between users
         useDailyRewardsStore.getState().reset();
+        useAchievementsStore.getState().reset();
+        usePlayerStatsStore.getState().reset();
         set({ user: null, token: null, isAuthenticated: false });
       },
       updateUser: (updatedUser) =>

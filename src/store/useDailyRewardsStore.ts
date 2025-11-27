@@ -1,17 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { DailyRewardsService } from "@/services/daily-rewards.service";
+import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import type {
   DailyReward,
   DailyRewardsStatusResponse,
-  PlayerStats,
   ClaimedRewardInfo,
 } from "@/types/daily-rewards";
 
 interface DailyRewardsState {
   // Estado de datos
   rewards: DailyReward[];
-  playerStats: PlayerStats | null;
   canClaim: boolean;
   nextDay: number;
   nextClaimDate: string | null;
@@ -46,7 +45,6 @@ interface DailyRewardsState {
 
 const initialState = {
   rewards: [],
-  playerStats: null,
   canClaim: false,
   nextDay: 1,
   nextClaimDate: null,
@@ -104,9 +102,11 @@ export const useDailyRewardsStore = create<DailyRewardsState>()(
             shouldShowModal = false;
           }
 
+          // Actualizar playerStats en el store global
+          usePlayerStatsStore.getState().setStats(status.playerStats);
+
           set({
             rewards: status.rewards,
-            playerStats: status.playerStats,
             canClaim: status.canClaim,
             nextDay: status.nextDay,
             nextClaimDate: status.nextClaimDate,
@@ -133,9 +133,11 @@ export const useDailyRewardsStore = create<DailyRewardsState>()(
         try {
           const response = await DailyRewardsService.claim();
 
+          // Actualizar playerStats en el store global
+          usePlayerStatsStore.getState().setStats(response.playerStats);
+
           set({
             rewards: response.rewards,
-            playerStats: response.playerStats,
             canClaim: response.status.canClaim,
             nextDay: response.status.nextDay,
             nextClaimDate: response.status.nextClaimDate,
