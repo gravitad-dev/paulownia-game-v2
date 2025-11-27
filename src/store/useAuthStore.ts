@@ -1,7 +1,8 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import Cookies from 'js-cookie';
-import { User } from '@/types/user';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import Cookies from "js-cookie";
+import { User } from "@/types/user";
+import { useDailyRewardsStore } from "./useDailyRewardsStore";
 
 interface AuthState {
   user: User | null;
@@ -19,11 +20,13 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       login: (user, token) => {
-        Cookies.set('auth_token', token, { expires: 7 }); // Expires in 7 days
+        Cookies.set("auth_token", token, { expires: 7 }); // Expires in 7 days
         set({ user, token, isAuthenticated: true });
       },
       logout: () => {
-        Cookies.remove('auth_token');
+        Cookies.remove("auth_token");
+        // Reset daily rewards state to prevent data leaking between users
+        useDailyRewardsStore.getState().reset();
         set({ user: null, token: null, isAuthenticated: false });
       },
       updateUser: (updatedUser) =>
@@ -32,7 +35,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'auth-storage',
-    }
-  )
+      name: "auth-storage",
+    },
+  ),
 );

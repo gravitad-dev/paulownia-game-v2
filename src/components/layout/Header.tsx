@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthStore } from "@/store/useAuthStore";
+import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -41,6 +42,7 @@ const navigation = [
 
 export function Header() {
   const { user, logout, updateUser } = useAuthStore();
+  const canClaimDailyReward = useDailyRewardsStore((state) => state.canClaim);
   const router = useRouter();
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -112,7 +114,7 @@ export function Header() {
   useEffect(() => {
     if (isDropdownOpen && dropdownItemsRef.current) {
       const items = dropdownItemsRef.current.querySelectorAll(
-        "[data-dropdown-item]"
+        "[data-dropdown-item]",
       );
       gsap.fromTo(
         items,
@@ -126,7 +128,7 @@ export function Header() {
           duration: 0.2,
           stagger: 0.05,
           ease: "power2.out",
-        }
+        },
       );
     }
   }, [isDropdownOpen]);
@@ -173,6 +175,8 @@ export function Header() {
         <nav className="flex items-center gap-1 flex-1 justify-center">
           {navigation.map((item, index) => {
             const isActive = pathname === item.href;
+            const showBadge =
+              item.href === "/game/rewards" && canClaimDailyReward;
             return (
               <Link
                 key={item.name}
@@ -181,14 +185,21 @@ export function Header() {
                   navItemsRef.current[index] = el;
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-full text-xs sm:text-sm font-medium transition-all",
+                  "relative flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-full text-xs sm:text-sm font-medium transition-all",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
                 )}
               >
                 <item.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="hidden lg:inline">{item.name}</span>
+
+                {showBadge && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                  </span>
+                )}
               </Link>
             );
           })}
