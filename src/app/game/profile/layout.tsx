@@ -1,10 +1,84 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
-import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { Card } from "@/components/ui/card";
-import gsap from "gsap";
+import { usePathname, useRouter } from "next/navigation";
+import { TabLayout } from "@/components/ui/TabLayout";
+import { IconTab } from "@/components/ui/IconTabs";
+import {
+  LuAward,
+  LuBell,
+  LuMedal,
+  LuRefreshCw,
+  LuSettings,
+  LuTarget,
+  LuUser,
+} from "react-icons/lu";
+
+interface ProfileTab extends IconTab {
+  href: string;
+  group: "public" | "settings";
+}
+
+const profileTabs: ProfileTab[] = [
+  {
+    value: "profile",
+    label: "Perfil",
+    href: "/game/profile",
+    icon: LuUser,
+    group: "public",
+  },
+  {
+    value: "scores",
+    label: "Puntajes",
+    href: "/game/profile/scores",
+    icon: LuTarget,
+    group: "public",
+  },
+  {
+    value: "awards",
+    label: "Premios",
+    href: "/game/profile/awards",
+    icon: LuAward,
+    group: "public",
+  },
+  {
+    value: "achievements",
+    label: "Logros",
+    href: "/game/profile/achievements",
+    icon: LuMedal,
+    group: "public",
+  },
+  {
+    value: "changes",
+    label: "Cambios",
+    href: "/game/profile/changes",
+    icon: LuRefreshCw,
+    group: "public",
+  },
+  {
+    value: "notifications",
+    label: "Notificaciones",
+    href: "/game/profile/notifications",
+    icon: LuBell,
+    group: "settings",
+  },
+  {
+    value: "settings",
+    label: "Configuración",
+    href: "/game/profile/settings",
+    icon: LuSettings,
+    group: "settings",
+  },
+];
+
+const getCurrentTab = (pathname: string): string => {
+  const sortedTabs = [...profileTabs].sort(
+    (a, b) => b.href.length - a.href.length,
+  );
+  const match = sortedTabs.find(
+    (tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`),
+  );
+  return match ? match.value : "profile";
+};
 
 export default function ProfileLayout({
   children,
@@ -12,35 +86,23 @@ export default function ProfileLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const contentRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const currentTab = getCurrentTab(pathname);
 
-  useEffect(() => {
-    if (contentRef.current) {
-      // Animación de entrada: fade in + translateY ligero
-      gsap.fromTo(
-        contentRef.current,
-        {
-          opacity: 0,
-          y: 10,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.3,
-          ease: "power2.out",
-        }
-      );
+  const handleTabChange = (value: string) => {
+    const tab = profileTabs.find((tab) => tab.value === value);
+    if (tab && !tab.disabled) {
+      router.push(tab.href);
     }
-  }, [pathname]);
+  };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)] sm:h-[calc(100vh-9.5rem)] lg:h-[calc(100vh-10rem)]">
-      <ProfileTabs />
-      <Card className="relative z-20 flex-1 flex flex-col -mt-px rounded-b-lg border-t-0 border-x border-b border-border/60 shadow-lg overflow-hidden">
-        <div ref={contentRef} className="flex-1 overflow-y-auto" key={pathname}>
-          {children}
-        </div>
-      </Card>
-    </div>
+    <TabLayout
+      tabs={profileTabs}
+      value={currentTab}
+      onValueChange={handleTabChange}
+    >
+      {children}
+    </TabLayout>
   );
 }
