@@ -18,7 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { DailyRewardCard } from "./DailyRewardCard";
 import { CountdownTimer } from "./CountdownTimer";
 import { useToast } from "@/hooks/useToast";
-import { Gift, Loader2, Coins, Ticket, X } from "lucide-react";
+import { Gift, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import gsap from "gsap";
 
@@ -30,7 +30,6 @@ import gsap from "gsap";
 export function DailyRewardsModal() {
   const {
     rewards,
-    playerStats,
     canClaim,
     nextClaimDate,
     isLoading,
@@ -49,9 +48,9 @@ export function DailyRewardsModal() {
   const pathname = usePathname();
   const [hasAnimated, setHasAnimated] = useState(false);
 
-  // No mostrar el modal si estamos en la página de rewards (sería redundante)
-  const isOnRewardsPage = pathname === "/game/rewards";
-  const shouldShowModal = isModalOpen && !isOnRewardsPage;
+  // No mostrar el modal si estamos en la página de events (sería redundante)
+  const isOnEventsPage = pathname === "/game/events";
+  const shouldShowModal = isModalOpen && !isOnEventsPage;
 
   // Reset animación cuando el modal se cierra
   useEffect(() => {
@@ -115,7 +114,13 @@ export function DailyRewardsModal() {
         toast.success("¡Recompensa reclamada!", `Has recibido ${rewardText}`);
       }
     } else {
-      toast.error("Error", "No se pudo reclamar la recompensa");
+      // Mostrar toast de error
+      const { error: claimError } = useDailyRewardsStore.getState();
+      toast.error("Error", claimError || "No se pudo reclamar la recompensa");
+
+      // Refrescar el estado porque probablemente ya se reclamó
+      // (preserveModalState: true para que no parpadee el modal)
+      await fetchStatus(user?.id, { preserveModalState: true });
     }
   };
 
@@ -150,38 +155,16 @@ export function DailyRewardsModal() {
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden p-0 border-none bg-background/95 backdrop-blur-xl">
         {/* Header */}
         <DialogHeader className="p-6 pb-2 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Gift className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl">
-                  Recompensas Diarias
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  ¡Vuelve cada día para reclamar tus premios!
-                </DialogDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Gift className="h-5 w-5 text-primary" />
             </div>
-
-            {/* Stats del jugador */}
-            {playerStats && (
-              <div className="hidden sm:flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 rounded-full border border-amber-500/40">
-                  <Coins className="h-4 w-4 text-amber-500" />
-                  <span className="font-bold text-amber-600 dark:text-amber-400">
-                    {playerStats.coins.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/20 rounded-full border border-violet-500/40">
-                  <Ticket className="h-4 w-4 text-violet-500" />
-                  <span className="font-bold text-violet-600 dark:text-violet-400">
-                    {playerStats.tickets}
-                  </span>
-                </div>
-              </div>
-            )}
+            <div>
+              <DialogTitle className="text-xl">Recompensas Diarias</DialogTitle>
+              <DialogDescription className="text-sm">
+                ¡Vuelve cada día para reclamar tus premios!
+              </DialogDescription>
+            </div>
           </div>
         </DialogHeader>
 
