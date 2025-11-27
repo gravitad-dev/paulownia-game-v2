@@ -34,9 +34,9 @@ export default function Game({ difficulty }: GameProps) {
     y: number;
     z: number;
   }>({
-    x: Math.floor(size / 2),
+    x: Math.floor(size / 2) - 1,
     y: size - 1,
-    z: 0,
+    z: Math.floor(size / 2) - 1,
   });
 
   // Reiniciar grid y pieza al cambiar el tamaño (dificultad)
@@ -45,9 +45,9 @@ export default function Game({ difficulty }: GameProps) {
     setActiveType("I");
     setActiveRotation(0);
     setActivePosition({
-      x: Math.floor(size / 2),
+      x: Math.floor(size / 2) - 1,
       y: size - 1,
-      z: 0,
+      z: Math.floor(size / 2) - 1,
     });
   }, [size]);
 
@@ -323,9 +323,9 @@ export default function Game({ difficulty }: GameProps) {
           types[Math.floor(Math.random() * types.length)] ?? "I";
 
         const spawnPosition = {
-          x: Math.floor(size / 2),
+          x: Math.floor(size / 2) - 1,
           y: size - 1,
-          z: 0,
+          z: Math.floor(size / 2) - 1,
         };
 
         setActiveType(randomType);
@@ -376,35 +376,74 @@ export default function Game({ difficulty }: GameProps) {
         const baseShape = TETROMINO_SHAPES[activeType];
         const nextShape = rotateShapeHorizontal(baseShape, nextRotation);
 
+        // Calcular posiciones mundo actuales de los bloques
+        const currentWorldBlocks = activeShape.map((cell) => ({
+          x: activePosition.x + cell.x,
+          y: activePosition.y + cell.y,
+          z: activePosition.z + cell.z,
+        }));
+
+        // Usar el bloque del medio como pivot (mismo enfoque que el repo original)
+        const pivotIndex = Math.floor(currentWorldBlocks.length / 2);
+        const pivot = currentWorldBlocks[pivotIndex];
+
+        // Rotar cada bloque alrededor del pivot en el plano XZ
+        const rotatedWorldBlocks = currentWorldBlocks.map((block) => {
+          const relX = block.x - pivot.x;
+          const relZ = block.z - pivot.z;
+
+          return {
+            x: pivot.x - relZ,
+            y: block.y,
+            z: pivot.z + relX,
+          };
+        });
+
+        const applyRotation = (worldBlocks: typeof rotatedWorldBlocks) => {
+          const pivotWorld = worldBlocks[pivotIndex];
+          const pivotCell = nextShape[pivotIndex];
+
+          setActiveRotation(nextRotation);
+          setActivePosition({
+            x: pivotWorld.x - pivotCell.x,
+            y: activePosition.y,
+            z: pivotWorld.z - pivotCell.z,
+          });
+        };
+
+        if (!checkCollision(rotatedWorldBlocks)) {
+          applyRotation(rotatedWorldBlocks);
+          return;
+        }
+
+        // Si hay colisión, intentar wall-kicks con offsets
         const attemptWithOffset = (dx: number, dz: number) => {
-          const nextBlocks = nextShape.map((cell) => ({
-            x: activePosition.x + dx + cell.x,
-            y: activePosition.y + cell.y,
-            z: activePosition.z + dz + cell.z,
+          const offsetBlocks = rotatedWorldBlocks.map((block) => ({
+            x: block.x + dx,
+            y: block.y,
+            z: block.z + dz,
           }));
 
-          if (!checkCollision(nextBlocks)) {
-            setActiveRotation(nextRotation);
-            setActivePosition((prev) => ({
-              x: prev.x + dx,
-              y: prev.y,
-              z: prev.z + dz,
-            }));
+          if (!checkCollision(offsetBlocks)) {
+            applyRotation(offsetBlocks);
             return true;
           }
           return false;
         };
 
-        // Intento directo
-        if (attemptWithOffset(0, 0)) return;
+        // Generar lista completa de wall-kicks ordenados por distancia
+        const maxOffset = 3;
+        const kicks: Array<{ dx: number; dz: number; distance: number }> = [];
 
-        // Wall-kicks simples alrededor de paredes
-        const kicks: Array<{ dx: number; dz: number }> = [
-          { dx: 1, dz: 0 },
-          { dx: -1, dz: 0 },
-          { dx: 0, dz: 1 },
-          { dx: 0, dz: -1 },
-        ];
+        for (let dx = -maxOffset; dx <= maxOffset; dx++) {
+          for (let dz = -maxOffset; dz <= maxOffset; dz++) {
+            if (dx === 0 && dz === 0) continue;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            kicks.push({ dx, dz, distance });
+          }
+        }
+
+        kicks.sort((a, b) => a.distance - b.distance);
 
         for (const { dx, dz } of kicks) {
           if (attemptWithOffset(dx, dz)) return;
