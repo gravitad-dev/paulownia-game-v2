@@ -34,10 +34,12 @@ export default function RewardsPage() {
   const availableReward = useAvailableReward();
   const toast = useToast();
 
+  // Refrescar datos al entrar a la página
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Manejar el claim
   const handleClaim = async () => {
     const success = await claimReward();
 
@@ -56,12 +58,14 @@ export default function RewardsPage() {
     }
   };
 
+  // Cuando countdown termina
   const handleCountdownComplete = () => {
     fetchStatus();
   };
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-6">
+      {/* Card de Recompensas Diarias */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -77,7 +81,7 @@ export default function RewardsPage() {
                 </CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-center lg:justify-end">
+            <div className="flex items-center gap-3">
               {playerStats && (
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 rounded-full border border-amber-500/40">
@@ -120,12 +124,14 @@ export default function RewardsPage() {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+              {/* Grid de cartas - más grande que en el modal */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
                 {rewards.map((reward) => (
                   <DailyRewardCard key={reward.id} reward={reward} />
                 ))}
               </div>
 
+              {/* Sección de acción */}
               <div className="flex flex-col items-center gap-4 pt-4 border-t border-border/50">
                 {canClaim && availableReward ? (
                   <>
@@ -161,28 +167,14 @@ export default function RewardsPage() {
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
-                    {nextClaimDate ? (
-                      <>
-                        <CountdownTimer
-                          targetDate={nextClaimDate}
-                          onComplete={handleCountdownComplete}
-                        />
-                        <p className="text-xs text-muted-foreground text-center max-w-md">
-                          Ya has reclamado tu recompensa de hoy. Vuelve mañana
-                          para continuar tu racha y obtener mejores premios.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold text-foreground">
-                          ¡Completaste la racha de 7 días!
-                        </p>
-                        <p className="text-xs text-muted-foreground text-center max-w-md">
-                          Has reclamado todas las recompensas disponibles.
-                          ¡Felicitaciones!
-                        </p>
-                      </>
-                    )}
+                    <CountdownTimer
+                      targetDate={nextClaimDate}
+                      onComplete={handleCountdownComplete}
+                    />
+                    <p className="text-xs text-muted-foreground text-center max-w-md">
+                      Ya has reclamado tu recompensa de hoy. Vuelve mañana para
+                      continuar tu racha y obtener mejores premios.
+                    </p>
                   </div>
                 )}
               </div>
@@ -191,6 +183,7 @@ export default function RewardsPage() {
         </CardContent>
       </Card>
 
+      {/* Placeholder para futuros sistemas de premios */}
       <Card className="border-dashed">
         <CardContent className="py-12">
           <div className="text-center text-muted-foreground">

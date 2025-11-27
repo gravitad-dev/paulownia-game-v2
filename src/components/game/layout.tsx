@@ -28,9 +28,9 @@ export default function GameLayout({
     }
   }, [isAuthenticated, mounted, router]);
 
+  // Cargar el estado de daily rewards al iniciar (forzando apertura en login)
   useEffect(() => {
     if (mounted && isAuthenticated && user?.id) {
-      // Al iniciar sesión, forzar apertura si hay recompensa disponible
       fetchStatus(user.id, { openReason: "login" });
     }
   }, [mounted, isAuthenticated, user?.id, fetchStatus]);
@@ -56,6 +56,8 @@ export default function GameLayout({
       >
         {children}
       </main>
+
+      {/* Modal de Daily Rewards - se abre automáticamente si hay recompensa */}
       <DailyRewardsModal />
     </div>
   );
