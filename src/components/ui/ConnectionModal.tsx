@@ -61,6 +61,7 @@ export function ConnectionModal() {
         clearTimeout(retryTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, isChecking, retryCount]);
 
   if (isConnected) return null;

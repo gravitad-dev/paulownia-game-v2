@@ -273,13 +273,11 @@ export function Header() {
                       amount={playerStats.coins}
                       size="sm"
                       variant="default"
-                      showIcon={false}
                     />
                     <TicketsBadge
                       amount={playerStats.tickets}
                       size="sm"
                       variant="default"
-                      showIcon={false}
                     />
                   </div>
                 )}

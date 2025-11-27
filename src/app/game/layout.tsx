@@ -7,7 +7,6 @@ import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
-import { DailyRewardsModal } from "@/components/game/rewards";
 
 export default function GameLayout({
   children,
@@ -32,9 +31,7 @@ export default function GameLayout({
 
   useEffect(() => {
     if (mounted && isAuthenticated && user?.id) {
-      // Al iniciar sesión, forzar apertura si hay recompensa disponible
-      fetchStatus(user.id, { openReason: "login" });
-      // Cargar logros del usuario actual
+      fetchStatus();
       fetchAchievements();
     }
   }, [mounted, isAuthenticated, user?.id, fetchStatus, fetchAchievements]);
@@ -60,7 +57,6 @@ export default function GameLayout({
       >
         {children}
       </main>
-      <DailyRewardsModal />
     </div>
   );
 }

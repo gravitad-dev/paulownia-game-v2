@@ -27,12 +27,12 @@ const iconSizeStyles: Record<BadgeSize, string> = {
 };
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: "bg-blue-500/30 text-white/90",
-  outline: "bg-blue-500/40 border border-blue-400/60 text-white/90",
+  default: "bg-transparent border border-black/60 text-black/90",
+  outline: "bg-transparent border border-black/60 text-black/90",
 };
 
 /**
- * Badge para mostrar cantidad de monedas (azul con contraste fuerte)
+ * Badge para mostrar cantidad de monedas (outlined negro con fondo transparente)
  */
 export function CoinsBadge({
   amount,
@@ -52,7 +52,7 @@ export function CoinsBadge({
       )}
     >
       {showIcon && (
-        <Coins className={cn("text-white/90", iconSizeStyles[size])} />
+        <Coins className={cn("text-black/90", iconSizeStyles[size])} />
       )}
       <span>{amount.toLocaleString()}</span>
     </div>

@@ -27,12 +27,12 @@ const iconSizeStyles: Record<BadgeSize, string> = {
 };
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: "bg-orange-500/30 text-white/90",
-  outline: "bg-orange-500/40 border border-orange-400/60 text-white/90",
+  default: "bg-transparent border border-black/60 text-black/90",
+  outline: "bg-transparent border border-black/60 text-black/90",
 };
 
 /**
- * Badge para mostrar cantidad de tickets (naranja con contraste fuerte)
+ * Badge para mostrar cantidad de tickets (outlined negro con fondo transparente)
  */
 export function TicketsBadge({
   amount,
@@ -52,7 +52,7 @@ export function TicketsBadge({
       )}
     >
       {showIcon && (
-        <Ticket className={cn("text-white/90", iconSizeStyles[size])} />
+        <Ticket className={cn("text-black/90", iconSizeStyles[size])} />
       )}
       <span>{amount}</span>
     </div>
