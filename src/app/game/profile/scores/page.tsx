@@ -47,7 +47,7 @@ export default function ScoresPage() {
           {
             page: pagination.page,
             pageSize: pagination.pageSize,
-          }
+          },
         );
 
         setHistories(res.data || []);
@@ -55,7 +55,7 @@ export default function ScoresPage() {
       } catch (err) {
         console.error("[ScoresPage] Error fetching user game histories", err);
         setError(
-          "No se pudo cargar el historial de partidas. Inténtalo de nuevo más tarde."
+          "No se pudo cargar el historial de partidas. Inténtalo de nuevo más tarde.",
         );
       } finally {
         setLoading(false);
@@ -63,7 +63,6 @@ export default function ScoresPage() {
     };
 
     fetchHistories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasUserDocumentId, userDocumentId, pagination.page, pagination.pageSize]);
 
   const handlePageChange = (page: number) => {

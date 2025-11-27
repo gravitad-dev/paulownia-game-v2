@@ -66,20 +66,6 @@ const getTodayString = (): string => {
   return new Date().toISOString().split("T")[0];
 };
 
-/**
- * Verifica si el modal fue dismisseado hoy por este usuario
- */
-const wasModalDismissedToday = (
-  dismissedData: { date: string; userId: number } | null,
-  currentUserId?: number,
-): boolean => {
-  if (!dismissedData || !currentUserId) return false;
-  return (
-    dismissedData.date === getTodayString() &&
-    dismissedData.userId === currentUserId
-  );
-};
-
 export const useDailyRewardsStore = create<DailyRewardsState>()(
   persist(
     (set, get) => ({
@@ -101,7 +87,6 @@ export const useDailyRewardsStore = create<DailyRewardsState>()(
           const status: DailyRewardsStatusResponse =
             await DailyRewardsService.getStatus();
 
-          const { modalDismissedData } = get();
           const preserveModalState = options?.preserveModalState === true;
           const openReason = options?.openReason;
 

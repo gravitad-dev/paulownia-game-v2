@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Coins, Ticket, Lock, Check, Crown, Sparkles } from "lucide-react";
 import type { DailyReward, RewardStatus } from "@/types/daily-rewards";
-import gsap from "gsap";
 
 interface DailyRewardCardProps {
   reward: DailyReward;
