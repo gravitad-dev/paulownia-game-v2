@@ -14,6 +14,7 @@ export interface IconTab {
   icon: IconType;
   group?: TabGroup;
   disabled?: boolean;
+  showBadge?: boolean;
 }
 
 export interface IconTabsProps {
@@ -102,7 +103,7 @@ export function IconTabs({
         onValueChange={handleChange}
         className={cn("w-full", className)}
       >
-        <TabsList className="relative flex w-full flex-nowrap justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-0 bg-transparent px-2 py-0 scrollbar-hide sm:gap-2 sm:px-2">
+        <TabsList className="relative flex w-full flex-nowrap justify-start gap-0 rounded-none border-0 bg-transparent px-2 py-0 scrollbar-hide sm:gap-2 sm:px-2">
           {tabs.map((tab, index) => {
             const previousGroup = tabs[index - 1]?.group;
             const showSeparator =
@@ -119,13 +120,13 @@ export function IconTabs({
                   disabled={tab.disabled}
                   aria-label={tab.label}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-t-lg rounded-b-none border-x-0 border-t border-b-0 border-border/60 bg-muted/70 transition-all first:border-l last:border-r first:rounded-tl-lg last:rounded-tr-lg",
+                    "relative flex items-center justify-center gap-2 rounded-t-lg rounded-b-none border-x-0 border-t border-b-0 border-border/60 bg-muted/70 transition-all first:border-l last:border-r first:rounded-tl-lg last:rounded-tr-lg overflow-visible z-30",
                     // Mobile/Tablet (< md): Tab inactiva 40x40px (cubo), activa se expande
                     "flex-initial w-10 h-10 px-1 py-1",
                     "data-[state=active]:w-20 data-[state=active]:h-10 data-[state=active]:px-2 data-[state=active]:py-2",
                     // Desktop (>= md): Tamaño base según si muestra labels
                     showLabelsOnDesktop
-                      ? "md:w-auto md:min-w-20 md:h-10 md:px-3 md:py-2"
+                      ? "md:w-auto md:min-w-[120px] md:max-w-[200px] md:h-10 md:px-3 md:py-2"
                       : "md:w-20 md:h-10 md:px-2 md:py-2",
                     "sm:border-x sm:first:rounded-tl-lg sm:last:rounded-tr-lg",
                     "data-[state=active]:relative data-[state=active]:z-20 data-[state=active]:border-b-0 data-[state=active]:bg-card data-[state=active]:shadow-sm",
@@ -141,9 +142,16 @@ export function IconTabs({
                   >
                     <tab.icon aria-hidden="true" />
                   </span>
-                  {showLabelsOnDesktop && (
-                    <span className="hidden text-sm font-medium md:inline">
+                  {showLabelsOnDesktop && tab.value !== value && (
+                    <span className="hidden text-sm font-medium md:inline whitespace-nowrap overflow-hidden text-ellipsis">
                       {tab.label}
+                    </span>
+                  )}
+
+                  {tab.showBadge && (
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 z-10">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
                     </span>
                   )}
                 </TabsTrigger>

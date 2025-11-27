@@ -92,7 +92,7 @@ export function CountdownTimer({
 
   return (
     <div className={className}>
-      <p className="text-xs text-muted-foreground mb-1 text-center">
+      <p className="text-xs text-accent-foreground mb-1 text-center">
         Próxima recompensa en:
       </p>
       <div className="flex items-center justify-center gap-1 font-mono text-lg font-bold">

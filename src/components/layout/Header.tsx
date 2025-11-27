@@ -182,7 +182,10 @@ export function Header() {
         {/* Columna 2: Navigation Menu */}
         <nav className="flex items-center gap-1 flex-1 justify-center">
           {navigation.map((item, index) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === "/game"
+                ? pathname === "/game"
+                : pathname.startsWith(item.href);
             const showBadge =
               (item.href === "/game/events" && canClaimDailyReward) ||
               (item.href === "/game/achievements" && availableAchievements > 0);

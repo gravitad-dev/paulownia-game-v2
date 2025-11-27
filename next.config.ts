@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 const getApiHostname = (): string | null => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) return null;
-  
+
   try {
     const url = new URL(apiUrl);
     return url.hostname;
@@ -27,6 +27,12 @@ const remotePatterns = [
     port: "1337",
     pathname: "/uploads/**",
   },
+  {
+    protocol: "https" as const,
+    hostname: "images.unsplash.com",
+    port: "",
+    pathname: "/**",
+  },
 ];
 
 // Add API hostname if it's different from localhost
@@ -43,7 +49,7 @@ if (apiHostname && apiHostname !== "localhost") {
       hostname: apiHostname,
       port: "",
       pathname: "/uploads/**",
-    }
+    },
   );
 }
 
