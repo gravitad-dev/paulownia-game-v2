@@ -1,5 +1,5 @@
 //import Scene from "./Scene";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import {
@@ -16,9 +16,247 @@ import {
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
 import { CameraConfigPanel } from "./CameraConfigPanel";
 
+const MAX_STACK_HEIGHT = 5;
+const INITIAL_CYCLE_TIME = 500;
+const ACCELERATION_FACTOR = 15;
+
+// Tipos para el sistema de bloques visuales con animación
+interface BlockColors {
+  topBottom: string;
+  frontBack: string;
+  leftRight: string;
+}
+
+interface VisualBlock {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  targetX: number;
+  targetY: number;
+  targetZ: number;
+  scale: number;
+  targetScale: number;
+  destroying: boolean;
+  variantParams: CubeVariantParams;
+}
+
+let blockIdCounter = 0;
+const generateBlockId = () => ++blockIdCounter;
+
+// Componente de cubo animado (inspirado en cube.ts del proyecto original)
+interface AnimatedCubeProps {
+  block: VisualBlock;
+  halfSize: number;
+  onDestroyed: (id: number) => void;
+}
+
+// Cargar textura porous.jpg
+const loader = new THREE.TextureLoader();
+const porousTexture = loader.load("/textures/porous.jpg");
+
+// Interfaz para parámetros de variante de cubo
+interface CubeVariantParams {
+  colors: BlockColors;
+  patternFactor: number;
+  patternScale: number;
+  patternPositionRandomness: number;
+  patternFaceConfig: "V" | "H" | "VH";
+  thickness: number;
+  scale: number;
+}
+
+// Shader material con textura real (como en el proyecto original)
+const createNoisyCubeMaterial = (params: CubeVariantParams) => {
+  const randomOffset = new THREE.Vector2(
+    Math.random() * params.patternPositionRandomness,
+    Math.random() * params.patternPositionRandomness
+  );
+
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      u_texture: { value: porousTexture },
+      u_color_top_bottom: { value: new THREE.Color(params.colors.topBottom) },
+      u_color_front_back: { value: new THREE.Color(params.colors.frontBack) },
+      u_color_left_right: { value: new THREE.Color(params.colors.leftRight) },
+      u_pattern_scale: { value: params.patternScale },
+      u_pattern_factor: { value: params.patternFactor },
+      u_pattern_face_h: {
+        value: params.patternFaceConfig.includes("H") ? 1.0 : 0.0,
+      },
+      u_pattern_face_v: {
+        value: params.patternFaceConfig.includes("V") ? 1.0 : 0.0,
+      },
+      u_random_offset: { value: randomOffset },
+      u_time: { value: 1.0 },
+      u_thickness: { value: params.thickness },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+
+      void main() {
+        vUv = uv;
+        vNormal = normal;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D u_texture;
+      uniform float u_thickness;
+      uniform float u_time;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      uniform vec3 u_color_top_bottom;
+      uniform vec3 u_color_left_right;
+      uniform vec3 u_color_front_back;
+      uniform float u_pattern_factor;
+      uniform float u_pattern_scale;
+      uniform float u_pattern_face_h;
+      uniform float u_pattern_face_v;
+      uniform vec2 u_random_offset;
+
+      void main() {
+        float uvScale = u_pattern_scale;
+        vec2 scaledUV = vUv * uvScale + u_random_offset;
+        vec4 texColor = texture2D(u_texture, scaledUV);
+        float thickness = u_thickness;
+        vec3 color;
+        vec3 absNor = abs(vNormal);
+
+        float mixFactor = texColor.r; // Assuming the texture is grayscale
+
+        if (vNormal.x > 0.9) color = u_color_left_right;
+        else if (vNormal.x < -0.9) color = u_color_left_right;
+        else if (vNormal.y > 0.9) color = u_color_top_bottom;
+        else if (vNormal.y < -0.9) color = u_color_top_bottom;
+        else if (vNormal.z > 0.9) color = u_color_front_back;
+        else if (vNormal.z < -0.9) color = u_color_front_back;
+        else color = vec3(1.0, 1.0, 1.0); // Shouldn't happen; set to White
+
+        if (u_pattern_face_h == 1.0) {
+          if (vNormal.x > 0.9 || vNormal.x < -0.9 || vNormal.z > 0.9 || vNormal.z < -0.9) {
+            color = mix(color + u_pattern_factor, color, mixFactor);
+          }
+        }
+
+        if (u_pattern_face_v == 1.0) {
+          if (vNormal.y > 0.9 || vNormal.y < -0.9 || vNormal.z > 0.9 || vNormal.z < -0.9) {
+            color = mix(color + u_pattern_factor, color, mixFactor);
+          }
+        }
+
+        if (vUv.y < thickness || vUv.y > 1.0 - thickness || vUv.x < thickness || vUv.x > 1.0 - thickness) {
+          gl_FragColor = vec4(0.03, 0.03, 0.03, 1.0);
+        } else {
+          gl_FragColor = vec4(color, 1.0);
+        }
+      }
+    `,
+    transparent: true,
+  });
+};
+
+// Componente para bloques activos (blancos con bordes)
+function ActiveCube({
+  position,
+  variantParams,
+}: {
+  position: [number, number, number];
+  variantParams: CubeVariantParams;
+}) {
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  if (!materialRef.current) {
+    materialRef.current = createNoisyCubeMaterial(variantParams);
+  }
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.u_time.value =
+        state.clock.elapsedTime * 0.05;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={position} scale={variantParams.scale}>
+      <boxGeometry args={[1, 1, 1]} />
+      <primitive object={materialRef.current} attach="material" />
+    </mesh>
+  );
+}
+
+function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const positionRef = useRef(
+    new THREE.Vector3(
+      block.x - halfSize + 0.5,
+      block.y - halfSize + 0.5,
+      block.z - halfSize + 0.5
+    )
+  );
+  const scaleRef = useRef(block.scale);
+  const prevVariantParamsRef = useRef<CubeVariantParams | null>(null);
+
+  // Crear o actualizar material cuando cambien los parámetros de variante
+  if (
+    !materialRef.current ||
+    JSON.stringify(prevVariantParamsRef.current) !==
+      JSON.stringify(block.variantParams)
+  ) {
+    materialRef.current = createNoisyCubeMaterial(block.variantParams);
+    prevVariantParamsRef.current = block.variantParams;
+  }
+
+  useFrame((state) => {
+    if (!meshRef.current) return;
+
+    // Lerp posición (como en el proyecto original: 0.22)
+    const targetPos = new THREE.Vector3(
+      block.targetX - halfSize + 0.5,
+      block.targetY - halfSize + 0.5,
+      block.targetZ - halfSize + 0.5
+    );
+    positionRef.current.lerp(targetPos, 0.22);
+    meshRef.current.position.copy(positionRef.current);
+
+    // Lerp escala (como en el proyecto original: 0.12)
+    scaleRef.current += (block.targetScale - scaleRef.current) * 0.12;
+    meshRef.current.scale.setScalar(scaleRef.current);
+
+    // Actualizar tiempo para animación del ruido
+    if (materialRef.current) {
+      materialRef.current.uniforms.u_time.value =
+        state.clock.elapsedTime * 0.05;
+    }
+
+    // Callback cuando termine de destruirse
+    if (block.destroying && scaleRef.current < 0.01) {
+      onDestroyed(block.id);
+    }
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <boxGeometry args={[1, 1, 1]} />
+      <primitive object={materialRef.current} attach="material" />
+    </mesh>
+  );
+}
+
 interface GameProps {
   difficulty: GameDifficulty;
 }
+
+const LightingRig = () => (
+  <>
+    <color attach="background" args={["#1a1b26"]} />
+    <ambientLight color="#ffffff" intensity={0.5} />
+    <directionalLight color="#ffffff" intensity={0.8} position={[10, 15, 10]} />
+  </>
+);
 
 export default function Game({ difficulty }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
@@ -29,6 +267,7 @@ export default function Game({ difficulty }: GameProps) {
   const [grid, setGrid] = useState<Grid3D>(() => createEmptyGrid(size));
   const [activeType, setActiveType] = useState<TetrominoType>("I");
   const [activeRotation, setActiveRotation] = useState(0);
+  const [isGameOver, setIsGameOver] = useState(false);
   const [activePosition, setActivePosition] = useState<{
     x: number;
     y: number;
@@ -38,6 +277,81 @@ export default function Game({ difficulty }: GameProps) {
     y: size - 1,
     z: Math.floor(size / 2) - 1,
   });
+
+  // Sistema de bloques visuales con animación
+  const [visualBlocks, setVisualBlocks] = useState<VisualBlock[]>([]);
+  const [cycleTime, setCycleTime] = useState(INITIAL_CYCLE_TIME);
+
+  // Callback cuando un bloque termina de destruirse
+  const handleBlockDestroyed = useCallback((id: number) => {
+    setVisualBlocks((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  // Parámetros de variante para bloques apilados (basado en altura, como en el original)
+  const getBlockVariantParams = useCallback((y: number): CubeVariantParams => {
+    const variants: CubeVariantParams[] = [
+      // Y=0 (rosa - reda)
+      {
+        colors: {
+          topBottom: "#f7768e",
+          frontBack: "#da677d",
+          leftRight: "#ff94a8",
+        },
+        patternFactor: -0.93,
+        patternScale: 0.45,
+        patternPositionRandomness: 0.11,
+        patternFaceConfig: "VH",
+        thickness: 0.0,
+        scale: 1,
+      },
+      // Y=1 (azul - trolja)
+      {
+        colors: {
+          topBottom: "#4375c3",
+          frontBack: "#3d6097",
+          leftRight: "#5f8dd7",
+        },
+        patternFactor: -0.31,
+        patternScale: 0.205,
+        patternPositionRandomness: 0.11,
+        patternFaceConfig: "VH",
+        thickness: 0.0,
+        scale: 1,
+      },
+      // Y=2 (naranja - havre)
+      {
+        colors: {
+          topBottom: "#ff9e64",
+          frontBack: "#e68e59",
+          leftRight: "#ffb182",
+        },
+        patternFactor: -1.0,
+        patternScale: 0.62,
+        patternPositionRandomness: 0.11,
+        patternFaceConfig: "VH",
+        thickness: 0.0,
+        scale: 1,
+      },
+    ];
+    return variants[y % variants.length];
+  }, []);
+
+  // Parámetros para bloque activo (dante)
+  const getActiveBlockVariantParams = useCallback((): CubeVariantParams => {
+    return {
+      colors: {
+        topBottom: "#ffffff",
+        frontBack: "#ffffff",
+        leftRight: "#ffffff",
+      },
+      patternFactor: -1.0,
+      patternScale: 0.32,
+      patternPositionRandomness: 0.14,
+      patternFaceConfig: "VH",
+      thickness: 0.02,
+      scale: 0.9,
+    };
+  }, []);
 
   // Reiniciar grid y pieza al cambiar el tamaño (dificultad)
   useEffect(() => {
@@ -49,6 +363,10 @@ export default function Game({ difficulty }: GameProps) {
       y: size - 1,
       z: Math.floor(size / 2) - 1,
     });
+    setIsGameOver(false);
+    setVisualBlocks([]);
+    setCycleTime(INITIAL_CYCLE_TIME);
+    blockIdCounter = 0;
   }, [size]);
 
   const halfSize = size / 2;
@@ -71,6 +389,135 @@ export default function Game({ difficulty }: GameProps) {
       new THREE.Vector3(-distance, height, distance - offset),
     ];
   }, [size, cameraConfig]);
+
+  // Detecta líneas completas y retorna bloques a eliminar y movimientos
+  const detectLineClears = useCallback(
+    (
+      gridToCheck: Grid3D,
+      level: number
+    ): {
+      toRemove: { x: number; z: number }[];
+      toMove: { x: number; z: number; fromY: number; toY: number }[];
+    } => {
+      const toRemove: { x: number; z: number }[] = [];
+      const toMove: { x: number; z: number; fromY: number; toY: number }[] = [];
+
+      if (level < 0 || level >= size) {
+        return { toRemove, toMove };
+      }
+
+      // Verificar líneas Z (para cada X fijo)
+      for (let x = 0; x < size; x++) {
+        let zLineFull = true;
+        for (let z = 0; z < size; z++) {
+          if (gridToCheck[x][level][z] !== "filled") {
+            zLineFull = false;
+            break;
+          }
+        }
+        if (zLineFull) {
+          for (let z = 0; z < size; z++) {
+            toRemove.push({ x, z });
+            // Marcar bloques superiores para bajar
+            for (let yy = level + 1; yy < size; yy++) {
+              if (gridToCheck[x][yy][z] === "filled") {
+                toMove.push({ x, z, fromY: yy, toY: yy - 1 });
+              }
+            }
+          }
+        }
+      }
+
+      // Verificar líneas X (para cada Z fijo)
+      for (let z = 0; z < size; z++) {
+        let xLineFull = true;
+        for (let x = 0; x < size; x++) {
+          if (gridToCheck[x][level][z] !== "filled") {
+            xLineFull = false;
+            break;
+          }
+        }
+        if (xLineFull) {
+          for (let x = 0; x < size; x++) {
+            // Solo añadir si no está ya en toRemove
+            if (!toRemove.some((r) => r.x === x && r.z === z)) {
+              toRemove.push({ x, z });
+            }
+            // Marcar bloques superiores para bajar
+            for (let yy = level + 1; yy < size; yy++) {
+              if (gridToCheck[x][yy][z] === "filled") {
+                const existing = toMove.find(
+                  (m) => m.x === x && m.z === z && m.fromY === yy
+                );
+                if (!existing) {
+                  toMove.push({ x, z, fromY: yy, toY: yy - 1 });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return { toRemove, toMove };
+    },
+    [size]
+  );
+
+  // Aplica la limpieza al grid lógico
+  const applyLineClearToGrid = useCallback(
+    (gridToClean: Grid3D, level: number): Grid3D => {
+      if (level < 0 || level >= size) {
+        return gridToClean;
+      }
+
+      const shiftColumnDown = (x: number, z: number) => {
+        for (let yy = level; yy < size - 1; yy++) {
+          gridToClean[x][yy][z] = gridToClean[x][yy + 1][z];
+        }
+        gridToClean[x][size - 1][z] = "empty";
+      };
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+
+        for (let x = 0; x < size; x++) {
+          let zLineFull = true;
+          for (let z = 0; z < size; z++) {
+            if (gridToClean[x][level][z] !== "filled") {
+              zLineFull = false;
+              break;
+            }
+          }
+          if (zLineFull) {
+            for (let z = 0; z < size; z++) {
+              shiftColumnDown(x, z);
+            }
+            changed = true;
+          }
+        }
+
+        for (let z = 0; z < size; z++) {
+          let xLineFull = true;
+          for (let x = 0; x < size; x++) {
+            if (gridToClean[x][level][z] !== "filled") {
+              xLineFull = false;
+              break;
+            }
+          }
+          if (xLineFull) {
+            for (let x = 0; x < size; x++) {
+              shiftColumnDown(x, z);
+            }
+            changed = true;
+          }
+        }
+      }
+
+      return gridToClean;
+    },
+    [size]
+  );
 
   const isInsideBounds = useCallback(
     (x: number, y: number, z: number): boolean =>
@@ -276,6 +723,10 @@ export default function Game({ difficulty }: GameProps) {
 
   // Caída automática en eje Y
   useEffect(() => {
+    if (isGameOver) {
+      return;
+    }
+
     const interval = setInterval(() => {
       const nextPosition = {
         x: activePosition.x,
@@ -291,19 +742,134 @@ export default function Game({ difficulty }: GameProps) {
 
       if (checkCollision(nextBlocks)) {
         // Fijar pieza en el grid en la posición actual
-        setGrid((prev) => {
-          const updated: Grid3D = prev.map((plane) =>
-            plane.map((row) => [...row])
-          );
+        const lockedLevels = Array.from(
+          new Set(
+            activeWorldBlocks
+              .map((block) => block.y)
+              .filter((y) => y < MAX_STACK_HEIGHT)
+          )
+        ).sort((a, b) => a - b); // Ordenar de menor a mayor
 
-          activeWorldBlocks.forEach((block) => {
-            if (isInsideBounds(block.x, block.y, block.z)) {
-              updated[block.x][block.y][block.z] = "filled";
+        const highestBlock = Math.max(
+          ...activeWorldBlocks.map((block) => block.y)
+        );
+        const reachedLimit = highestBlock >= MAX_STACK_HEIGHT;
+
+        // Crear bloques visuales para los nuevos bloques fijados
+        const newVisualBlocks: VisualBlock[] = activeWorldBlocks
+          .filter((block) => isInsideBounds(block.x, block.y, block.z))
+          .map((block) => ({
+            id: generateBlockId(),
+            x: block.x,
+            y: block.y,
+            z: block.z,
+            targetX: block.x,
+            targetY: block.y,
+            targetZ: block.z,
+            scale: 1,
+            targetScale: 1,
+            destroying: false,
+            variantParams: getBlockVariantParams(block.y),
+          }));
+
+        // Primero, crear el grid temporal para detectar líneas
+        let tempGrid: Grid3D = grid.map((plane) =>
+          plane.map((row) => [...row])
+        );
+        activeWorldBlocks.forEach((block) => {
+          if (isInsideBounds(block.x, block.y, block.z)) {
+            tempGrid[block.x][block.y][block.z] = "filled";
+          }
+        });
+
+        // Acumular todas las animaciones
+        const blocksToRemove: { x: number; y: number; z: number }[] = [];
+        const blocksToMove: {
+          x: number;
+          y: number;
+          z: number;
+          newY: number;
+        }[] = [];
+
+        if (!reachedLimit) {
+          // Detectar líneas completas en cada nivel afectado
+          lockedLevels.forEach((level) => {
+            const { toRemove, toMove } = detectLineClears(tempGrid, level);
+
+            toRemove.forEach((r) => {
+              blocksToRemove.push({ x: r.x, y: level, z: r.z });
+            });
+
+            toMove.forEach((m) => {
+              // Solo añadir si no está ya marcado
+              if (
+                !blocksToMove.some(
+                  (b) => b.x === m.x && b.y === m.fromY && b.z === m.z
+                )
+              ) {
+                blocksToMove.push({ x: m.x, y: m.fromY, z: m.z, newY: m.toY });
+              }
+            });
+
+            // Aplicar al grid temporal para la siguiente detección
+            tempGrid = applyLineClearToGrid(tempGrid, level);
+          });
+        }
+
+        // Actualizar bloques visuales con animaciones
+        setVisualBlocks((prev) => {
+          let updatedBlocks = [...prev, ...newVisualBlocks];
+
+          // Marcar bloques para eliminación
+          updatedBlocks = updatedBlocks.map((vb) => {
+            const shouldRemove = blocksToRemove.some(
+              (r) =>
+                r.x === vb.targetX && r.y === vb.targetY && r.z === vb.targetZ
+            );
+            if (shouldRemove) {
+              return { ...vb, targetScale: 0, destroying: true };
             }
+            return vb;
           });
 
-          return updated;
+          // Actualizar posiciones de bloques que deben bajar
+          // Actualizar tanto y (posición lógica) como targetY (posición de animación)
+          // También actualizar el color basado en la nueva posición Y
+          updatedBlocks = updatedBlocks.map((vb) => {
+            if (vb.destroying) return vb;
+            const moveInfo = blocksToMove.find(
+              (m) =>
+                m.x === vb.targetX && m.y === vb.targetY && m.z === vb.targetZ
+            );
+            if (moveInfo) {
+              // Actualizar posición real y objetivo para que el bloque sea elegible
+              // para formar nuevas líneas en su nueva posición
+              // Actualizar color basado en la nueva altura Y (como en el original)
+              return {
+                ...vb,
+                y: moveInfo.newY,
+                targetY: moveInfo.newY,
+                variantParams: getBlockVariantParams(moveInfo.newY),
+              };
+            }
+            return vb;
+          });
+
+          return updatedBlocks;
         });
+
+        // Acelerar si se completaron líneas
+        if (blocksToRemove.length > 0) {
+          setCycleTime((prev) => Math.max(100, prev - ACCELERATION_FACTOR));
+        }
+
+        // Actualizar grid lógico final
+        setGrid(tempGrid);
+
+        if (reachedLimit) {
+          setIsGameOver(true);
+          return;
+        }
 
         // Generar nueva pieza
         const types: TetrominoType[] = [
@@ -336,7 +902,7 @@ export default function Game({ difficulty }: GameProps) {
       }
 
       setActivePosition(nextPosition);
-    }, 800);
+    }, cycleTime);
 
     return () => clearInterval(interval);
   }, [
@@ -346,11 +912,21 @@ export default function Game({ difficulty }: GameProps) {
     size,
     checkCollision,
     isInsideBounds,
+    detectLineClears,
+    applyLineClearToGrid,
+    getBlockVariantParams,
+    getActiveBlockVariantParams,
+    isGameOver,
+    grid,
+    cycleTime,
   ]);
 
   // Controles de movimiento y rotación
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isGameOver) {
+        return;
+      }
       const { key } = event;
 
       const tryMove = (dx: number, dy: number, dz: number) => {
@@ -556,6 +1132,7 @@ export default function Game({ difficulty }: GameProps) {
     checkCollision,
     rotateCameraView,
     cameraCorrection,
+    isGameOver,
   ]);
 
   // Actualizar cámara cuando cambie la configuración
@@ -579,8 +1156,15 @@ export default function Game({ difficulty }: GameProps) {
   }, [cameraPositions, cameraViewIndex]);
 
   return (
-    <>
+    <div className="relative h-full w-full">
       <CameraConfigPanel />
+      {isGameOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-2xl bg-black/70 px-6 py-4 text-2xl font-semibold text-red-300">
+            Game Over
+          </div>
+        </div>
+      )}
       <Canvas
         camera={{
           fov: cameraConfig.fov,
@@ -597,12 +1181,8 @@ export default function Game({ difficulty }: GameProps) {
           camera.lookAt(new THREE.Vector3(0, 0, 0));
         }}
       >
-        <ambientLight intensity={0.14} />
-        <directionalLight
-          position={[10, 15, 20]}
-          color="white"
-          intensity={1.1}
-        />
+        {/* Iluminación inspirada en el proyecto original */}
+        <LightingRig />
 
         {/* Ejes de referencia X (rojo), Y (verde), Z (azul) */}
         <axesHelper args={[size * 1.2]} />
@@ -667,19 +1247,17 @@ export default function Game({ difficulty }: GameProps) {
             </mesh>
           )}
 
-          {/* Piezas activas: cubos de la pieza actual */}
+          {/* Piezas activas: cubos de la pieza actual (blanco con bordes oscuros) */}
           {activeWorldBlocks.map((block, index) => (
-            <mesh
+            <ActiveCube
               key={`active-${index}`}
               position={[
                 block.x - halfSize + 0.5,
                 block.y - halfSize + 0.5,
                 block.z - halfSize + 0.5,
               ]}
-            >
-              <boxGeometry args={[1, 1, 1]} />
-              <meshStandardMaterial color="#22c55e" />
-            </mesh>
+              variantParams={getActiveBlockVariantParams()}
+            />
           ))}
 
           {/* Preview de caída (ghost) */}
@@ -705,30 +1283,17 @@ export default function Game({ difficulty }: GameProps) {
             );
           })}
 
-          {/* Piezas apiladas en el grid */}
-          {grid.map((plane, x) =>
-            plane.map((row, y) =>
-              row.map((cell, z) => {
-                if (cell !== "filled") return null;
-
-                return (
-                  <mesh
-                    key={`stacked-${x}-${y}-${z}`}
-                    position={[
-                      x - halfSize + 0.5,
-                      y - halfSize + 0.5,
-                      z - halfSize + 0.5,
-                    ]}
-                  >
-                    <boxGeometry args={[1, 1, 1]} />
-                    <meshStandardMaterial color="#6b7280" />
-                  </mesh>
-                );
-              })
-            )
-          )}
+          {/* Piezas apiladas - renderizadas con AnimatedCube para animaciones */}
+          {visualBlocks.map((block) => (
+            <AnimatedCube
+              key={block.id}
+              block={block}
+              halfSize={halfSize}
+              onDestroyed={handleBlockDestroyed}
+            />
+          ))}
         </group>
       </Canvas>
-    </>
+    </div>
   );
 }
