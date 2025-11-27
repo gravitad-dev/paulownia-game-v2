@@ -257,6 +257,146 @@ interface GameProps {
   difficulty: GameDifficulty;
 }
 
+// Función helper para crear geometría de líneas del grid (solo horizontal/vertical, sin diagonales)
+const createGridLinesGeometry = (
+  width: number,
+  height: number,
+  segments: number
+): THREE.BufferGeometry => {
+  const geometry = new THREE.BufferGeometry();
+  const points: number[] = [];
+
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+
+  // Líneas horizontales
+  for (let i = 0; i <= segments; i++) {
+    const y = -halfHeight + (i / segments) * height;
+    points.push(-halfWidth, y, 0); // Inicio
+    points.push(halfWidth, y, 0); // Fin
+  }
+
+  // Líneas verticales
+  for (let i = 0; i <= segments; i++) {
+    const x = -halfWidth + (i / segments) * width;
+    points.push(x, -halfHeight, 0); // Inicio
+    points.push(x, halfHeight, 0); // Fin
+  }
+
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(points, 3)
+  );
+  return geometry;
+};
+
+// Componente para marcador de intersección (cruz)
+interface GridIntersectionMarkerProps {
+  position: [number, number, number];
+  size?: number;
+  color?: string;
+}
+
+function GridIntersectionMarker({
+  position,
+  size = 0.2,
+  color = "#4b5563",
+}: GridIntersectionMarkerProps) {
+  const halfSize = size / 2;
+
+  // Geometría para la línea horizontal
+  const horizontalGeometry = useMemo(() => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute([-halfSize, 0, 0, halfSize, 0, 0], 3)
+    );
+    return geometry;
+  }, [halfSize]);
+
+  // Geometría para la línea vertical
+  const verticalGeometry = useMemo(() => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute([0, -halfSize, 0, 0, halfSize, 0], 3)
+    );
+    return geometry;
+  }, [halfSize]);
+
+  return (
+    <group position={position}>
+      {/* Línea horizontal de la cruz */}
+      <lineSegments geometry={horizontalGeometry}>
+        <lineBasicMaterial color={color} />
+      </lineSegments>
+      {/* Línea vertical de la cruz */}
+      <lineSegments geometry={verticalGeometry}>
+        <lineBasicMaterial color={color} />
+      </lineSegments>
+    </group>
+  );
+}
+
+// Componente completo para una superficie del grid (con líneas y marcadores)
+interface GridPlaneProps {
+  width: number;
+  height: number;
+  segments: number;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  color?: string;
+}
+
+function GridPlane({
+  width,
+  height,
+  segments,
+  position,
+  rotation,
+  color = "#4b5563",
+}: GridPlaneProps) {
+  const linesGeometry = useMemo(
+    () => createGridLinesGeometry(width, height, segments),
+    [width, height, segments]
+  );
+
+  // Generar posiciones de los marcadores en las intersecciones
+  const markers = useMemo(() => {
+    const markerPositions: [number, number, number][] = [];
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+
+    for (let i = 0; i <= segments; i++) {
+      for (let j = 0; j <= segments; j++) {
+        const x = -halfWidth + (i / segments) * width;
+        const y = -halfHeight + (j / segments) * height;
+        markerPositions.push([x, y, 0]);
+      }
+    }
+
+    return markerPositions;
+  }, [width, height, segments]);
+
+  return (
+    <group position={position} rotation={rotation}>
+      {/* Líneas del grid */}
+      <lineSegments geometry={linesGeometry}>
+        <lineBasicMaterial color={color} />
+      </lineSegments>
+
+      {/* Marcadores en las intersecciones */}
+      {markers.map((markerPos, index) => (
+        <GridIntersectionMarker
+          key={`marker-${index}`}
+          position={markerPos}
+          color={color}
+        />
+      ))}
+    </group>
+  );
+}
+
 const LightingRig = () => (
   <>
     <color attach="background" args={["#1a1b26"]} />
@@ -865,14 +1005,6 @@ export default function Game({ difficulty }: GameProps) {
 
       if (checkCollision(nextBlocks)) {
         // Fijar pieza en el grid en la posición actual
-        const lockedLevels = Array.from(
-          new Set(
-            activeWorldBlocks
-              .map((block) => block.y)
-              .filter((y) => y < MAX_STACK_HEIGHT)
-          )
-        ).sort((a, b) => a - b); // Ordenar de menor a mayor
-
         const highestBlock = Math.max(
           ...activeWorldBlocks.map((block) => block.y)
         );
@@ -896,7 +1028,7 @@ export default function Game({ difficulty }: GameProps) {
           }));
 
         // Primero, crear el grid temporal para detectar líneas
-        let tempGrid: Grid3D = grid.map((plane) =>
+        const tempGrid: Grid3D = grid.map((plane) =>
           plane.map((row) => [...row])
         );
         activeWorldBlocks.forEach((block) => {
@@ -906,19 +1038,18 @@ export default function Game({ difficulty }: GameProps) {
         });
 
         // Procesar todas las líneas de forma iterativa
-        const { blocksToRemove, blocksToMove, finalGrid } =
-          !reachedLimit
-            ? processLineClearsIteratively(tempGrid)
-            : {
-                blocksToRemove: [] as { x: number; y: number; z: number }[],
-                blocksToMove: [] as {
-                  x: number;
-                  y: number;
-                  z: number;
-                  newY: number;
-                }[],
-                finalGrid: tempGrid,
-              };
+        const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
+          ? processLineClearsIteratively(tempGrid)
+          : {
+              blocksToRemove: [] as { x: number; y: number; z: number }[],
+              blocksToMove: [] as {
+                x: number;
+                y: number;
+                z: number;
+                newY: number;
+              }[],
+              finalGrid: tempGrid,
+            };
 
         // Actualizar bloques visuales con animaciones
         setVisualBlocks((prev) => {
@@ -1296,61 +1427,56 @@ export default function Game({ difficulty }: GameProps) {
         {/* Paredes que se muestran/ocultan según la vista de cámara (como en el repo original) */}
         <group>
           {/* Suelo - siempre visible */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -halfSize, 0]}>
-            <planeGeometry args={[size, size, size, size]} />
-            <meshBasicMaterial
-              color="#4b5563"
-              wireframe
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          <GridPlane
+            width={size}
+            height={size}
+            segments={size}
+            position={[0, -halfSize, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          />
 
           {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
           {(cameraViewIndex === 0 || cameraViewIndex === 1) && (
-            <mesh rotation={[0, Math.PI / 2, 0]} position={[-halfSize, 0, 0]}>
-              <planeGeometry args={[size, size, size, size]} />
-              <meshBasicMaterial
-                color="#4b5563"
-                wireframe
-                side={THREE.DoubleSide}
-              />
-            </mesh>
+            <GridPlane
+              width={size}
+              height={size}
+              segments={size}
+              position={[-halfSize, 0, 0]}
+              rotation={[0, Math.PI / 2, 0]}
+            />
           )}
 
           {/* Pared trasera (B) - visible en vistas 0 y 3 */}
           {(cameraViewIndex === 0 || cameraViewIndex === 3) && (
-            <mesh rotation={[0, 0, 0]} position={[0, 0, -halfSize]}>
-              <planeGeometry args={[size, size, size, size]} />
-              <meshBasicMaterial
-                color="#4b5563"
-                wireframe
-                side={THREE.DoubleSide}
-              />
-            </mesh>
+            <GridPlane
+              width={size}
+              height={size}
+              segments={size}
+              position={[0, 0, -halfSize]}
+              rotation={[0, 0, 0]}
+            />
           )}
 
           {/* Pared derecha (R) - visible en vistas 2 y 3 */}
           {(cameraViewIndex === 2 || cameraViewIndex === 3) && (
-            <mesh rotation={[0, -Math.PI / 2, 0]} position={[halfSize, 0, 0]}>
-              <planeGeometry args={[size, size, size, size]} />
-              <meshBasicMaterial
-                color="#4b5563"
-                wireframe
-                side={THREE.DoubleSide}
-              />
-            </mesh>
+            <GridPlane
+              width={size}
+              height={size}
+              segments={size}
+              position={[halfSize, 0, 0]}
+              rotation={[0, -Math.PI / 2, 0]}
+            />
           )}
 
           {/* Pared frontal (F) - visible en vistas 1 y 2 */}
           {(cameraViewIndex === 1 || cameraViewIndex === 2) && (
-            <mesh rotation={[0, Math.PI, 0]} position={[0, 0, halfSize]}>
-              <planeGeometry args={[size, size, size, size]} />
-              <meshBasicMaterial
-                color="#4b5563"
-                wireframe
-                side={THREE.DoubleSide}
-              />
-            </mesh>
+            <GridPlane
+              width={size}
+              height={size}
+              segments={size}
+              position={[0, 0, halfSize]}
+              rotation={[0, Math.PI, 0]}
+            />
           )}
 
           {/* Piezas activas: cubos de la pieza actual (blanco con bordes oscuros) */}
