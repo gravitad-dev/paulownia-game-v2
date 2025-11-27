@@ -1,24 +1,5 @@
 "use client";
 
-import { useAuthStore } from "@/store/useAuthStore";
-import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
-import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {
-  LogOut,
-  User as UserIcon,
-  Home,
-  Settings,
-  Layers,
-  Gift,
-  Target,
-  Calendar,
-  Bell,
-  ChevronDown,
-} from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 import {
   DropdownMenu,
@@ -27,8 +8,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CoinsBadge } from "@/components/ui/CoinsBadge";
+import { TicketsBadge } from "@/components/ui/TicketsBadge";
+import { cn } from "@/lib/utils";
 import { UserService } from "@/services/user.service";
+import { useAchievementsStore } from "@/store/useAchievementsStore";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
+import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import gsap from "gsap";
+import {
+  Bell,
+  Calendar,
+  ChevronDown,
+  Gift,
+  Home,
+  Layers,
+  LogOut,
+  Settings,
+  Trophy,
+  User as UserIcon,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 
@@ -36,13 +40,17 @@ const navigation = [
   { name: "Inicio", href: "/game", icon: Home },
   { name: "Niveles", href: "/game/levels", icon: Layers },
   { name: "Premios", href: "/game/rewards", icon: Gift },
-  { name: "Objetivos", href: "/game/objectives", icon: Target },
+  { name: "Logros", href: "/game/achievements", icon: Trophy },
   { name: "Eventos", href: "/game/events", icon: Calendar },
 ];
 
 export function Header() {
   const { user, logout, updateUser } = useAuthStore();
   const canClaimDailyReward = useDailyRewardsStore((state) => state.canClaim);
+  const playerStats = usePlayerStatsStore((state) => state.stats);
+  const availableAchievements = useAchievementsStore(
+    (state) => state.availableCount,
+  );
   const router = useRouter();
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -176,7 +184,8 @@ export function Header() {
           {navigation.map((item, index) => {
             const isActive = pathname === item.href;
             const showBadge =
-              item.href === "/game/rewards" && canClaimDailyReward;
+              (item.href === "/game/events" && canClaimDailyReward) ||
+              (item.href === "/game/achievements" && availableAchievements > 0);
             return (
               <Link
                 key={item.name}
@@ -205,8 +214,24 @@ export function Header() {
           })}
         </nav>
 
-        {/* Columna 3: Notifications & User Avatar con Dropdown */}
+        {/* Columna 3: Stats, Notifications & User Avatar con Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-border shrink-0">
+          {/* Stats badges - Solo visible en desktop */}
+          {user && playerStats && (
+            <div className="hidden md:flex items-center gap-2">
+              <CoinsBadge
+                amount={playerStats.coins}
+                size="sm"
+                variant="outline"
+              />
+              <TicketsBadge
+                amount={playerStats.tickets}
+                size="sm"
+                variant="outline"
+              />
+            </div>
+          )}
+
           {user && <NotificationIndicator />}
 
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -236,8 +261,28 @@ export function Header() {
               className="w-56"
               ref={dropdownItemsRef}
             >
-              <div className="px-2 py-1.5 text-sm font-medium">
-                {user?.username || "Usuario"}
+              {/* Header con nombre y stats en móvil */}
+              <div className="px-2 py-1.5 flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  {user?.username || "Usuario"}
+                </span>
+                {/* Stats badges - Solo visible en móvil dentro del dropdown */}
+                {playerStats && (
+                  <div className="flex items-center gap-1.5 md:hidden">
+                    <CoinsBadge
+                      amount={playerStats.coins}
+                      size="sm"
+                      variant="default"
+                      showIcon={false}
+                    />
+                    <TicketsBadge
+                      amount={playerStats.tickets}
+                      size="sm"
+                      variant="default"
+                      showIcon={false}
+                    />
+                  </div>
+                )}
               </div>
               <DropdownMenuSeparator />
 

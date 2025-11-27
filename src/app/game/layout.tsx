@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
+import { useAchievementsStore } from "@/store/useAchievementsStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
 import { DailyRewardsModal } from "@/components/game/rewards";
@@ -15,6 +16,7 @@ export default function GameLayout({
 }) {
   const { isAuthenticated, user } = useAuthStore();
   const { fetchStatus } = useDailyRewardsStore();
+  const { fetchAchievements } = useAchievementsStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -32,8 +34,10 @@ export default function GameLayout({
     if (mounted && isAuthenticated && user?.id) {
       // Al iniciar sesión, forzar apertura si hay recompensa disponible
       fetchStatus(user.id, { openReason: "login" });
+      // Cargar logros del usuario actual
+      fetchAchievements();
     }
-  }, [mounted, isAuthenticated, user?.id, fetchStatus]);
+  }, [mounted, isAuthenticated, user?.id, fetchStatus, fetchAchievements]);
 
   if (!mounted) {
     return null;

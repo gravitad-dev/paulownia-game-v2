@@ -1,12 +1,15 @@
-'use client';
+"use client";
 
-import React from 'react';
-import dynamic from 'next/dynamic';
-import Image from 'next/image';
+import React from "react";
+import dynamic from "next/dynamic";
+import Image from "next/image";
 
 const RetroBackground = dynamic(
-  () => import('@/components/ui/RetroBackground').then((mod) => mod.RetroBackground),
-  { ssr: false }
+  () =>
+    import("@/components/ui/RetroBackground").then(
+      (mod) => mod.RetroBackground,
+    ),
+  { ssr: false },
 );
 
 export default function AuthLayout({
@@ -25,15 +28,14 @@ export default function AuthLayout({
             width={48}
             height={48}
             className="object-contain"
+            style={{ width: "auto", height: "auto" }}
           />
           <h2 className="text-4xl font-bold tracking-tight text-white">
             Paulownia
           </h2>
         </div>
       </div>
-      <div className="w-full max-w-md space-y-8 z-10">
-        {children}
-      </div>
+      <div className="w-full max-w-md space-y-8 z-10">{children}</div>
     </div>
   );
 }

@@ -26,6 +26,18 @@ export default function LoginPage() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
 
+  // Verificar si hay un mensaje de error de sesión expirada
+  useEffect(() => {
+    const authError = sessionStorage.getItem("auth_error");
+    if (authError === "session_expired") {
+      sessionStorage.removeItem("auth_error");
+      toast.warning(
+        "Sesión expirada",
+        "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+      );
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!formRef.current) return;
 
@@ -42,7 +54,7 @@ export default function LoginPage() {
           y: 0,
           duration: 0.6,
           ease: "power3.out",
-        }
+        },
       );
 
       // Animación del título
@@ -59,7 +71,7 @@ export default function LoginPage() {
             duration: 0.5,
             delay: 0.2,
             ease: "power2.out",
-          }
+          },
         );
       }
 
@@ -78,7 +90,7 @@ export default function LoginPage() {
               duration: 0.5,
               delay: 0.3 + index * 0.1,
               ease: "power2.out",
-            }
+            },
           );
         }
       });
@@ -97,7 +109,7 @@ export default function LoginPage() {
             duration: 0.5,
             delay: 0.7,
             ease: "back.out(1.7)",
-          }
+          },
         );
       }
 
@@ -113,7 +125,7 @@ export default function LoginPage() {
             duration: 0.5,
             delay: 0.8,
             ease: "power2.out",
-          }
+          },
         );
       }
     }, formRef);
