@@ -116,6 +116,13 @@ const createNoisyCubeMaterial = (params: CubeVariantParams) => {
       uniform float u_pattern_face_v;
       uniform vec2 u_random_offset;
 
+      vec4 LinearTosRGB(vec4 value) {
+        vec3 lt = vec3(lessThanEqual(value.rgb, vec3(0.0031308)));
+        vec3 v1 = value.rgb * 12.92;
+        vec3 v2 = pow(value.rgb, vec3(0.41666)) * 1.055 - vec3(0.055);
+        return vec4(mix(v2, v1, lt), value.a);
+      }
+
       void main() {
         float uvScale = u_pattern_scale;
         vec2 scaledUV = vUv * uvScale + u_random_offset;
@@ -149,7 +156,7 @@ const createNoisyCubeMaterial = (params: CubeVariantParams) => {
         if (vUv.y < thickness || vUv.y > 1.0 - thickness || vUv.x < thickness || vUv.x > 1.0 - thickness) {
           gl_FragColor = vec4(0.03, 0.03, 0.03, 1.0);
         } else {
-          gl_FragColor = vec4(color, 1.0);
+          gl_FragColor = LinearTosRGB(vec4(color, 1.0));
         }
       }
     `,
@@ -290,12 +297,12 @@ export default function Game({ difficulty }: GameProps) {
   // Parámetros de variante para bloques apilados (basado en altura, como en el original)
   const getBlockVariantParams = useCallback((y: number): CubeVariantParams => {
     const variants: CubeVariantParams[] = [
-      // Y=0 (rosa - reda)
+      // Y=0 (rosa pastel más intenso)
       {
         colors: {
-          topBottom: "#f7768e",
-          frontBack: "#da677d",
-          leftRight: "#ff94a8",
+          topBottom: "#ff8ba8",
+          frontBack: "#f07b98",
+          leftRight: "#ff9bb8",
         },
         patternFactor: -0.93,
         patternScale: 0.45,
@@ -304,12 +311,12 @@ export default function Game({ difficulty }: GameProps) {
         thickness: 0.0,
         scale: 1,
       },
-      // Y=1 (azul - trolja)
+      // Y=1 (azul cielo más intenso)
       {
         colors: {
-          topBottom: "#4375c3",
-          frontBack: "#3d6097",
-          leftRight: "#5f8dd7",
+          topBottom: "#7ba5d8",
+          frontBack: "#6b95c8",
+          leftRight: "#8bb5e8",
         },
         patternFactor: -0.31,
         patternScale: 0.205,
@@ -318,12 +325,12 @@ export default function Game({ difficulty }: GameProps) {
         thickness: 0.0,
         scale: 1,
       },
-      // Y=2 (naranja - havre)
+      // Y=2 (melocotón pastel más intenso)
       {
         colors: {
-          topBottom: "#ff9e64",
-          frontBack: "#e68e59",
-          leftRight: "#ffb182",
+          topBottom: "#ffb88e",
+          frontBack: "#f0a87e",
+          leftRight: "#ffc89e",
         },
         patternFactor: -1.0,
         patternScale: 0.62,
