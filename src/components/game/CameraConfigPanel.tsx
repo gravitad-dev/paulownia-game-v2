@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
+import { useGameSpeedStore } from "@/store/useGameSpeedStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Settings, X, RotateCcw } from "lucide-react";
 
 export function CameraConfigPanel() {
   const { config, updateConfig, resetConfig } = useCameraConfigStore();
+  const { cycleTime, setCycleTime, resetCycleTime } = useGameSpeedStore();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleChange = (key: keyof typeof config, value: string) => {
@@ -25,7 +28,7 @@ export function CameraConfigPanel() {
         size="icon"
         onClick={() => setIsOpen(true)}
         className="fixed top-4 right-4 z-50"
-        title="Configurar cámara"
+        title="Configuración"
       >
         <Settings className="h-4 w-4" />
       </Button>
@@ -35,7 +38,7 @@ export function CameraConfigPanel() {
   return (
     <div className="fixed top-4 right-4 z-50 w-80 bg-card border border-border rounded-lg shadow-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Configuración de Cámara</h3>
+        <h3 className="text-lg font-semibold">Configuración</h3>
         <Button
           variant="ghost"
           size="icon"
@@ -111,16 +114,50 @@ export function CameraConfigPanel() {
             onChange={(e) => handleChange("offset", e.target.value)}
           />
         </div>
+
+        <div className="pt-2 border-t border-border">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="speed" className="text-sm font-medium">
+                Velocidad de Caída
+              </Label>
+              <span className="text-sm text-muted-foreground">{cycleTime}ms</span>
+            </div>
+            <Slider
+              id="speed"
+              value={[cycleTime]}
+              onValueChange={([value]) => setCycleTime(value)}
+              min={100}
+              max={1000}
+              step={50}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Rápido</span>
+              <span>Lento</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Button
-        variant="outline"
-        onClick={resetConfig}
-        className="w-full"
-      >
-        <RotateCcw className="h-4 w-4 mr-2" />
-        Resetear a Valores por Defecto
-      </Button>
+      <div className="space-y-2">
+        <Button
+          variant="outline"
+          onClick={resetConfig}
+          className="w-full"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Resetear Cámara
+        </Button>
+        <Button
+          variant="outline"
+          onClick={resetCycleTime}
+          className="w-full"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Resetear Velocidad
+        </Button>
+      </div>
     </div>
   );
 }

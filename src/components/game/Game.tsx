@@ -14,11 +14,12 @@ import {
   rotateShapeHorizontal,
 } from "@/lib/game/three/tetrominoes";
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
+import { useGameSpeedStore } from "@/store/useGameSpeedStore";
 import { CameraConfigPanel } from "./CameraConfigPanel";
+import { FpsCounter } from "./FpsCounter";
 
 const MAX_STACK_HEIGHT = 5;
-const INITIAL_CYCLE_TIME = 500;
-const ACCELERATION_FACTOR = 15;
+const FAST_FORWARD_FACTOR = 0.1;
 
 // Tipos para el sistema de bloques visuales con animación
 interface BlockColors {
@@ -347,6 +348,7 @@ const LightingRig = () => (
 export default function Game({ difficulty }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
   const cameraConfig = useCameraConfigStore((state) => state.config);
+  const cycleTime = useGameSpeedStore((state) => state.cycleTime);
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [cameraViewIndex, setCameraViewIndex] = useState<0 | 1 | 2 | 3>(0);
   const targetPositionRef = useRef<THREE.Vector3 | null>(null);
@@ -366,7 +368,8 @@ export default function Game({ difficulty }: GameProps) {
 
   // Sistema de bloques visuales con animación
   const [visualBlocks, setVisualBlocks] = useState<VisualBlock[]>([]);
-  const [cycleTime, setCycleTime] = useState(INITIAL_CYCLE_TIME);
+  const [isFastForward, setIsFastForward] = useState(false);
+  const lastTickTimeRef = useRef<number>(0);
 
   // Callback cuando un bloque termina de destruirse
   const handleBlockDestroyed = useCallback((id: number) => {
@@ -451,7 +454,8 @@ export default function Game({ difficulty }: GameProps) {
     });
     setIsGameOver(false);
     setVisualBlocks([]);
-    setCycleTime(INITIAL_CYCLE_TIME);
+    setIsFastForward(false);
+    lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
   }, [size]);
 
@@ -923,165 +927,181 @@ export default function Game({ difficulty }: GameProps) {
     [cameraViewIndex, cameraPositions]
   );
 
-  // Caída automática en eje Y
+  // Caída automática en eje Y usando requestAnimationFrame (como el proyecto original)
   useEffect(() => {
     if (isGameOver) {
       return;
     }
 
-    const interval = setInterval(() => {
-      const nextPosition = {
-        x: activePosition.x,
-        y: activePosition.y - 1,
-        z: activePosition.z,
-      };
+    let animationFrameId: number;
 
-      const nextBlocks = activeShape.map((cell) => ({
-        x: nextPosition.x + cell.x,
-        y: nextPosition.y + cell.y,
-        z: nextPosition.z + cell.z,
-      }));
+    const tick = () => {
+      const now = performance.now();
+      const factor = isFastForward ? FAST_FORWARD_FACTOR : 1;
+      const effectiveCycleTime = cycleTime * factor;
 
-      if (checkCollision(nextBlocks)) {
-        // Fijar pieza en el grid en la posición actual
-        const highestBlock = Math.max(
-          ...activeWorldBlocks.map((block) => block.y)
-        );
-        const reachedLimit = highestBlock >= MAX_STACK_HEIGHT;
+      if (now - lastTickTimeRef.current >= effectiveCycleTime) {
+        lastTickTimeRef.current = now;
 
-        // Crear bloques visuales para los nuevos bloques fijados
-        const newVisualBlocks: VisualBlock[] = activeWorldBlocks
-          .filter((block) => isInsideBounds(block.x, block.y, block.z))
-          .map((block) => ({
-            id: generateBlockId(),
-            x: block.x,
-            y: block.y,
-            z: block.z,
-            targetX: block.x,
-            targetY: block.y,
-            targetZ: block.z,
-            scale: 1,
-            targetScale: 1,
-            destroying: false,
-            variantParams: getBlockVariantParams(block.y),
-          }));
+        const nextPosition = {
+          x: activePosition.x,
+          y: activePosition.y - 1,
+          z: activePosition.z,
+        };
 
-        // Primero, crear el grid temporal para detectar líneas
-        const tempGrid: Grid3D = grid.map((plane) =>
-          plane.map((row) => [...row])
-        );
-        activeWorldBlocks.forEach((block) => {
-          if (isInsideBounds(block.x, block.y, block.z)) {
-            tempGrid[block.x][block.y][block.z] = "filled";
-          }
-        });
+        const nextBlocks = activeShape.map((cell) => ({
+          x: nextPosition.x + cell.x,
+          y: nextPosition.y + cell.y,
+          z: nextPosition.z + cell.z,
+        }));
 
-        // Procesar todas las líneas de forma iterativa
-        const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
-          ? processLineClearsIteratively(tempGrid)
-          : {
-              blocksToRemove: [] as { x: number; y: number; z: number }[],
-              blocksToMove: [] as {
-                x: number;
-                y: number;
-                z: number;
-                newY: number;
-              }[],
-              finalGrid: tempGrid,
-            };
+        if (checkCollision(nextBlocks)) {
+          // Fijar pieza en el grid en la posición actual
+          const highestBlock = Math.max(
+            ...activeWorldBlocks.map((block) => block.y)
+          );
+          const reachedLimit = highestBlock >= MAX_STACK_HEIGHT;
 
-        // Actualizar bloques visuales con animaciones
-        setVisualBlocks((prev) => {
-          let updatedBlocks = [...prev, ...newVisualBlocks];
+          // Resetear fastForward cuando la pieza se bloquea
+          setIsFastForward(false);
 
-          // Primero, marcar bloques para eliminación
-          updatedBlocks = updatedBlocks.map((vb) => {
-            const shouldRemove = blocksToRemove.some(
-              (r) =>
-                r.x === vb.targetX && r.y === vb.targetY && r.z === vb.targetZ
-            );
-            if (shouldRemove) {
-              return { ...vb, targetScale: 0, destroying: true };
+          // Crear bloques visuales para los nuevos bloques fijados
+          const newVisualBlocks: VisualBlock[] = activeWorldBlocks
+            .filter((block) => isInsideBounds(block.x, block.y, block.z))
+            .map((block) => ({
+              id: generateBlockId(),
+              x: block.x,
+              y: block.y,
+              z: block.z,
+              targetX: block.x,
+              targetY: block.y,
+              targetZ: block.z,
+              scale: 1,
+              targetScale: 1,
+              destroying: false,
+              variantParams: getBlockVariantParams(block.y),
+            }));
+
+          // Primero, crear el grid temporal para detectar líneas
+          const tempGrid: Grid3D = grid.map((plane) =>
+            plane.map((row) => [...row])
+          );
+          activeWorldBlocks.forEach((block) => {
+            if (isInsideBounds(block.x, block.y, block.z)) {
+              tempGrid[block.x][block.y][block.z] = "filled";
             }
-            return vb;
           });
 
-          // Actualizar posiciones de bloques que deben bajar
-          // La función processLineClearsIteratively ya calcula el newY final correcto
-          // incluso si el bloque baja múltiples veces en cascada
-          updatedBlocks = updatedBlocks.map((vb) => {
-            if (vb.destroying) return vb;
-
-            // Buscar si este bloque debe moverse
-            // Buscar por posición lógica actual (y) que es la posición original antes de cualquier movimiento
-            const moveInfo = blocksToMove.find(
-              (m) => m.x === vb.targetX && m.y === vb.y && m.z === vb.targetZ
-            );
-
-            if (moveInfo) {
-              // Actualizar posición real y objetivo para que el bloque sea elegible
-              // para formar nuevas líneas en su nueva posición
-              // Actualizar color basado en la nueva altura Y (como en el original)
-              return {
-                ...vb,
-                y: moveInfo.newY,
-                targetY: moveInfo.newY,
-                variantParams: getBlockVariantParams(moveInfo.newY),
+          // Procesar todas las líneas de forma iterativa
+          const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
+            ? processLineClearsIteratively(tempGrid)
+            : {
+                blocksToRemove: [] as { x: number; y: number; z: number }[],
+                blocksToMove: [] as {
+                  x: number;
+                  y: number;
+                  z: number;
+                  newY: number;
+                }[],
+                finalGrid: tempGrid,
               };
-            }
-            return vb;
+
+          // Actualizar bloques visuales con animaciones
+          setVisualBlocks((prev) => {
+            let updatedBlocks = [...prev, ...newVisualBlocks];
+
+            // Primero, marcar bloques para eliminación
+            updatedBlocks = updatedBlocks.map((vb) => {
+              const shouldRemove = blocksToRemove.some(
+                (r) =>
+                  r.x === vb.targetX && r.y === vb.targetY && r.z === vb.targetZ
+              );
+              if (shouldRemove) {
+                return { ...vb, targetScale: 0, destroying: true };
+              }
+              return vb;
+            });
+
+            // Actualizar posiciones de bloques que deben bajar
+            // La función processLineClearsIteratively ya calcula el newY final correcto
+            // incluso si el bloque baja múltiples veces en cascada
+            updatedBlocks = updatedBlocks.map((vb) => {
+              if (vb.destroying) return vb;
+
+              // Buscar si este bloque debe moverse
+              // Buscar por posición lógica actual (y) que es la posición original antes de cualquier movimiento
+              const moveInfo = blocksToMove.find(
+                (m) => m.x === vb.targetX && m.y === vb.y && m.z === vb.targetZ
+              );
+
+              if (moveInfo) {
+                // Actualizar posición real y objetivo para que el bloque sea elegible
+                // para formar nuevas líneas en su nueva posición
+                // Actualizar color basado en la nueva altura Y (como en el original)
+                return {
+                  ...vb,
+                  y: moveInfo.newY,
+                  targetY: moveInfo.newY,
+                  variantParams: getBlockVariantParams(moveInfo.newY),
+                };
+              }
+              return vb;
+            });
+
+            return updatedBlocks;
           });
 
-          return updatedBlocks;
-        });
+          // Actualizar grid lógico final
+          setGrid(finalGrid);
 
-        // Acelerar si se completaron líneas
-        if (blocksToRemove.length > 0) {
-          setCycleTime((prev) => Math.max(100, prev - ACCELERATION_FACTOR));
-        }
+          if (reachedLimit) {
+            setIsGameOver(true);
+            return;
+          }
 
-        // Actualizar grid lógico final
-        setGrid(finalGrid);
+          // Generar nueva pieza
+          const types: TetrominoType[] = [
+            "I",
+            "O",
+            "T",
+            "S",
+            "Z",
+            "J",
+            "L",
+            "I3",
+            "I2",
+            "O2",
+            "L2",
+          ];
+          const randomType =
+            types[Math.floor(Math.random() * types.length)] ?? "I";
 
-        if (reachedLimit) {
-          setIsGameOver(true);
+          const spawnPosition = {
+            x: Math.floor(size / 2) - 1,
+            y: size - 1,
+            z: Math.floor(size / 2) - 1,
+          };
+
+          setActiveType(randomType);
+          setActiveRotation(0);
+          setActivePosition(spawnPosition);
+
           return;
         }
 
-        // Generar nueva pieza
-        const types: TetrominoType[] = [
-          "I",
-          "O",
-          "T",
-          "S",
-          "Z",
-          "J",
-          "L",
-          "I3",
-          "I2",
-          "O2",
-          "L2",
-        ];
-        const randomType =
-          types[Math.floor(Math.random() * types.length)] ?? "I";
-
-        const spawnPosition = {
-          x: Math.floor(size / 2) - 1,
-          y: size - 1,
-          z: Math.floor(size / 2) - 1,
-        };
-
-        setActiveType(randomType);
-        setActiveRotation(0);
-        setActivePosition(spawnPosition);
-
-        return;
+        setActivePosition(nextPosition);
       }
 
-      setActivePosition(nextPosition);
-    }, cycleTime);
+      animationFrameId = requestAnimationFrame(tick);
+    };
 
-    return () => clearInterval(interval);
+    animationFrameId = requestAnimationFrame(tick);
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
   }, [
     activePosition,
     activeShape,
@@ -1094,6 +1114,7 @@ export default function Game({ difficulty }: GameProps) {
     getActiveBlockVariantParams,
     isGameOver,
     grid,
+    isFastForward,
     cycleTime,
   ]);
 
@@ -1252,8 +1273,9 @@ export default function Game({ difficulty }: GameProps) {
           action = "rotate";
           break;
         case " ":
-          action = "fall";
-          break;
+          setIsFastForward(true);
+          event.preventDefault();
+          return;
         default:
           break;
       }
@@ -1278,9 +1300,6 @@ export default function Game({ difficulty }: GameProps) {
         case "down":
           // up/down controlan eje Z del grid (como en el repo)
           tryMove(0, 0, 1);
-          break;
-        case "fall":
-          tryMove(0, -1, 0);
           break;
         case "rotate":
           tryRotate(1);
@@ -1311,6 +1330,18 @@ export default function Game({ difficulty }: GameProps) {
     isGameOver,
   ]);
 
+  // Handler para keyup de espacio (desactivar fastForward)
+  useEffect(() => {
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === " ") {
+        setIsFastForward(false);
+      }
+    };
+
+    window.addEventListener("keyup", handleKeyUp);
+    return () => window.removeEventListener("keyup", handleKeyUp);
+  }, []);
+
   // Actualizar cámara cuando cambie la configuración
   useEffect(() => {
     if (
@@ -1334,6 +1365,7 @@ export default function Game({ difficulty }: GameProps) {
   return (
     <div className="relative h-full w-full">
       <CameraConfigPanel />
+      <FpsCounter />
       {isGameOver && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="rounded-2xl bg-black/70 px-6 py-4 text-2xl font-semibold text-red-300">
