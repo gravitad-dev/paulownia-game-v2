@@ -526,6 +526,122 @@ export default function Game({ difficulty }: GameProps) {
     [size]
   );
 
+  // Procesa todas las líneas completas de forma iterativa hasta que no haya más
+  const processLineClearsIteratively = useCallback(
+    (
+      gridToProcess: Grid3D
+    ): {
+      blocksToRemove: { x: number; y: number; z: number }[];
+      blocksToMove: { x: number; y: number; z: number; newY: number }[];
+      finalGrid: Grid3D;
+    } => {
+      const blocksToRemove: { x: number; y: number; z: number }[] = [];
+
+      // Guardar el grid original para comparar después
+      const originalGrid: Grid3D = gridToProcess.map((plane) =>
+        plane.map((row) => [...row])
+      );
+
+      // Crear una copia del grid para trabajar
+      let workingGrid: Grid3D = gridToProcess.map((plane) =>
+        plane.map((row) => [...row])
+      );
+
+      let hasMoreLines = true;
+      const maxIterations = 100; // Prevenir bucles infinitos
+      let iterations = 0;
+
+      while (hasMoreLines && iterations < maxIterations) {
+        iterations++;
+        hasMoreLines = false;
+
+        // Verificar todos los niveles desde 0 hasta MAX_STACK_HEIGHT
+        for (let level = 0; level < MAX_STACK_HEIGHT; level++) {
+          const { toRemove } = detectLineClears(workingGrid, level);
+
+          if (toRemove.length > 0) {
+            hasMoreLines = true;
+
+            // Añadir bloques a eliminar (con su coordenada Y)
+            toRemove.forEach((r) => {
+              if (
+                !blocksToRemove.some(
+                  (b) => b.x === r.x && b.y === level && b.z === r.z
+                )
+              ) {
+                blocksToRemove.push({ x: r.x, y: level, z: r.z });
+              }
+            });
+
+            // Aplicar la limpieza al grid de trabajo
+            workingGrid = applyLineClearToGrid(workingGrid, level);
+          }
+        }
+      }
+
+      // Calcular los movimientos finales comparando el grid original con el final
+      // Para cada columna (x, z), calcular cuántos bloques hay en cada nivel
+      // y mapear los bloques originales a sus nuevas posiciones
+      const blocksToMove: {
+        x: number;
+        y: number;
+        z: number;
+        newY: number;
+      }[] = [];
+
+      // Para cada columna (x, z)
+      for (let x = 0; x < size; x++) {
+        for (let z = 0; z < size; z++) {
+          // Obtener todos los bloques originales en esta columna (de arriba hacia abajo)
+          const originalBlocksInColumn: number[] = [];
+          for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
+            if (originalGrid[x][y][z] === "filled") {
+              // Verificar si este bloque no fue eliminado
+              const wasRemoved = blocksToRemove.some(
+                (r) => r.x === x && r.y === y && r.z === z
+              );
+              if (!wasRemoved) {
+                originalBlocksInColumn.push(y);
+              }
+            }
+          }
+
+          // Obtener todas las posiciones ocupadas en el grid final (de arriba hacia abajo)
+          const finalBlocksInColumn: number[] = [];
+          for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
+            if (workingGrid[x][y][z] === "filled") {
+              finalBlocksInColumn.push(y);
+            }
+          }
+
+          // Mapear cada bloque original a su nueva posición
+          // Asumimos que los bloques mantienen su orden relativo
+          for (let i = 0; i < originalBlocksInColumn.length; i++) {
+            const originalY = originalBlocksInColumn[i];
+            if (i < finalBlocksInColumn.length) {
+              const newY = finalBlocksInColumn[i];
+              if (newY !== originalY) {
+                blocksToMove.push({
+                  x,
+                  y: originalY,
+                  z,
+                  newY,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        blocksToRemove,
+        blocksToMove,
+        finalGrid: workingGrid,
+      };
+    },
+    [size, detectLineClears, applyLineClearToGrid]
+  );
+
   const isInsideBounds = useCallback(
     (x: number, y: number, z: number): boolean =>
       x >= 0 && x < size && y >= 0 && y < size && z >= 0 && z < size,
@@ -789,45 +905,26 @@ export default function Game({ difficulty }: GameProps) {
           }
         });
 
-        // Acumular todas las animaciones
-        const blocksToRemove: { x: number; y: number; z: number }[] = [];
-        const blocksToMove: {
-          x: number;
-          y: number;
-          z: number;
-          newY: number;
-        }[] = [];
-
-        if (!reachedLimit) {
-          // Detectar líneas completas en cada nivel afectado
-          lockedLevels.forEach((level) => {
-            const { toRemove, toMove } = detectLineClears(tempGrid, level);
-
-            toRemove.forEach((r) => {
-              blocksToRemove.push({ x: r.x, y: level, z: r.z });
-            });
-
-            toMove.forEach((m) => {
-              // Solo añadir si no está ya marcado
-              if (
-                !blocksToMove.some(
-                  (b) => b.x === m.x && b.y === m.fromY && b.z === m.z
-                )
-              ) {
-                blocksToMove.push({ x: m.x, y: m.fromY, z: m.z, newY: m.toY });
-              }
-            });
-
-            // Aplicar al grid temporal para la siguiente detección
-            tempGrid = applyLineClearToGrid(tempGrid, level);
-          });
-        }
+        // Procesar todas las líneas de forma iterativa
+        const { blocksToRemove, blocksToMove, finalGrid } =
+          !reachedLimit
+            ? processLineClearsIteratively(tempGrid)
+            : {
+                blocksToRemove: [] as { x: number; y: number; z: number }[],
+                blocksToMove: [] as {
+                  x: number;
+                  y: number;
+                  z: number;
+                  newY: number;
+                }[],
+                finalGrid: tempGrid,
+              };
 
         // Actualizar bloques visuales con animaciones
         setVisualBlocks((prev) => {
           let updatedBlocks = [...prev, ...newVisualBlocks];
 
-          // Marcar bloques para eliminación
+          // Primero, marcar bloques para eliminación
           updatedBlocks = updatedBlocks.map((vb) => {
             const shouldRemove = blocksToRemove.some(
               (r) =>
@@ -840,14 +937,17 @@ export default function Game({ difficulty }: GameProps) {
           });
 
           // Actualizar posiciones de bloques que deben bajar
-          // Actualizar tanto y (posición lógica) como targetY (posición de animación)
-          // También actualizar el color basado en la nueva posición Y
+          // La función processLineClearsIteratively ya calcula el newY final correcto
+          // incluso si el bloque baja múltiples veces en cascada
           updatedBlocks = updatedBlocks.map((vb) => {
             if (vb.destroying) return vb;
+
+            // Buscar si este bloque debe moverse
+            // Buscar por posición lógica actual (y) que es la posición original antes de cualquier movimiento
             const moveInfo = blocksToMove.find(
-              (m) =>
-                m.x === vb.targetX && m.y === vb.targetY && m.z === vb.targetZ
+              (m) => m.x === vb.targetX && m.y === vb.y && m.z === vb.targetZ
             );
+
             if (moveInfo) {
               // Actualizar posición real y objetivo para que el bloque sea elegible
               // para formar nuevas líneas en su nueva posición
@@ -871,7 +971,7 @@ export default function Game({ difficulty }: GameProps) {
         }
 
         // Actualizar grid lógico final
-        setGrid(tempGrid);
+        setGrid(finalGrid);
 
         if (reachedLimit) {
           setIsGameOver(true);
@@ -919,8 +1019,7 @@ export default function Game({ difficulty }: GameProps) {
     size,
     checkCollision,
     isInsideBounds,
-    detectLineClears,
-    applyLineClearToGrid,
+    processLineClearsIteratively,
     getBlockVariantParams,
     getActiveBlockVariantParams,
     isGameOver,
