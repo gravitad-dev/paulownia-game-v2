@@ -20,7 +20,7 @@ const rewardTabs: RewardTab[] = [
     label: "Canjear",
     href: "/game/rewards",
     icon: ArrowLeftRight,
-    getContent: (stats) => ({
+    getContent: () => ({
       title: "Canjear Monedas",
       subtitle:
         "Convierte tus monedas en tickets para participar en los premios",
