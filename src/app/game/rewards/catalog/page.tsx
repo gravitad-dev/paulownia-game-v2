@@ -1,31 +1,116 @@
 "use client";
 
-import { Gift } from "lucide-react";
+import { CatalogGrid } from "@/components/game/rewards/catalog";
+import { TablePagination } from "@/components/ui/TablePagination";
+import { RewardService } from "@/services/reward.service";
+import { useCatalogStore } from "@/store/useCatalogStore";
+import type { CatalogReward, StrapiPagination } from "@/types/reward";
+import { AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
+const PAGE_SIZE = 8;
+
+/**
+ * Filtra premios de tipo currency por nombre (coins vs tickets)
+ */
+function filterBySubtype(
+  rewards: CatalogReward[],
+  filter: string,
+): CatalogReward[] {
+  if (filter === "coins") {
+    return rewards.filter((r) => r.name.toLowerCase().includes("coin"));
+  }
+  if (filter === "tickets") {
+    return rewards.filter((r) => r.name.toLowerCase().includes("ticket"));
+  }
+  return rewards;
+}
 
 export default function CatalogPage() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full p-6">
-      <div className="text-center max-w-md">
-        <div className="inline-block mb-6">
-          <div className="p-6 bg-linear-to-br from-primary/20 to-primary/5 rounded-full">
-            <Gift className="h-16 w-16 text-primary" />
-          </div>
-        </div>
+  const filter = useCatalogStore((state) => state.filter);
+  const [rewards, setRewards] = useState<CatalogReward[]>([]);
+  const [pagination, setPagination] = useState<StrapiPagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-        <h2 className="text-xl font-semibold mb-2">Catálogo de Premios</h2>
-        <p className="text-muted-foreground mb-6">
-          Aquí podrás ver todos los premios disponibles que puedes ganar usando
-          tus tickets en la ruleta.
-        </p>
+  const fetchCatalog = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-        <div className="p-4 bg-muted/50 rounded-lg border border-dashed border-border">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Próximamente:</span>{" "}
-            El catálogo de premios estará disponible muy pronto. ¡Prepárate para
-            descubrir increíbles recompensas!
-          </p>
-        </div>
+    try {
+      const response = await RewardService.getCatalog({
+        page,
+        pageSize: PAGE_SIZE,
+        typeReward: filter,
+      });
+
+      // Filtrar en frontend para coins/tickets
+      const filteredData = filterBySubtype(response.data, filter);
+      setRewards(filteredData);
+
+      // Ajustar paginación si filtramos en frontend
+      if (filter === "coins" || filter === "tickets") {
+        setPagination({
+          ...response.meta.pagination,
+          total: filteredData.length,
+          pageCount: 1,
+        });
+      } else {
+        setPagination(response.meta.pagination);
+      }
+    } catch (err) {
+      console.error("Error fetching catalog:", err);
+      setError("No se pudo cargar el catálogo de premios");
+      setRewards([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, filter]);
+
+  useEffect(() => {
+    fetchCatalog();
+  }, [fetchCatalog]);
+
+  // Reset página cuando cambia el filtro
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  // Error state
+  if (error && !isLoading && rewards.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-muted-foreground text-center">{error}</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full p-4 sm:p-6 max-w-6xl mx-auto">
+      {/* Grid de premios - ocupa todo el espacio disponible */}
+      <div className="flex-1">
+        <CatalogGrid rewards={rewards} isLoading={isLoading} />
+      </div>
+
+      {/* Paginación - siempre al fondo */}
+      {pagination && pagination.total > 0 && (
+        <div className="pt-4">
+          <TablePagination
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            onPageChange={handlePageChange}
+            label="premios"
+          />
+        </div>
+      )}
     </div>
   );
 }

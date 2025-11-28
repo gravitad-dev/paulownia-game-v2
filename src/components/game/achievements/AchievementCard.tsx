@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { RewardCard } from "@/components/ui/RewardCard";
+import { FALLBACK_IMAGES } from "@/constants";
 import { AchievementProgressBar } from "./AchievementProgressBar";
 import {
   Coins,
@@ -119,7 +120,8 @@ export function AchievementCard({
   return (
     <RewardCard
       name={title}
-      image={image ? { url: image } : null} // Achievement image is string | null, RewardCard expects { url: string } | null. Wait, let's check types.
+      image={image ? { url: image } : null}
+      fallbackImage={FALLBACK_IMAGES.achievement}
       status={status}
       buttonText={buttonText}
       buttonIcon={buttonIcon}
@@ -144,15 +146,15 @@ export function AchievementCard({
             <RewardIcon type={rewardType} className="h-3 w-3" />
             <span>{rewardAmount}</span>
           </div>
-          
+
           {/* Target Icon */}
-           <div className="text-muted-foreground">
-             <TargetIcon type={targetType} className="h-4 w-4" />
-           </div>
+          <div className="text-muted-foreground">
+            <TargetIcon type={targetType} className="h-4 w-4" />
+          </div>
         </div>
 
         {/* Description */}
-        <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+        <p className="text-sm text-muted-foreground line-clamp-2 min-h-10">
           {description}
         </p>
 

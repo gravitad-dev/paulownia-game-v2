@@ -1,5 +1,17 @@
 import { api } from "@/lib/api";
-import type { SpinResponse, RouletteHistoryItem } from "@/types/reward";
+import type {
+  SpinResponse,
+  RouletteHistoryItem,
+  CatalogResponse,
+} from "@/types/reward";
+import type { CatalogFilterType } from "@/store/useCatalogStore";
+
+export interface GetCatalogParams {
+  page?: number;
+  pageSize?: number;
+  typeReward?: CatalogFilterType;
+  sort?: string;
+}
 
 /**
  * Servicio para la Ruleta de Premios
@@ -39,5 +51,46 @@ export const RewardService = {
       // Si el endpoint no existe o falla, retornar array vacío
       return [];
     }
+  },
+
+  /**
+   * Obtiene el catálogo de premios disponibles
+   * coins y tickets se filtran en frontend ya que el backend solo tiene "currency"
+   */
+  getCatalog: async (
+    params: GetCatalogParams = {},
+  ): Promise<CatalogResponse> => {
+    const {
+      page = 1,
+      pageSize = 12,
+      typeReward = "all",
+      sort = "name:asc",
+    } = params;
+
+    // Construir query string manualmente para Strapi
+    const queryParts: string[] = [
+      "populate=image",
+      `pagination[page]=${page}`,
+      `pagination[pageSize]=${pageSize}`,
+      `sort=${sort}`,
+    ];
+
+    // Mapear filtro a tipo de backend
+    // coins y tickets son currency en el backend, se filtran después
+    const backendType =
+      typeReward === "coins" || typeReward === "tickets"
+        ? "currency"
+        : typeReward;
+
+    // Filtrar por tipo si no es "all"
+    if (backendType && backendType !== "all") {
+      queryParts.push(`filters[typeReward][$eq]=${backendType}`);
+    }
+
+    const response = await api.get<CatalogResponse>(
+      `/api/rewards?${queryParts.join("&")}`,
+    );
+
+    return response.data;
   },
 };
