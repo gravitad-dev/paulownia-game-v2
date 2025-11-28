@@ -39,11 +39,11 @@ Monedas (Coins) → Se obtienen jugando niveles, recompensas diarias
 
 La página de Premios (`/game/rewards`) utiliza un `TabLayout` similar a Eventos, con 3 tabs:
 
-| Tab | Nombre    | Ruta                      | Icono            | Descripción                                      |
-| --- | --------- | ------------------------- | ---------------- | ------------------------------------------------ |
-| 1   | Canjear   | `/game/rewards`           | `ArrowLeftRight` | Canje de monedas por tickets (tab por defecto)   |
-| 2   | Descubrir | `/game/rewards/discover`  | `Sparkles`       | Ruleta/sorteo para descubrir premios con tickets |
-| 3   | Catálogo  | `/game/rewards/catalog`   | `Gift`           | Lista de premios disponibles que se pueden ganar |
+| Tab | Nombre    | Ruta                     | Icono            | Descripción                                      |
+| --- | --------- | ------------------------ | ---------------- | ------------------------------------------------ |
+| 1   | Canjear   | `/game/rewards`          | `ArrowLeftRight` | Canje de monedas por tickets (tab por defecto)   |
+| 2   | Descubrir | `/game/rewards/discover` | `Sparkles`       | Ruleta/sorteo para descubrir premios con tickets |
+| 3   | Catálogo  | `/game/rewards/catalog`  | `Gift`           | Lista de premios disponibles que se pueden ganar |
 
 > **Nota:** El orden de las tabs se controla desde el array `rewardTabs` en `layout.tsx`. La primera tab del array siempre corresponde a la ruta raíz (`/game/rewards`).
 
