@@ -1,31 +1,31 @@
-# Catalog System
+# Sistema de Catálogo
 
-The catalog displays all available prizes that users can win through the roulette system.
+El catálogo muestra todos los premios disponibles que los usuarios pueden ganar a través del sistema de ruleta.
 
-## Overview
+## Descripción General
 
-The catalog provides a browsable view of all rewards, allowing users to see what prizes are available before spending their tickets on the roulette.
+El catálogo proporciona una vista navegable de todas las recompensas, permitiendo a los usuarios ver qué premios están disponibles antes de gastar sus tickets en la ruleta.
 
-## Features
+## Características
 
-- **Filtered View**: Filter rewards by type (coins, tickets, consumables, cosmetics)
-- **Responsive Grid**: 2 columns on mobile, 3 on tablet, 4 on desktop
-- **Pagination**: Navigate through all available rewards
-- **Smooth Animations**: Staggered fade-in animations for cards
+- **Vista Filtrada**: Filtrar premios por tipo (monedas, tickets, consumibles, cosméticos)
+- **Grid Responsivo**: 2 columnas en móvil, 3 en tablet, 4 en escritorio
+- **Paginación**: Navegar por todos los premios disponibles
+- **Animaciones Suaves**: Animaciones escalonadas de fade-in para las tarjetas
 
-## API Endpoint
+## Endpoint de API
 
-### Get Catalog
+### Obtener Catálogo
 
 ```
 GET /api/rewards?populate=image&pagination[page]=1&pagination[pageSize]=8&sort=name:asc
 ```
 
-**Optional Filters:**
+**Filtros Opcionales:**
 
-- `filters[typeReward][$eq]=currency` - Filter by reward type
+- `filters[typeReward][$eq]=currency` - Filtrar por tipo de recompensa
 
-**Response:**
+**Respuesta:**
 
 ```json
 {
@@ -35,7 +35,7 @@ GET /api/rewards?populate=image&pagination[page]=1&pagination[pageSize]=8&sort=n
       "documentId": "abc123",
       "uuid": "R04uSATn5BN9YLGiMUUBMYkM",
       "name": "100 Coins",
-      "description": "A small amount of coins",
+      "description": "Una pequeña cantidad de monedas",
       "typeReward": "currency",
       "quantity": 50,
       "value": 100,
@@ -61,26 +61,26 @@ GET /api/rewards?populate=image&pagination[page]=1&pagination[pageSize]=8&sort=n
 }
 ```
 
-## Reward Types
+## Tipos de Recompensa
 
-| Type         | Description           | Examples        |
-| ------------ | --------------------- | --------------- |
-| `currency`   | In-game currency      | Coins, Tickets  |
-| `consumable` | One-time use items    | Gift Cards      |
-| `cosmetic`   | Visual customizations | Avatars, Themes |
+| Tipo         | Descripción                | Ejemplos         |
+| ------------ | -------------------------- | ---------------- |
+| `currency`   | Moneda del juego           | Monedas, Tickets |
+| `consumable` | Items de un solo uso       | Gift Cards       |
+| `cosmetic`   | Personalizaciones visuales | Avatares, Temas  |
 
-## Frontend Filtering
+## Filtrado en Frontend
 
-Since the backend uses `currency` for both coins and tickets, the frontend applies additional filtering based on the reward name:
+Como el backend usa `currency` tanto para monedas como para tickets, el frontend aplica filtrado adicional basado en el nombre de la recompensa:
 
-- **Coins**: `reward.name.toLowerCase().includes("coin")`
+- **Monedas**: `reward.name.toLowerCase().includes("coin")`
 - **Tickets**: `reward.name.toLowerCase().includes("ticket")`
 
-## Components
+## Componentes
 
 ### CatalogFilters
 
-Filter buttons for selecting reward type.
+Botones de filtro para seleccionar el tipo de recompensa.
 
 ```tsx
 <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
@@ -88,7 +88,7 @@ Filter buttons for selecting reward type.
 
 ### CatalogCard
 
-Individual reward card with image, type badge, and description.
+Tarjeta individual de recompensa con imagen, badge de tipo y descripción.
 
 ```tsx
 <CatalogCard reward={reward} />
@@ -96,15 +96,15 @@ Individual reward card with image, type badge, and description.
 
 ### CatalogGrid
 
-Responsive grid with staggered animations.
+Grid responsivo con animaciones escalonadas.
 
 ```tsx
 <CatalogGrid rewards={rewards} isLoading={isLoading} />
 ```
 
-## State Management
+## Gestión de Estado
 
-The catalog uses a Zustand store (`useCatalogStore`) to manage filter state across the layout and page components.
+El catálogo usa un store de Zustand (`useCatalogStore`) para gestionar el estado de los filtros entre el layout y los componentes de la página.
 
 ```typescript
 interface CatalogState {
@@ -113,9 +113,9 @@ interface CatalogState {
 }
 ```
 
-## Fallback Images
+## Imágenes de Fallback
 
-Fallback images are centralized in `/src/constants/images.ts`:
+Las imágenes de fallback están centralizadas en `/src/constants/images.ts`:
 
 ```typescript
 export const FALLBACK_IMAGES = {
@@ -125,15 +125,15 @@ export const FALLBACK_IMAGES = {
 };
 ```
 
-Local images are stored in `/public/images/fallbacks/`.
+Las imágenes locales se almacenan en `/public/images/fallbacks/`.
 
-## UI/UX Details
+## Detalles de UI/UX
 
-- Cards have hover shadow effect
-- Type badges are color-coded:
-  - Coins: Amber
-  - Tickets: Blue
-  - Consumables: Green
-  - Cosmetics: Purple
-- Pagination stays at the bottom of the container
-- Filter buttons are integrated into the page header
+- Las tarjetas tienen efecto de sombra al hover
+- Los badges de tipo están codificados por color:
+  - Monedas: Ámbar
+  - Tickets: Azul
+  - Consumibles: Verde
+  - Cosméticos: Púrpura
+- La paginación se mantiene en la parte inferior del contenedor
+- Los botones de filtro están integrados en el header de la página
