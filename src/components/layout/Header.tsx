@@ -180,7 +180,7 @@ export function Header() {
         </Link>
 
         {/* Columna 2: Navigation Menu */}
-        <nav className="flex items-center gap-1 flex-1 justify-center">
+        <nav className="flex items-center gap-1 sm:gap-2 flex-1 justify-center">
           {navigation.map((item, index) => {
             const isActive =
               item.href === "/game"

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { RewardCard } from "@/components/ui/RewardCard";
 import { AchievementProgressBar } from "./AchievementProgressBar";
 import {
   Coins,
@@ -83,6 +82,7 @@ export function AchievementCard({
     goalAmount,
     rewardType,
     rewardAmount,
+    image,
     targetType,
   } = achievement;
 
@@ -96,135 +96,73 @@ export function AchievementCard({
     }
   };
 
-  // Estilos según el estado
-  const cardStyles = {
-    locked: "bg-muted/20 border-muted-foreground/20 opacity-75",
-    completed:
-      "bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/50 shadow-lg shadow-primary/10",
-    claimed: "bg-emerald-500/10 border-emerald-500/30",
-  };
+  // Determinar texto e icono del botón según estado
+  let buttonText = "Reclamar";
+  let buttonIcon = Gift;
 
-  const iconContainerStyles = {
-    locked: "bg-muted/50 text-muted-foreground/70",
-    completed: "bg-primary text-primary-foreground shadow-lg shadow-primary/30",
-    claimed: "bg-emerald-500 text-white",
-  };
+  if (isClaimingThis || isClaiming) {
+    buttonText = "Reclamando...";
+    buttonIcon = Loader2;
+  } else if (status === "locked") {
+    buttonText = "Bloqueado";
+    buttonIcon = Lock;
+  } else if (status === "claimed") {
+    buttonText = "Reclamado";
+    buttonIcon = Check;
+  }
+
+  // Fallback image based on target type if no image is provided
+  // This is optional, we could just let RewardCard use its default
+  // or we could map targetType to specific images.
+  // For now we'll rely on the default or the provided image.
 
   return (
-    <Card
-      className={cn(
-        "relative overflow-hidden transition-all duration-300 hover:shadow-md",
-        cardStyles[status],
-        status === "completed" && "hover:shadow-primary/20",
-      )}
+    <RewardCard
+      name={title}
+      image={image ? { url: image } : null} // Achievement image is string | null, RewardCard expects { url: string } | null. Wait, let's check types.
+      status={status}
+      buttonText={buttonText}
+      buttonIcon={buttonIcon}
+      onAction={status === "completed" ? handleClaim : undefined}
+      isLoading={isClaimingThis}
+      disabled={status !== "completed" || isClaiming}
+      className="h-full"
     >
-      {/* Efecto de brillo para disponible */}
-      {status === "completed" && (
-        <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer" />
-      )}
-
-      <CardContent className="p-4">
-        <div className="flex gap-4">
-          {/* Icono del logro */}
+      <div className="space-y-3">
+        {/* Reward Badge */}
+        <div className="flex items-center justify-between">
           <div
             className={cn(
-              "shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-              iconContainerStyles[status],
+              "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap w-fit",
+              status === "locked"
+                ? "bg-muted/50 text-muted-foreground"
+                : status === "claimed"
+                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                : "bg-primary/20 text-primary",
             )}
           >
-            {status === "locked" ? (
-              <Lock className="h-5 w-5" />
-            ) : status === "claimed" ? (
-              <Check className="h-5 w-5" />
-            ) : (
-              <TargetIcon type={targetType} />
-            )}
+            <RewardIcon type={rewardType} className="h-3 w-3" />
+            <span>{rewardAmount}</span>
           </div>
-
-          {/* Contenido */}
-          <div className="flex-1 min-w-0">
-            {/* Título y recompensa */}
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <h3
-                className={cn(
-                  "font-semibold text-sm line-clamp-1",
-                  status === "locked"
-                    ? "text-muted-foreground"
-                    : status === "claimed"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-foreground",
-                )}
-              >
-                {title}
-              </h3>
-
-              {/* Badge de recompensa */}
-              <div
-                className={cn(
-                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
-                  status === "locked"
-                    ? "bg-muted/50 text-muted-foreground"
-                    : status === "claimed"
-                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                    : "bg-primary/20 text-primary",
-                )}
-              >
-                <RewardIcon type={rewardType} className="h-3 w-3" />
-                <span>{rewardAmount}</span>
-              </div>
-            </div>
-
-            {/* Descripción */}
-            <p
-              className={cn(
-                "text-xs line-clamp-2 mb-3",
-                status === "locked"
-                  ? "text-muted-foreground/70"
-                  : "text-muted-foreground",
-              )}
-            >
-              {description}
-            </p>
-
-            {/* Barra de progreso */}
-            <AchievementProgressBar
-              currentProgress={currentProgress}
-              goalAmount={goalAmount}
-              status={status}
-            />
-
-            {/* Botón de reclamar */}
-            {status === "completed" && onClaim && (
-              <Button
-                size="sm"
-                className="w-full mt-3 bg-primary hover:bg-primary/90"
-                onClick={handleClaim}
-                disabled={isClaimingThis || isClaiming}
-              >
-                {isClaimingThis ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Reclamando...
-                  </>
-                ) : (
-                  <>
-                    <Gift className="h-4 w-4 mr-2" />
-                    Reclamar recompensa
-                  </>
-                )}
-              </Button>
-            )}
-
-            {/* Badge de reclamado */}
-            {status === "claimed" && (
-              <div className="flex items-center justify-center gap-1.5 mt-3 py-1.5 px-3 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-                <Check className="h-3.5 w-3.5" />
-                Recompensa reclamada
-              </div>
-            )}
-          </div>
+          
+          {/* Target Icon */}
+           <div className="text-muted-foreground">
+             <TargetIcon type={targetType} className="h-4 w-4" />
+           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Description */}
+        <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+          {description}
+        </p>
+
+        {/* Progress Bar */}
+        <AchievementProgressBar
+          currentProgress={currentProgress}
+          goalAmount={goalAmount}
+          status={status}
+        />
+      </div>
+    </RewardCard>
   );
 }

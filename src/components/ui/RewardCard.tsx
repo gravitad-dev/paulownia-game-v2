@@ -52,6 +52,10 @@ export interface RewardCardProps {
    * Clases adicionales
    */
   className?: string;
+  /**
+   * Contenido adicional (descripción, barra de progreso, etc)
+   */
+  children?: React.ReactNode;
 }
 
 const DEFAULT_FALLBACK =
@@ -92,20 +96,31 @@ export function RewardCard({
   buttonVariant = "default",
   disabled = false,
   className,
+  children,
 }: RewardCardProps) {
   const imageUrl = getStrapiImageUrl(image?.url) || fallbackImage;
 
   const isDisabled = disabled || isLoading || !onAction;
   const effectiveVariant = status === "locked" ? "outline" : buttonVariant;
 
+  const hasChildren = Boolean(children);
+
   return (
     <Card
       className={cn(
-        "flex flex-col overflow-hidden hover:shadow-lg transition-shadow h-60 sm:h-[260px] md:h-[280px]",
+        "flex flex-col overflow-hidden hover:shadow-lg transition-shadow",
+        hasChildren 
+          ? "h-auto min-h-[280px]" 
+          : "h-60 sm:h-[260px] md:h-[280px]",
         className,
       )}
     >
-      <div className="relative flex-1 bg-muted overflow-hidden">
+      <div 
+        className={cn(
+          "relative bg-muted overflow-hidden",
+          hasChildren ? "h-32 sm:h-40 shrink-0" : "flex-1"
+        )}
+      >
         <Image
           src={imageUrl}
           alt={name}
@@ -119,7 +134,10 @@ export function RewardCard({
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         />
       </div>
-      <CardFooter className="p-4">
+      
+      {children && <div className="px-4 pt-4 flex-1">{children}</div>}
+
+      <CardFooter className="p-4 mt-auto">
         <Button
           className="w-full"
           onClick={onAction}

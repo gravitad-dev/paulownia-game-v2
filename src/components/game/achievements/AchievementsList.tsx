@@ -4,53 +4,18 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
-import type { AchievementStatus } from "@/types/achievements";
-import {
-  AlertCircle,
-  Ban,
-  CheckCircle2,
-  Gift,
-  List,
-  Loader2,
-  RefreshCw,
-  Trophy,
-} from "lucide-react";
+import { GridContainer } from "@/components/ui/GridContainer";
+import { GlobalProgressBar } from "./GlobalProgressBar";
+import { AlertCircle, RefreshCw, Trophy } from "lucide-react";
 import { useEffect, useRef, useCallback } from "react";
 import { AchievementCard } from "./AchievementCard";
-
-type FilterOption = AchievementStatus | "all";
-
-interface FilterButton {
-  value: FilterOption;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const filterButtons: FilterButton[] = [
-  { value: "all", label: "Todos", icon: <List className="h-4 w-4" /> },
-  {
-    value: "completed",
-    label: "Disponibles",
-    icon: <Gift className="h-4 w-4" />,
-  },
-  {
-    value: "locked",
-    label: "Bloqueados",
-    icon: <Ban className="h-4 w-4" />,
-  },
-  {
-    value: "claimed",
-    label: "Reclamados",
-    icon: <CheckCircle2 className="h-4 w-4" />,
-  },
-];
 
 interface AchievementsListProps {
   className?: string;
 }
 
 /**
- * Lista de logros con filtros y paginación
+ * Lista de logros con paginación
  */
 export function AchievementsList({ className }: AchievementsListProps) {
   const {
@@ -58,12 +23,9 @@ export function AchievementsList({ className }: AchievementsListProps) {
     isLoading,
     isClaiming,
     error,
-    currentFilter,
-    availableCount,
     lastClaimedAchievement,
     fetchAchievements,
     claimAchievement,
-    setFilter,
     clearLastClaimed,
   } = useAchievementsStore();
 
@@ -138,6 +100,26 @@ export function AchievementsList({ className }: AchievementsListProps) {
     return 0;
   });
 
+  const averagePercentage =
+    achievements.length > 0
+      ? (() => {
+          const sumPercents = achievements.reduce((sum, a) => {
+            const goal = a.goalAmount > 0 ? a.goalAmount : 0;
+            const progressClamped =
+              goal > 0 ? Math.min(a.currentProgress, goal) : 0;
+            const percent = goal > 0 ? (progressClamped / goal) * 100 : 0;
+            return sum + percent;
+          }, 0);
+          const raw = sumPercents / achievements.length;
+          const allComplete = achievements.every(
+            (a) => a.goalAmount > 0 && a.currentProgress >= a.goalAmount,
+          );
+          if (allComplete) return 100;
+          if (raw > 0 && raw < 1) return 1;
+          return Math.floor(raw);
+        })()
+      : 0;
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -153,66 +135,29 @@ export function AchievementsList({ className }: AchievementsListProps) {
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-2">
-        {filterButtons.map((filter) => (
-          <Button
-            key={filter.value}
-            variant={currentFilter === filter.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(filter.value)}
-            className={cn(
-              "gap-2",
-              currentFilter === filter.value && "shadow-md",
-            )}
-          >
-            {filter.icon}
-            <span>{filter.label}</span>
-            {filter.value === "completed" && availableCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary-foreground/20">
-                {availableCount}
-              </span>
-            )}
-          </Button>
-        ))}
-      </div>
-
-      {/* Estado de carga */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      )}
-
-      {/* Lista vacía */}
-      {!isLoading && sortedAchievements.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Trophy className="h-12 w-12 text-muted-foreground/50" />
-          <p className="text-muted-foreground text-center">
-            {currentFilter === "all"
-              ? "No hay logros disponibles"
-              : currentFilter === "completed"
-              ? "No tienes logros listos para reclamar"
-              : currentFilter === "claimed"
-              ? "Aún no has reclamado ningún logro"
-              : "No hay logros bloqueados"}
-          </p>
-        </div>
+      {/* Progreso Global */}
+      {!isLoading && achievements.length > 0 && (
+        <GlobalProgressBar averagePercentage={averagePercentage} />
       )}
 
       {/* Grid de logros */}
-      {!isLoading && sortedAchievements.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sortedAchievements.map((achievement) => (
-            <AchievementCard
-              key={achievement.uuid}
-              achievement={achievement}
-              onClaim={handleClaimAchievement}
-              isClaiming={isClaiming}
-            />
-          ))}
-        </div>
-      )}
+      <GridContainer
+        isLoading={isLoading}
+        gridCols="grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4"
+        padding="p-0"
+        spacing="space-y-0"
+        emptyMessage="No hay logros disponibles"
+        emptyIcon={Trophy}
+      >
+        {sortedAchievements.map((achievement) => (
+          <AchievementCard
+            key={achievement.uuid}
+            achievement={achievement}
+            onClaim={handleClaimAchievement}
+            isClaiming={isClaiming}
+          />
+        ))}
+      </GridContainer>
     </div>
   );
 }
