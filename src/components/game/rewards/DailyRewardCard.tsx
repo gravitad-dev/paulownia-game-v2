@@ -1,6 +1,7 @@
 "use client";
 
 import { RewardCard } from "@/components/ui/RewardCard";
+import { FALLBACK_IMAGES } from "@/constants";
 import { Lock, Check, Gift, Loader2 } from "lucide-react";
 import type { DailyReward } from "@/types/daily-rewards";
 
@@ -41,6 +42,7 @@ export function DailyRewardCard({
     <RewardCard
       name={name}
       image={image}
+      fallbackImage={FALLBACK_IMAGES.reward}
       status={status}
       buttonText={buttonText}
       buttonIcon={buttonIcon}

@@ -4,8 +4,9 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Card, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, CheckCircle } from "lucide-react";
 import { getStrapiImageUrl } from "@/lib/image-utils";
+import { FALLBACK_IMAGES } from "@/constants";
 
 export interface RewardCardProps {
   /**
@@ -58,9 +59,6 @@ export interface RewardCardProps {
   children?: React.ReactNode;
 }
 
-const DEFAULT_FALLBACK =
-  "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&h=600&fit=crop&q=60&auto=format";
-
 /**
  * Componente reutilizable para mostrar tarjetas de recompensas/logros
  *
@@ -87,7 +85,7 @@ const DEFAULT_FALLBACK =
 export function RewardCard({
   name,
   image,
-  fallbackImage = DEFAULT_FALLBACK,
+  fallbackImage = FALLBACK_IMAGES.reward,
   status = "available",
   buttonText,
   buttonIcon: ButtonIcon,
@@ -109,16 +107,14 @@ export function RewardCard({
     <Card
       className={cn(
         "flex flex-col overflow-hidden hover:shadow-lg transition-shadow",
-        hasChildren 
-          ? "h-auto min-h-[280px]" 
-          : "h-60 sm:h-[260px] md:h-[280px]",
+        hasChildren ? "h-auto min-h-[280px]" : "h-60 sm:h-[260px] md:h-[280px]",
         className,
       )}
     >
-      <div 
+      <div
         className={cn(
           "relative bg-muted overflow-hidden",
-          hasChildren ? "h-32 sm:h-40 shrink-0" : "flex-1"
+          hasChildren ? "h-32 sm:h-40 shrink-0" : "flex-1",
         )}
       >
         <Image
@@ -133,8 +129,16 @@ export function RewardCard({
           )}
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         />
+
+        {/* Overlay para estado reclamado */}
+        {status === "claimed" && (
+          <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center">
+            <CheckCircle className="h-10 w-10 text-white/90 mb-1" />
+            <span className="text-white/90 text-sm font-medium">Reclamado</span>
+          </div>
+        )}
       </div>
-      
+
       {children && <div className="px-4 pt-4 flex-1">{children}</div>}
 
       <CardFooter className="p-4 mt-auto">

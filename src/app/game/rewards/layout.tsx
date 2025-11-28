@@ -1,7 +1,9 @@
 "use client";
 
+import { CatalogFilters } from "@/components/game/rewards/catalog";
 import { IconTab } from "@/components/ui/IconTabs";
 import { TabLayout } from "@/components/ui/TabLayout";
+import { useCatalogStore } from "@/store/useCatalogStore";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import { ArrowLeftRight, Gift, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -66,9 +68,11 @@ export default function RewardsLayout({
   const pathname = usePathname();
   const router = useRouter();
   const playerStats = usePlayerStatsStore((state) => state.stats);
+  const { filter, setFilter } = useCatalogStore();
 
   const currentTab = getTabFromPathname(pathname);
   const { title, subtitle } = currentTab.getContent(playerStats);
+  const isCatalogPage = pathname === "/game/rewards/catalog";
 
   const handleTabChange = (value: string) => {
     const tab = rewardTabs.find((t) => t.value === value);
@@ -85,6 +89,11 @@ export default function RewardsLayout({
       showLabelsOnDesktop
       title={title}
       subtitle={subtitle}
+      headerAction={
+        isCatalogPage ? (
+          <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
+        ) : undefined
+      }
     >
       {children}
     </TabLayout>
