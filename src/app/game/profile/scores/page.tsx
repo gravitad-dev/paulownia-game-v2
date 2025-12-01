@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoresSummary } from "@/components/scores/ScoresSummary";
 import { ScoresTable } from "@/components/scores/ScoresTable";
 import { TablePagination } from "@/components/ui/TablePagination";
@@ -11,6 +10,7 @@ import {
   UserGameHistoryService,
   UserGameHistoriesResponse,
 } from "@/services/user-game-history.service";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 const PAGE_SIZE = 6;
 
@@ -29,8 +29,6 @@ export default function ScoresPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Para listar historiales necesitamos el documentId del usuario,
-  // ya que la relación en Strapi se guarda contra ese campo.
   const userDocumentId = user?.documentId;
   const hasUserDocumentId = Boolean(userDocumentId);
 
@@ -73,15 +71,9 @@ export default function ScoresPage() {
   };
 
   return (
-    <>
-      <CardHeader className="sticky top-0 z-10 bg-card space-y-0 p-0 shrink-0 border-b border-border/50">
-        <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
-          <CardTitle className="text-lg font-semibold sm:text-xl">
-            Puntajes
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="px-4 py-4 sm:px-6 sm:py-5">
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title="Puntajes" />
+      <div className="flex-1 p-4 space-y-4">
         {!hasUserDocumentId ? (
           <div className="flex h-full flex-col items-center justify-center text-center py-8">
             <p className="text-sm text-muted-foreground max-w-md">
@@ -90,7 +82,7 @@ export default function ScoresPage() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             <ScoresSummary histories={histories} />
 
             <ScoresTable
@@ -109,7 +101,7 @@ export default function ScoresPage() {
             />
           </div>
         )}
-      </CardContent>
-    </>
+      </div>
+    </div>
   );
 }

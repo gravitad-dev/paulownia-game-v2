@@ -135,9 +135,9 @@ export default function ExchangePage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Canjear Monedas" subtitle="" />
 
-      <div className="container mx-auto p-4 sm:p-6 space-y-4 max-w-6xl">
+      <div className="flex-1 p-4 space-y-4">
         {/* Header de Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
           <Card className="bg-linear-to-br from-amber-50/50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10 border-amber-100 dark:border-amber-800/50 shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2.5 bg-amber-500/10 rounded-full">
@@ -190,7 +190,7 @@ export default function ExchangePage() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-6xl mx-auto">
           {/* Columna Principal: Selector y Acción */}
           <div className="lg:col-span-7 space-y-4">
             <Card className="h-full border-primary/20 shadow-sm">

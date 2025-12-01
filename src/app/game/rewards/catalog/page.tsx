@@ -5,7 +5,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { RewardService } from "@/services/reward.service";
 import { useCatalogStore } from "@/store/useCatalogStore";
 import type { CatalogReward, StrapiPagination } from "@/types/reward";
-import { AlertCircle, Gift } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
@@ -74,7 +74,6 @@ export default function CatalogPage() {
   };
 
   const title = "Catálogo de Premios";
-  const subtitle = "Explora todos los premios que puedes ganar";
 
   // Error state
   if (error && !isLoading && rewards.length === 0) {
@@ -88,9 +87,9 @@ export default function CatalogPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <CardHeaderSticky title={title} subtitle={subtitle} titleIcon={Gift} />
+      <CardHeaderSticky title={title} />
 
-      <div className="flex flex-col flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto">
+      <div className="flex-1 p-4 space-y-4">
         {/* Filtros arriba del grid */}
         <div className="flex justify-start">
           <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />

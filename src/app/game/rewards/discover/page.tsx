@@ -110,7 +110,7 @@ export default function DiscoverRewardsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Descubrir Premio" />
 
-      <div className="h-full p-4 sm:p-6 overflow-y-auto">
+      <div className="flex-1 p-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full max-w-6xl mx-auto">
           {/* Columna principal: Ruleta */}
           <div className="lg:col-span-8 flex flex-col items-center justify-center">

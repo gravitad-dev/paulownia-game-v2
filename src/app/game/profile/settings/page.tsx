@@ -22,7 +22,6 @@ import { GuardianService } from "@/services/guardian.service";
 import { MediaService, UploadedFile } from "@/services/media.service";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { ChangePasswordModal } from "@/components/profile/ChangePasswordModal";
-import { CardContent } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -545,7 +544,7 @@ export default function ProfilePage() {
           }
         />
 
-        <CardContent className="space-y-6 px-6 py-6">
+        <div className="flex-1 p-4 space-y-6">
           <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <AvatarUpload
               user={user ?? null}
@@ -615,7 +614,7 @@ export default function ProfilePage() {
               </CollapsibleContent>
             </Collapsible>
           )}
-        </CardContent>
+        </div>
       </form>
     </FormProvider>
   );

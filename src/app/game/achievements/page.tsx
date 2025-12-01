@@ -19,14 +19,14 @@ export default function AchievementsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Logros" />
 
-      <div className="flex flex-col flex-1 space-y-4 overflow-y-auto">
+      <div className="flex-1 p-4 space-y-4">
         {/* Info de logros disponibles */}
-        <div className="px-4 py-3 sm:px-6 sm:py-3">
+        <div>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
 
         {/* Lista de logros */}
-        <div className="flex-1 px-4 sm:px-6">
+        <div className="flex-1">
           <AchievementsList />
         </div>
       </div>

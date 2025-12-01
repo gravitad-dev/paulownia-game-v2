@@ -76,21 +76,21 @@ export default function DailyRewardsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Recompensas Diarias" />
 
-      <div className="flex flex-col flex-1 space-y-4 overflow-y-auto">
+      <div className="flex-1 p-4 space-y-4">
         {/* Info de estado y countdown arriba del grid */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-sm text-muted-foreground">{subtitle}</p>
           {headerAction}
         </div>
 
         {/* Grid de recompensas - 100% ancho */}
-        <div className="flex-1">
+        <div className="flex-1 w-full">
           <GridContainer
             isLoading={isLoading}
             emptyMessage="No hay recompensas disponibles"
             emptyIcon={Gift}
-            padding=""
-            spacing=""
+            padding="p-0"
+            spacing="space-y-0"
             gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
             gap="gap-2"
           >

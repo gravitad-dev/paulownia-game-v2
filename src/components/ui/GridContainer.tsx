@@ -80,8 +80,8 @@ export function GridContainer({
   emptyIcon: EmptyIcon,
   gridCols = "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
   gap = "gap-3 sm:gap-4",
-  padding = "p-6",
-  spacing = "space-y-6",
+  padding = "p-0",
+  spacing = "space-y-0",
   className,
   showEmpty = false,
 }: GridContainerProps) {
