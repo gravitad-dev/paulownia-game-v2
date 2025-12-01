@@ -9,69 +9,71 @@ interface PuzzleFloorProps {
   position: [number, number, number];
 }
 
+/**
+ * Renderiza el suelo del puzzle con la imagen completa.
+ * 
+ * Sistema de coordenadas:
+ * - Grid: (0,0) a (gridSize-1, gridSize-1)
+ * - Celda (0,0) está en worldX = -halfSize + 0.5, worldZ = -halfSize + 0.5
+ * - Esta celda muestra la porción UV (0,0) a (1/gridSize, 1/gridSize) de la imagen
+ * 
+ * El plano rotado -90° en X tiene:
+ * - U aumentando con +X del mundo
+ * - V aumentando con +Z del mundo
+ * 
+ * Esto coincide con las coordenadas del grid, así que no se necesita inversión.
+ */
 export function PuzzleFloor({
   imageUrl,
   size,
-  gridSize,
   position,
 }: PuzzleFloorProps) {
-  // Cargar textura de la imagen
   const texture = useLoader(THREE.TextureLoader, imageUrl);
   
-  // Configurar textura base
   useMemo(() => {
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.flipY = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
   }, [texture]);
 
-  // Calcular tamaño de cada celda
-  const cellSize = size / gridSize;
-
-  // Crear celdas del puzzle
-  const cells = useMemo(() => {
-    return Array.from({ length: gridSize }, (_, x) =>
-      Array.from({ length: gridSize }, (_, z) => {
-        // Calcular posición de la celda
-        const cellX = (x - gridSize / 2) * cellSize + cellSize / 2;
-        const cellZ = (z - gridSize / 2) * cellSize + cellSize / 2;
-
-        // Calcular UV mapping para mostrar solo la porción correspondiente de la imagen
-        const uStart = x / gridSize;
-        const vStart = 1 - (z + 1) / gridSize; // Invertir V porque la imagen se carga de arriba a abajo
-
-        // Crear una textura clonada para esta celda con el offset correcto
-        const cellTexture = texture.clone();
-        cellTexture.offset.set(uStart, vStart);
-        cellTexture.repeat.set(1 / gridSize, 1 / gridSize);
-
-        return {
-          key: `puzzle-cell-${x}-${z}`,
-          x: cellX,
-          z: cellZ,
-          texture: cellTexture,
-        };
-      })
-    ).flat();
-  }, [texture, gridSize, cellSize]);
+  // Shader que mezcla la imagen con blanco para mayor contraste
+  const material = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        u_texture: { value: texture },
+        u_whiteBlend: { value: 0.5 }, // 50% de mezcla con blanco
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D u_texture;
+        uniform float u_whiteBlend;
+        varying vec2 vUv;
+        
+        void main() {
+          vec4 texColor = texture2D(u_texture, vUv);
+          // Mezclar con blanco para hacer la imagen más clara
+          vec3 lightenedColor = mix(texColor.rgb, vec3(1.0), u_whiteBlend);
+          gl_FragColor = vec4(lightenedColor, 1.0);
+        }
+      `,
+      side: THREE.DoubleSide,
+    });
+  }, [texture]);
 
   return (
-    <group position={position} rotation={[0, -Math.PI, 0]}>
-      {cells.map((cell) => (
-        <mesh
-          key={cell.key}
-          position={[cell.x, 0.01, cell.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <planeGeometry args={[cellSize * 0.98, cellSize * 0.98]} />
-          <meshStandardMaterial
-            map={cell.texture}
-            transparent={false}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ))}
-    </group>
+    <mesh
+      position={position}
+      rotation={[-Math.PI / 2, 0, 0]}
+      material={material}
+    >
+      <planeGeometry args={[size, size]} />
+    </mesh>
   );
 }
-

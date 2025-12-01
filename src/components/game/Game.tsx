@@ -15,9 +15,12 @@ import {
 } from "@/lib/game/three/tetrominoes";
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
 import { useGameSpeedStore } from "@/store/useGameSpeedStore";
+import { usePuzzleStore } from "@/store/usePuzzleStore";
 import { CameraConfigPanel } from "./CameraConfigPanel";
 import { FpsCounter } from "./FpsCounter";
 import { PuzzleFloor } from "./PuzzleFloor";
+import { PuzzleTileCube } from "./PuzzleTileCube";
+import { generatePuzzlePattern } from "@/lib/game/puzzleGenerator";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
@@ -41,6 +44,10 @@ interface VisualBlock {
   targetScale: number;
   destroying: boolean;
   variantParams: CubeVariantParams;
+  // Información de puzzle para bloques bloqueados
+  isPuzzleBlock?: boolean;
+  puzzleTileX?: number;
+  puzzleTileZ?: number;
 }
 
 let blockIdCounter = 0;
@@ -255,6 +262,68 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
   );
 }
 
+// Componente para bloques puzzle apilados (con animación)
+interface AnimatedPuzzleCubeProps {
+  block: VisualBlock;
+  halfSize: number;
+  onDestroyed: (id: number) => void;
+  imageUrl: string;
+  gridSize: number;
+}
+
+function AnimatedPuzzleCube({
+  block,
+  halfSize,
+  onDestroyed,
+  imageUrl,
+  gridSize,
+}: AnimatedPuzzleCubeProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const positionRef = useRef(
+    new THREE.Vector3(
+      block.x - halfSize + 0.5,
+      block.y - halfSize + 0.5,
+      block.z - halfSize + 0.5
+    )
+  );
+  const scaleRef = useRef(block.scale);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+
+    // Lerp posición
+    const targetPos = new THREE.Vector3(
+      block.targetX - halfSize + 0.5,
+      block.targetY - halfSize + 0.5,
+      block.targetZ - halfSize + 0.5
+    );
+    positionRef.current.lerp(targetPos, 0.22);
+    groupRef.current.position.copy(positionRef.current);
+
+    // Lerp escala
+    scaleRef.current += (block.targetScale - scaleRef.current) * 0.12;
+    groupRef.current.scale.setScalar(scaleRef.current);
+
+    // Callback cuando termine de destruirse
+    if (block.destroying && scaleRef.current < 0.01) {
+      onDestroyed(block.id);
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <PuzzleTileCube
+        position={[0, 0, 0]}
+        imageUrl={imageUrl}
+        gridSize={gridSize}
+        tileX={block.puzzleTileX ?? 0}
+        tileZ={block.puzzleTileZ ?? 0}
+        scale={1}
+      />
+    </group>
+  );
+}
+
 interface GameProps {
   difficulty: GameDifficulty;
   puzzleImageUrl?: string;
@@ -347,6 +416,9 @@ const LightingRig = () => (
   </>
 );
 
+// Tipo de estado del juego
+type GameState = "waiting" | "playing" | "gameover";
+
 export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
   const cameraConfig = useCameraConfigStore((state) => state.config);
@@ -368,10 +440,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     z: Math.floor(size / 2) - 1,
   });
 
+  // Estado del juego: waiting (pantalla inicial), playing (jugando), gameover (perdió)
+  const [gameState, setGameState] = useState<GameState>(
+    puzzleImageUrl ? "waiting" : "playing"
+  );
+
   // Sistema de bloques visuales con animación
   const [visualBlocks, setVisualBlocks] = useState<VisualBlock[]>([]);
   const [isFastForward, setIsFastForward] = useState(false);
   const lastTickTimeRef = useRef<number>(0);
+
+  // Sistema puzzle
+  const puzzleStore = usePuzzleStore();
+  const [lockedPieces, setLockedPieces] = useState<Set<string>>(new Set()); // IDs de piezas bloqueadas (no eliminables)
 
   // Callback cuando un bloque termina de destruirse
   const handleBlockDestroyed = useCallback((id: number) => {
@@ -444,7 +525,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     };
   }, []);
 
-  // Reiniciar grid y pieza al cambiar el tamaño (dificultad)
+  // Reiniciar grid y pieza al cambiar el tamaño (dificultad) o imagen de puzzle
   useEffect(() => {
     setGrid(createEmptyGrid(size));
     setActiveType("I");
@@ -459,7 +540,53 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     setIsFastForward(false);
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
-  }, [size]);
+    setLockedPieces(new Set());
+    // Resetear estado del juego según si hay imagen de puzzle
+    setGameState(puzzleImageUrl ? "waiting" : "playing");
+    if (puzzleImageUrl) {
+      const seed = Math.floor(Math.random() * 1000000);
+      const pattern = generatePuzzlePattern(size, seed);
+      puzzleStore.initialize(seed, pattern);
+    } else {
+      puzzleStore.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size, puzzleImageUrl]);
+
+  // Función para iniciar el juego
+  const startGame = useCallback(() => {
+    setGameState("playing");
+    lastTickTimeRef.current = performance.now();
+  }, []);
+
+  // Función para reiniciar el juego
+  const restartGame = useCallback(() => {
+    setGrid(createEmptyGrid(size));
+    setActiveType("I");
+    setActiveRotation(0);
+    setActivePosition({
+      x: Math.floor(size / 2) - 1,
+      y: size - 1,
+      z: Math.floor(size / 2) - 1,
+    });
+    setIsGameOver(false);
+    setVisualBlocks([]);
+    setIsFastForward(false);
+    lastTickTimeRef.current = performance.now();
+    blockIdCounter = 0;
+    setLockedPieces(new Set());
+    
+    if (puzzleImageUrl) {
+      const seed = Math.floor(Math.random() * 1000000);
+      const pattern = generatePuzzlePattern(size, seed);
+      puzzleStore.initialize(seed, pattern);
+      setGameState("waiting");
+    } else {
+      puzzleStore.reset();
+      setGameState("playing");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size, puzzleImageUrl]);
 
   const halfSize = size / 2;
 
@@ -483,10 +610,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   }, [size, cameraConfig]);
 
   // Detecta líneas completas y retorna bloques a eliminar y movimientos
+  // Las piezas bloqueadas NO cuentan para completar líneas (pero sí se eliminan si la línea se completa sin ellas)
   const detectLineClears = useCallback(
     (
       gridToCheck: Grid3D,
-      level: number
+      level: number,
+      lockedPieceIds: Set<string> = new Set()
     ): {
       toRemove: { x: number; z: number }[];
       toMove: { x: number; z: number; fromY: number; toY: number }[];
@@ -498,21 +627,39 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         return { toRemove, toMove };
       }
 
+      // Crear set de posiciones bloqueadas (piezas puzzle correctamente colocadas)
+      const lockedPositions = new Set<string>();
+      if (lockedPieceIds.size > 0 && puzzleImageUrl) {
+        puzzleStore.placedPieces.forEach((piece) => {
+          if (lockedPieceIds.has(piece.id)) {
+            piece.cells.forEach((cell) => {
+              lockedPositions.add(`${cell.x},${cell.z}`);
+            });
+          }
+        });
+      }
+
       // Verificar líneas Z (para cada X fijo)
+      // Las celdas bloqueadas NO cuentan para completar la línea
       for (let x = 0; x < size; x++) {
         let zLineFull = true;
         for (let z = 0; z < size; z++) {
-          if (gridToCheck[x][level][z] !== "filled") {
+          const isLocked = lockedPositions.has(`${x},${z}`);
+          // Si la celda está bloqueada, no cuenta para completar la línea
+          if (gridToCheck[x][level][z] !== "filled" || isLocked) {
             zLineFull = false;
             break;
           }
         }
         if (zLineFull) {
           for (let z = 0; z < size; z++) {
-            toRemove.push({ x, z });
-            // Marcar bloques superiores para bajar
+            // No eliminar bloques bloqueados
+            if (!lockedPositions.has(`${x},${z}`)) {
+              toRemove.push({ x, z });
+            }
+            // Marcar bloques superiores para bajar (excepto bloqueados)
             for (let yy = level + 1; yy < size; yy++) {
-              if (gridToCheck[x][yy][z] === "filled") {
+              if (gridToCheck[x][yy][z] === "filled" && !lockedPositions.has(`${x},${z}`)) {
                 toMove.push({ x, z, fromY: yy, toY: yy - 1 });
               }
             }
@@ -521,23 +668,26 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       }
 
       // Verificar líneas X (para cada Z fijo)
+      // Las celdas bloqueadas NO cuentan para completar la línea
       for (let z = 0; z < size; z++) {
         let xLineFull = true;
         for (let x = 0; x < size; x++) {
-          if (gridToCheck[x][level][z] !== "filled") {
+          const isLocked = lockedPositions.has(`${x},${z}`);
+          // Si la celda está bloqueada, no cuenta para completar la línea
+          if (gridToCheck[x][level][z] !== "filled" || isLocked) {
             xLineFull = false;
             break;
           }
         }
         if (xLineFull) {
           for (let x = 0; x < size; x++) {
-            // Solo añadir si no está ya en toRemove
-            if (!toRemove.some((r) => r.x === x && r.z === z)) {
+            // Solo añadir si no está ya en toRemove y no está bloqueado
+            if (!toRemove.some((r) => r.x === x && r.z === z) && !lockedPositions.has(`${x},${z}`)) {
               toRemove.push({ x, z });
             }
-            // Marcar bloques superiores para bajar
+            // Marcar bloques superiores para bajar (excepto bloqueados)
             for (let yy = level + 1; yy < size; yy++) {
-              if (gridToCheck[x][yy][z] === "filled") {
+              if (gridToCheck[x][yy][z] === "filled" && !lockedPositions.has(`${x},${z}`)) {
                 const existing = toMove.find(
                   (m) => m.x === x && m.z === z && m.fromY === yy
                 );
@@ -552,17 +702,34 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
       return { toRemove, toMove };
     },
-    [size]
+    [size, puzzleImageUrl, puzzleStore]
   );
 
   // Aplica la limpieza al grid lógico
+  // Las piezas bloqueadas se mantienen fijas - no se mueven ni se eliminan
   const applyLineClearToGrid = useCallback(
-    (gridToClean: Grid3D, level: number): Grid3D => {
+    (gridToClean: Grid3D, level: number, lockedPieceIds: Set<string> = new Set()): Grid3D => {
       if (level < 0 || level >= size) {
         return gridToClean;
       }
 
+      // Crear un set de posiciones bloqueadas
+      const lockedPositions = new Set<string>();
+      if (lockedPieceIds.size > 0 && puzzleImageUrl) {
+        puzzleStore.placedPieces.forEach((piece) => {
+          if (lockedPieceIds.has(piece.id)) {
+            piece.cells.forEach((cell) => {
+              lockedPositions.add(`${cell.x},${cell.z}`);
+            });
+          }
+        });
+      }
+
       const shiftColumnDown = (x: number, z: number) => {
+        // No mover bloques en posiciones bloqueadas
+        if (lockedPositions.has(`${x},${z}`)) {
+          return;
+        }
         for (let yy = level; yy < size - 1; yy++) {
           gridToClean[x][yy][z] = gridToClean[x][yy + 1][z];
         }
@@ -576,14 +743,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         for (let x = 0; x < size; x++) {
           let zLineFull = true;
           for (let z = 0; z < size; z++) {
-            if (gridToClean[x][level][z] !== "filled") {
+            const isLocked = lockedPositions.has(`${x},${z}`);
+            // Bloques bloqueados no cuentan para completar línea
+            if (gridToClean[x][level][z] !== "filled" || isLocked) {
               zLineFull = false;
               break;
             }
           }
           if (zLineFull) {
             for (let z = 0; z < size; z++) {
-              shiftColumnDown(x, z);
+              if (!lockedPositions.has(`${x},${z}`)) {
+                shiftColumnDown(x, z);
+              }
             }
             changed = true;
           }
@@ -592,14 +763,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         for (let z = 0; z < size; z++) {
           let xLineFull = true;
           for (let x = 0; x < size; x++) {
-            if (gridToClean[x][level][z] !== "filled") {
+            const isLocked = lockedPositions.has(`${x},${z}`);
+            // Bloques bloqueados no cuentan para completar línea
+            if (gridToClean[x][level][z] !== "filled" || isLocked) {
               xLineFull = false;
               break;
             }
           }
           if (xLineFull) {
             for (let x = 0; x < size; x++) {
-              shiftColumnDown(x, z);
+              if (!lockedPositions.has(`${x},${z}`)) {
+                shiftColumnDown(x, z);
+              }
             }
             changed = true;
           }
@@ -608,13 +783,14 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
       return gridToClean;
     },
-    [size]
+    [size, puzzleImageUrl, puzzleStore]
   );
 
   // Procesa todas las líneas completas de forma iterativa hasta que no haya más
   const processLineClearsIteratively = useCallback(
     (
-      gridToProcess: Grid3D
+      gridToProcess: Grid3D,
+      lockedPieceIds: Set<string> = new Set()
     ): {
       blocksToRemove: { x: number; y: number; z: number }[];
       blocksToMove: { x: number; y: number; z: number; newY: number }[];
@@ -642,7 +818,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
         // Verificar todos los niveles desde 0 hasta MAX_STACK_HEIGHT
         for (let level = 0; level < MAX_STACK_HEIGHT; level++) {
-          const { toRemove } = detectLineClears(workingGrid, level);
+          const { toRemove } = detectLineClears(workingGrid, level, lockedPieceIds);
 
           if (toRemove.length > 0) {
             hasMoreLines = true;
@@ -659,7 +835,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             });
 
             // Aplicar la limpieza al grid de trabajo
-            workingGrid = applyLineClearToGrid(workingGrid, level);
+            workingGrid = applyLineClearToGrid(workingGrid, level, lockedPieceIds);
           }
         }
       }
@@ -801,7 +977,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     [calculateDropPosition]
   );
 
-  // Material de shader para mostrar solo bordes en los cubos ghost
+  // Material de shader para mostrar solo bordes en los cubos ghost (caída)
   const ghostMaterial = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -827,6 +1003,40 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               gl_FragColor = vec4(u_color, 0.8);
             } else {
               gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+            }
+          }
+        `,
+        transparent: true,
+      }),
+    []
+  );
+
+  // Material para el indicador de posición destino de piezas puzzle (verde)
+  const puzzleTargetMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          u_thickness: { value: 0.05 },
+          u_color: { value: new THREE.Color("#00ff88") },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          uniform float u_thickness;
+          uniform vec3 u_color;
+          void main() {
+            float thickness = u_thickness;
+            if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
+                vUv.x < thickness || vUv.x > 1.0 - thickness) {
+              gl_FragColor = vec4(u_color, 0.9);
+            } else {
+              gl_FragColor = vec4(u_color, 0.2);
             }
           }
         `,
@@ -931,7 +1141,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
   // Caída automática en eje Y usando requestAnimationFrame (como el proyecto original)
   useEffect(() => {
-    if (isGameOver) {
+    // Solo ejecutar cuando el juego está en estado "playing"
+    if (isGameOver || gameState !== "playing") {
       return;
     }
 
@@ -967,6 +1178,54 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           // Resetear fastForward cuando la pieza se bloquea
           setIsFastForward(false);
 
+          // Verificar si es una pieza puzzle y si coincide con el patrón
+          const currentPuzzlePiece = puzzleStore.currentPuzzlePiece;
+          let isPuzzleCorrectlyPlaced = false;
+          let puzzlePieceId: string | null = null;
+
+          if (currentPuzzlePiece && puzzleImageUrl) {
+            // Buscar la pieza en el patrón
+            const patternPiece = puzzleStore.pattern.find(
+              (p) => p.id === currentPuzzlePiece.id
+            );
+
+            if (patternPiece) {
+              // Comparar las celdas reales de la pieza activa con las celdas del patrón
+              // Las celdas del patrón son las posiciones XZ donde debe estar cada bloque
+              // Las celdas activas son las posiciones XZ actuales de cada bloque
+              
+              // Obtener celdas actuales (solo X, Z - ignoramos Y porque pueden caer en diferentes niveles)
+              const activeCells = activeWorldBlocks.map((block) => ({
+                x: block.x,
+                z: block.z,
+              }));
+              
+              // Comparar conjuntos de celdas (deben ser exactamente iguales)
+              const patternCellsSet = new Set(
+                patternPiece.cells.map((c) => `${c.x},${c.z}`)
+              );
+              const activeCellsSet = new Set(
+                activeCells.map((c) => `${c.x},${c.z}`)
+              );
+              
+              // Verificar que ambos conjuntos sean iguales
+              const cellsMatch = 
+                patternCellsSet.size === activeCellsSet.size &&
+                [...patternCellsSet].every((cell) => activeCellsSet.has(cell));
+
+              if (cellsMatch) {
+                // Pieza colocada correctamente - bloquear
+                isPuzzleCorrectlyPlaced = true;
+                puzzlePieceId = currentPuzzlePiece.id;
+                puzzleStore.placePiece(currentPuzzlePiece.id);
+                setLockedPieces((prev) => new Set(prev).add(currentPuzzlePiece.id));
+              } else {
+                // Pieza no coincide - convertir a normal (eliminable)
+                puzzleStore.setCurrentPuzzlePiece(null);
+              }
+            }
+          }
+
           // Primero, crear el grid temporal para detectar líneas
           const tempGrid: Grid3D = grid.map((plane) =>
             plane.map((row) => [...row])
@@ -978,15 +1237,32 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           });
 
           // Procesar todas las líneas de forma iterativa
+          // Excluir bloques de piezas bloqueadas de la detección de líneas
           const { blocksToRemove, finalGrid } = !reachedLimit
-            ? processLineClearsIteratively(tempGrid)
+            ? processLineClearsIteratively(tempGrid, lockedPieces)
             : {
                 blocksToRemove: [] as { x: number; y: number; z: number }[],
                 finalGrid: tempGrid,
               };
 
+          // Crear mapa de celdas puzzle recién colocadas (si aplica)
+          // Esto captura la info ANTES de setVisualBlocks para evitar problemas de timing
+          const newPuzzleCells = new Map<string, { tileX: number; tileZ: number }>();
+          if (isPuzzleCorrectlyPlaced && currentPuzzlePiece) {
+            const patternPiece = puzzleStore.pattern.find(
+              (p) => p.id === currentPuzzlePiece.id
+            );
+            if (patternPiece) {
+              patternPiece.cells.forEach((cell) => {
+                newPuzzleCells.set(`${cell.x},${cell.z}`, {
+                  tileX: cell.x,
+                  tileZ: cell.z,
+                });
+              });
+            }
+          }
+
           // Actualizar bloques visuales con animaciones
-          // Simplificar: regenerar directamente desde finalGrid para evitar desincronización
           setVisualBlocks((prev) => {
             const newBlocks: VisualBlock[] = [];
             const destroyingBlocks = prev.filter((vb) => vb.destroying);
@@ -1028,11 +1304,42 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   }
                 }
 
+                // Verificar si esta posición (x, z) es parte de una pieza puzzle
+                // Primero verificamos las celdas recién colocadas, luego el store
+                const getPuzzleTileInfo = (blockX: number, blockZ: number): { isPuzzle: boolean; tileX: number; tileZ: number } => {
+                  // Primero verificar celdas recién colocadas
+                  const newCellKey = `${blockX},${blockZ}`;
+                  const newCell = newPuzzleCells.get(newCellKey);
+                  if (newCell) {
+                    return {
+                      isPuzzle: true,
+                      tileX: newCell.tileX,
+                      tileZ: newCell.tileZ,
+                    };
+                  }
+                  
+                  // Luego verificar piezas ya colocadas anteriormente
+                  for (const piece of puzzleStore.placedPieces) {
+                    const cellIndex = piece.cells.findIndex(
+                      (cell) => cell.x === blockX && cell.z === blockZ
+                    );
+                    if (cellIndex !== -1) {
+                      return {
+                        isPuzzle: true,
+                        tileX: piece.cells[cellIndex].x,
+                        tileZ: piece.cells[cellIndex].z,
+                      };
+                    }
+                  }
+                  return { isPuzzle: false, tileX: 0, tileZ: 0 };
+                };
+
                 // Asignar bloques existentes a posiciones ocupadas
                 for (let i = 0; i < occupiedYs.length; i++) {
                   const targetY = occupiedYs[i];
                   const positionKey = `${x},${targetY},${z}`;
                   const shouldRemove = positionsToRemove.has(positionKey);
+                  const puzzleInfo = getPuzzleTileInfo(x, z);
 
                   if (shouldRemove) {
                     // Marcar para eliminación
@@ -1053,7 +1360,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   } else {
                     // Bloque que permanece
                     if (i < columnBlocks.length) {
-                      // Reutilizar bloque existente
+                      // Reutilizar bloque existente, mantener info de puzzle si ya la tenía
                       const existing = columnBlocks[i];
                       newBlocks.push({
                         ...existing,
@@ -1067,6 +1374,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                         targetScale: 1,
                         destroying: false,
                         variantParams: getBlockVariantParams(targetY),
+                        // Mantener info de puzzle si existía o añadir nueva
+                        isPuzzleBlock: existing.isPuzzleBlock || puzzleInfo.isPuzzle,
+                        puzzleTileX: existing.puzzleTileX ?? (puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined),
+                        puzzleTileZ: existing.puzzleTileZ ?? (puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined),
                       });
                     } else {
                       // Crear nuevo bloque
@@ -1082,6 +1393,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                         targetScale: 1,
                         destroying: false,
                         variantParams: getBlockVariantParams(targetY),
+                        // Añadir info de puzzle si corresponde
+                        isPuzzleBlock: puzzleInfo.isPuzzle,
+                        puzzleTileX: puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined,
+                        puzzleTileZ: puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined,
                       });
                     }
                   }
@@ -1097,35 +1412,60 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           if (reachedLimit) {
             setIsGameOver(true);
+            setGameState("gameover");
             return;
           }
 
           // Generar nueva pieza
-          const types: TetrominoType[] = [
-            "I",
-            "O",
-            "T",
-            "S",
-            "Z",
-            "J",
-            "L",
-            "I3",
-            "I2",
-            "O2",
-            "L2",
-          ];
-          const randomType =
-            types[Math.floor(Math.random() * types.length)] ?? "I";
+          puzzleStore.incrementPieceCounter();
+          const isPuzzlePiece = puzzleImageUrl && puzzleStore.pieceCounter % 3 === 0 && puzzleStore.remainingPieces.length > 0;
 
-          const spawnPosition = {
-            x: Math.floor(size / 2) - 1,
-            y: size - 1,
-            z: Math.floor(size / 2) - 1,
-          };
+          if (isPuzzlePiece) {
+            // Seleccionar una pieza puzzle aleatoria
+            const availablePieces = puzzleStore.remainingPieces;
+            const randomIndex = Math.floor(Math.random() * availablePieces.length);
+            const puzzlePiece = availablePieces[randomIndex];
+            
+            puzzleStore.setCurrentPuzzlePiece(puzzlePiece);
+            
+            const spawnPosition = {
+              x: Math.floor(size / 2) - 1,
+              y: size - 1,
+              z: Math.floor(size / 2) - 1,
+            };
 
-          setActiveType(randomType);
-          setActiveRotation(0);
-          setActivePosition(spawnPosition);
+            setActiveType(puzzlePiece.type);
+            setActiveRotation(puzzlePiece.rotation);
+            setActivePosition(spawnPosition);
+          } else {
+            // Pieza normal
+            puzzleStore.setCurrentPuzzlePiece(null);
+            const types: TetrominoType[] = [
+              "I",
+              "O",
+              "T",
+              "S",
+              "Z",
+              "J",
+              "L",
+              "I3",
+              "I2",
+              "O2",
+              "L2",
+            ];
+            const randomType =
+              types[Math.floor(Math.random() * types.length)] ?? "I";
+
+            const spawnPosition = {
+              x: Math.floor(size / 2) - 1,
+              y: size - 1,
+              z: Math.floor(size / 2) - 1,
+            };
+
+            setActiveType(randomType);
+            setActiveRotation(0);
+            setActivePosition(spawnPosition);
+          }
 
           return;
         }
@@ -1154,15 +1494,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     getBlockVariantParams,
     getActiveBlockVariantParams,
     isGameOver,
+    gameState,
     grid,
     isFastForward,
     cycleTime,
+    lockedPieces,
   ]);
 
   // Controles de movimiento y rotación
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isGameOver) {
+      // Solo permitir controles cuando el juego está en estado "playing"
+      if (isGameOver || gameState !== "playing") {
         return;
       }
       const { key } = event;
@@ -1186,6 +1529,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       };
 
       const tryRotate = (delta: number) => {
+        // Si hay una pieza puzzle activa, no permitir rotación
+        if (puzzleStore.currentPuzzlePiece) {
+          return;
+        }
+        
         const nextRotation = (activeRotation + delta + 4) % 4;
         const baseShape = TETROMINO_SHAPES[activeType];
         const nextShape = rotateShapeHorizontal(baseShape, nextRotation);
@@ -1369,6 +1717,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     rotateCameraView,
     cameraCorrection,
     isGameOver,
+    gameState,
   ]);
 
   // Handler para keyup de espacio (desactivar fastForward)
@@ -1407,10 +1756,45 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     <div className="relative h-full w-full">
       <CameraConfigPanel />
       <FpsCounter />
-      {isGameOver && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="rounded-2xl bg-black/70 px-6 py-4 text-2xl font-semibold text-red-300">
-            Game Over
+      
+      {/* Pantalla de inicio - Botón "Iniciar Nivel" */}
+      {gameState === "waiting" && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 px-10 py-8 shadow-2xl border border-slate-700">
+            <h2 className="text-3xl font-bold text-white tracking-wide">
+              {puzzleImageUrl ? "Modo Puzzle" : "Tetris 3D"}
+            </h2>
+            {puzzleImageUrl && (
+              <p className="text-slate-400 text-sm max-w-xs text-center">
+                Coloca las piezas puzzle en su posición correcta para completar la imagen
+              </p>
+            )}
+            <button
+              onClick={startGame}
+              className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold text-lg rounded-xl shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              Iniciar Nivel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pantalla de Game Over - Botón "Reintentar" */}
+      {gameState === "gameover" && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 px-10 py-8 shadow-2xl border border-red-900/50">
+            <h2 className="text-3xl font-bold text-red-400 tracking-wide">
+              Game Over
+            </h2>
+            <p className="text-slate-400 text-sm">
+              La pila de bloques ha alcanzado el límite
+            </p>
+            <button
+              onClick={restartGame}
+              className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-semibold text-lg rounded-xl shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              Reintentar
+            </button>
           </div>
         </div>
       )}
@@ -1457,6 +1841,30 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             />
           )}
 
+          {/* Indicador de posición destino para piezas puzzle */}
+          {/* Muestra dónde debe colocarse la pieza puzzle actual */}
+          {puzzleStore.currentPuzzlePiece && puzzleImageUrl && (() => {
+            const patternPiece = puzzleStore.pattern.find(
+              (p) => p.id === puzzleStore.currentPuzzlePiece?.id
+            );
+            if (!patternPiece) return null;
+
+            return patternPiece.cells.map((cell, idx) => (
+              <mesh
+                key={`target-${idx}`}
+                position={[
+                  cell.x - halfSize + 0.5,
+                  -halfSize + 0.02, // Justo encima del suelo
+                  cell.z - halfSize + 0.5,
+                ]}
+                rotation={[-Math.PI / 2, 0, 0]}
+                material={puzzleTargetMaterial}
+              >
+                <planeGeometry args={[0.95, 0.95]} />
+              </mesh>
+            ));
+          })()}
+
           {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
           <GridPlane
             width={size}
@@ -1497,18 +1905,53 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             visible={cameraViewIndex === 1 || cameraViewIndex === 2}
           />
 
-          {/* Piezas activas: cubos de la pieza actual (blanco con bordes oscuros) */}
-          {activeWorldBlocks.map((block, index) => (
-            <ActiveCube
-              key={`active-${index}`}
-              position={[
-                block.x - halfSize + 0.5,
-                block.y - halfSize + 0.5,
-                block.z - halfSize + 0.5,
-              ]}
-              variantParams={getActiveBlockVariantParams()}
-            />
-          ))}
+          {/* Piezas activas: cubos de la pieza actual */}
+          {/* Si es pieza puzzle, muestra tiles de imagen; si no, cubos blancos con borde */}
+          {activeWorldBlocks.map((block, index) => {
+            const currentPuzzlePiece = puzzleStore.currentPuzzlePiece;
+            
+            // Si es una pieza puzzle y tenemos la imagen, mostrar con tile de imagen
+            if (currentPuzzlePiece && puzzleImageUrl) {
+              const patternPiece = puzzleStore.pattern.find(
+                (p) => p.id === currentPuzzlePiece.id
+              );
+              
+              // El índice se mantiene estable durante la rotación (map preserva el orden)
+              // Cada bloque siempre muestra su tile asignado, rotando junto con la pieza
+              if (patternPiece && index < patternPiece.cells.length) {
+                const targetCell = patternPiece.cells[index];
+                
+                return (
+                  <PuzzleTileCube
+                    key={`active-puzzle-${index}`}
+                    position={[
+                      block.x - halfSize + 0.5,
+                      block.y - halfSize + 0.5,
+                      block.z - halfSize + 0.5,
+                    ]}
+                    imageUrl={puzzleImageUrl}
+                    gridSize={size}
+                    tileX={targetCell.x}
+                    tileZ={targetCell.z}
+                    scale={0.9}
+                  />
+                );
+              }
+            }
+            
+            // Pieza normal: cubo blanco con bordes
+            return (
+              <ActiveCube
+                key={`active-${index}`}
+                position={[
+                  block.x - halfSize + 0.5,
+                  block.y - halfSize + 0.5,
+                  block.z - halfSize + 0.5,
+                ]}
+                variantParams={getActiveBlockVariantParams()}
+              />
+            );
+          })}
 
           {/* Preview de caída (ghost) */}
           {dropPositionBlocks.map((block, index) => {
@@ -1533,15 +1976,32 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             );
           })}
 
-          {/* Piezas apiladas - renderizadas con AnimatedCube para animaciones */}
-          {visualBlocks.map((block) => (
-            <AnimatedCube
-              key={block.id}
-              block={block}
-              halfSize={halfSize}
-              onDestroyed={handleBlockDestroyed}
-            />
-          ))}
+          {/* Piezas apiladas - renderizadas con AnimatedCube o AnimatedPuzzleCube */}
+          {visualBlocks.map((block) => {
+            // Si es un bloque de puzzle y tenemos imagen, usar AnimatedPuzzleCube
+            if (block.isPuzzleBlock && puzzleImageUrl) {
+              return (
+                <AnimatedPuzzleCube
+                  key={block.id}
+                  block={block}
+                  halfSize={halfSize}
+                  onDestroyed={handleBlockDestroyed}
+                  imageUrl={puzzleImageUrl}
+                  gridSize={size}
+                />
+              );
+            }
+            
+            // Bloque normal
+            return (
+              <AnimatedCube
+                key={block.id}
+                block={block}
+                halfSize={halfSize}
+                onDestroyed={handleBlockDestroyed}
+              />
+            );
+          })}
         </group>
       </Canvas>
     </div>
