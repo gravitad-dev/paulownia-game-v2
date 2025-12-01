@@ -993,62 +993,131 @@ export default function Game({ difficulty }: GameProps) {
           });
 
           // Procesar todas las líneas de forma iterativa
-          const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
+          const { blocksToRemove, finalGrid } = !reachedLimit
             ? processLineClearsIteratively(tempGrid)
             : {
                 blocksToRemove: [] as { x: number; y: number; z: number }[],
-                blocksToMove: [] as {
-                  x: number;
-                  y: number;
-                  z: number;
-                  newY: number;
-                }[],
                 finalGrid: tempGrid,
               };
 
           // Actualizar bloques visuales con animaciones
+          // Sincronizar directamente con finalGrid para evitar desincronización
           setVisualBlocks((prev) => {
-            let updatedBlocks = [...prev, ...newVisualBlocks];
-
-            // Primero, marcar bloques para eliminación
-            updatedBlocks = updatedBlocks.map((vb) => {
-              const shouldRemove = blocksToRemove.some(
-                (r) =>
-                  r.x === vb.targetX && r.y === vb.targetY && r.z === vb.targetZ
-              );
-              if (shouldRemove) {
-                return { ...vb, targetScale: 0, destroying: true };
+            // 1. Crear un set de posiciones ocupadas en finalGrid
+            const occupiedPositions = new Set<string>();
+            for (let x = 0; x < size; x++) {
+              for (let y = 0; y < MAX_STACK_HEIGHT; y++) {
+                for (let z = 0; z < size; z++) {
+                  if (finalGrid[x][y][z] === "filled") {
+                    occupiedPositions.add(`${x},${y},${z}`);
+                  }
+                }
               }
-              return vb;
+            }
+
+            // 2. Crear un set de posiciones que deben eliminarse (están en blocksToRemove)
+            const positionsToRemove = new Set<string>();
+            blocksToRemove.forEach((r) => {
+              positionsToRemove.add(`${r.x},${r.y},${r.z}`);
             });
 
-            // Actualizar posiciones de bloques que deben bajar
-            // La función processLineClearsIteratively ya calcula el newY final correcto
-            // incluso si el bloque baja múltiples veces en cascada
-            updatedBlocks = updatedBlocks.map((vb) => {
-              if (vb.destroying) return vb;
-
-              // Buscar si este bloque debe moverse
-              // Buscar por posición lógica actual (y) que es la posición original antes de cualquier movimiento
-              const moveInfo = blocksToMove.find(
-                (m) => m.x === vb.targetX && m.y === vb.y && m.z === vb.targetZ
-              );
-
-              if (moveInfo) {
-                // Actualizar posición real y objetivo para que el bloque sea elegible
-                // para formar nuevas líneas en su nueva posición
-                // Actualizar color basado en la nueva altura Y (como en el original)
-                return {
-                  ...vb,
-                  y: moveInfo.newY,
-                  targetY: moveInfo.newY,
-                  variantParams: getBlockVariantParams(moveInfo.newY),
-                };
+            // 3. Agrupar bloques visuales existentes por columna (x, z)
+            // Excluir los que ya están marcados para destrucción
+            const blocksByColumn = new Map<string, VisualBlock[]>();
+            prev.forEach((vb) => {
+              if (!vb.destroying) {
+                const key = `${vb.targetX},${vb.targetZ}`;
+                if (!blocksByColumn.has(key)) {
+                  blocksByColumn.set(key, []);
+                }
+                blocksByColumn.get(key)!.push(vb);
               }
-              return vb;
             });
 
-            return updatedBlocks;
+            // 3b. Agrupar también los nuevos bloques por columna
+            newVisualBlocks.forEach((vb) => {
+              const key = `${vb.targetX},${vb.targetZ}`;
+              if (!blocksByColumn.has(key)) {
+                blocksByColumn.set(key, []);
+              }
+              blocksByColumn.get(key)!.push(vb);
+            });
+
+            // 4. Ordenar bloques en cada columna por Y descendente (de arriba hacia abajo)
+            blocksByColumn.forEach((blocks) => {
+              blocks.sort((a, b) => {
+                const yA = a.targetY ?? a.y;
+                const yB = b.targetY ?? b.y;
+                return yB - yA;
+              });
+            });
+
+            // 5. Reconstruir bloques visuales sincronizados con finalGrid
+            const syncedBlocks: VisualBlock[] = [];
+
+            // Para cada columna (x, z) en finalGrid
+            for (let x = 0; x < size; x++) {
+              for (let z = 0; z < size; z++) {
+                const columnKey = `${x},${z}`;
+                const columnBlocks = blocksByColumn.get(columnKey) || [];
+
+                // Obtener todas las posiciones Y ocupadas en esta columna (de arriba hacia abajo)
+                const occupiedYs: number[] = [];
+                for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
+                  if (finalGrid[x][y][z] === "filled") {
+                    occupiedYs.push(y);
+                  }
+                }
+
+                // Asignar bloques visuales existentes a las posiciones ocupadas
+                // Si hay más bloques visuales que posiciones, los extras se marcan para eliminar
+                for (let i = 0; i < occupiedYs.length; i++) {
+                  const targetY = occupiedYs[i];
+                  const positionKey = `${x},${targetY},${z}`;
+                  const shouldRemove = positionsToRemove.has(positionKey);
+
+                  if (i < columnBlocks.length) {
+                    // Reutilizar bloque visual existente
+                    const existingBlock = columnBlocks[i];
+                    syncedBlocks.push({
+                      ...existingBlock,
+                      y: targetY,
+                      targetX: x,
+                      targetY: targetY,
+                      targetZ: z,
+                      targetScale: shouldRemove ? 0 : 1,
+                      destroying: shouldRemove,
+                      variantParams: shouldRemove
+                        ? existingBlock.variantParams
+                        : getBlockVariantParams(targetY),
+                    });
+                  } else {
+                    // No hay bloque visual existente, pero hay posición ocupada
+                    // Esto no debería pasar normalmente, pero lo manejamos
+                    // (puede pasar si hay un desajuste previo)
+                  }
+                }
+
+                // Marcar para eliminar bloques visuales que no tienen posición en finalGrid
+                for (let i = occupiedYs.length; i < columnBlocks.length; i++) {
+                  const extraBlock = columnBlocks[i];
+                  syncedBlocks.push({
+                    ...extraBlock,
+                    targetScale: 0,
+                    destroying: true,
+                  });
+                }
+              }
+            }
+
+            // 6. Añadir bloques que están siendo destruidos (para mantener la animación)
+            prev.forEach((vb) => {
+              if (vb.destroying) {
+                syncedBlocks.push(vb);
+              }
+            });
+
+            return syncedBlocks;
           });
 
           // Actualizar grid lógico final
