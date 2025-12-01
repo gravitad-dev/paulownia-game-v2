@@ -49,7 +49,7 @@ export function Header() {
   const canClaimDailyReward = useDailyRewardsStore((state) => state.canClaim);
   const playerStats = usePlayerStatsStore((state) => state.stats);
   const availableAchievements = useAchievementsStore(
-    (state) => state.availableCount,
+    (state) => state.availableCount
   );
   const router = useRouter();
   const pathname = usePathname();
@@ -122,7 +122,7 @@ export function Header() {
   useEffect(() => {
     if (isDropdownOpen && dropdownItemsRef.current) {
       const items = dropdownItemsRef.current.querySelectorAll(
-        "[data-dropdown-item]",
+        "[data-dropdown-item]"
       );
       gsap.fromTo(
         items,
@@ -136,7 +136,7 @@ export function Header() {
           duration: 0.2,
           stagger: 0.05,
           ease: "power2.out",
-        },
+        }
       );
     }
   }, [isDropdownOpen]);
@@ -200,7 +200,7 @@ export function Header() {
                   "relative flex items-center gap-1.5 px-2 sm:px-3 py-2 rounded-full text-xs sm:text-sm font-medium transition-all",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 )}
               >
                 <item.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -217,25 +217,13 @@ export function Header() {
           })}
         </nav>
 
-        {/* Columna 3: Stats, Notifications & User Avatar con Dropdown */}
-        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-border shrink-0">
-          {/* Stats badges - Solo visible en desktop */}
-          {user && playerStats && (
-            <div className="hidden md:flex items-center gap-2">
-              <CoinsBadge
-                amount={playerStats.coins}
-                size="sm"
-                variant="outline"
-              />
-              <TicketsBadge
-                amount={playerStats.tickets}
-                size="sm"
-                variant="outline"
-              />
-            </div>
+        {/* Columna 3: Notifications & User Avatar con Dropdown */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {user && (
+            <span className="hidden md:block">
+              <NotificationIndicator />
+            </span>
           )}
-
-          {user && <NotificationIndicator />}
 
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
@@ -264,14 +252,11 @@ export function Header() {
               className="w-56"
               ref={dropdownItemsRef}
             >
-              {/* Header con nombre y stats en móvil */}
-              <div className="px-2 py-1.5 flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  {user?.username || "Usuario"}
-                </span>
-                {/* Stats badges - Solo visible en móvil dentro del dropdown */}
+              {/* Header con stats arriba y nombre abajo */}
+              <div className="px-2 py-2 flex flex-col gap-1.5">
+                {/* Stats badges - Siempre visibles dentro del dropdown */}
                 {playerStats && (
-                  <div className="flex items-center gap-1.5 md:hidden">
+                  <div className="flex items-center gap-1.5">
                     <CoinsBadge
                       amount={playerStats.coins}
                       size="sm"
@@ -284,6 +269,10 @@ export function Header() {
                     />
                   </div>
                 )}
+                {/* Nombre del usuario */}
+                <span className="text-sm font-medium">
+                  {user?.username || "Usuario"}
+                </span>
               </div>
               <DropdownMenuSeparator />
 

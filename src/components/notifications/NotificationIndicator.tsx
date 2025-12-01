@@ -18,7 +18,11 @@ const formatDate = (dateString: string) =>
     timeStyle: "short",
   }).format(new Date(dateString));
 
-export function NotificationIndicator() {
+interface NotificationIndicatorProps {
+  className?: string;
+}
+
+export function NotificationIndicator({ className }: NotificationIndicatorProps) {
   const notifications = useNotificationStore((state) => state.notifications);
   const unreadCount = useNotificationStore((state) => state.unreadCount);
   const setNotifications = useNotificationStore(
@@ -98,79 +102,81 @@ export function NotificationIndicator() {
   );
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center text-xl text-foreground transition hover:text-primary"
-          aria-label="Notificaciones"
-        >
-          <FiBell />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-              {unreadCount}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Notificaciones
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {unreadCount > 0 ? `${unreadCount} sin leer` : "Todo al día"}
-            </p>
-          </div>
+    <div className={className}>
+      <Popover>
+        <PopoverTrigger asChild>
           <button
             type="button"
-            className="text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
-            onClick={handleMarkAllAsRead}
-            disabled={!unreadCount}
+            className="relative flex h-9 w-9 items-center justify-center text-xl text-foreground transition hover:text-primary"
+            aria-label="Notificaciones"
           >
-            Marcar todas leídas
-          </button>
-        </div>
-
-        <div className="max-h-[420px] overflow-y-auto px-3 py-3 bg-muted/30">
-          {loading ? (
-            <p className="text-center text-sm text-muted-foreground py-6">
-              Cargando...
-            </p>
-          ) : sortedNotifications.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
-              <span className="text-2xl" role="img" aria-hidden="true">
-                ✨
+            <FiBell />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                {unreadCount}
               </span>
-              <p className="text-sm font-medium">Sin notificaciones</p>
-              <p className="text-xs text-center">
-                Aquí verás los avisos más importantes del juego.
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-96 p-0">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Notificaciones
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {unreadCount > 0 ? `${unreadCount} sin leer` : "Todo al día"}
               </p>
             </div>
-          ) : (
-            <>
-              {unreadNotifications.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground px-2">
-                    No leídas
-                  </p>
-                  {unreadNotifications.map(renderNotification)}
-                </div>
-              )}
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
+              onClick={handleMarkAllAsRead}
+              disabled={!unreadCount}
+            >
+              Marcar todas leídas
+            </button>
+          </div>
 
-              {readNotifications.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground px-2">
-                    Leídas
-                  </p>
-                  {readNotifications.map(renderNotification)}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+          <div className="max-h-[420px] overflow-y-auto px-3 py-3 bg-muted/30">
+            {loading ? (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                Cargando...
+              </p>
+            ) : sortedNotifications.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
+                <span className="text-2xl" role="img" aria-hidden="true">
+                  ✨
+                </span>
+                <p className="text-sm font-medium">Sin notificaciones</p>
+                <p className="text-xs text-center">
+                  Aquí verás los avisos más importantes del juego.
+                </p>
+              </div>
+            ) : (
+              <>
+                {unreadNotifications.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground px-2">
+                      No leídas
+                    </p>
+                    {unreadNotifications.map(renderNotification)}
+                  </div>
+                )}
+
+                {readNotifications.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground px-2">
+                      Leídas
+                    </p>
+                    {readNotifications.map(renderNotification)}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
