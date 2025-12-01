@@ -46,20 +46,11 @@ export default function CatalogPage() {
         typeReward: filter,
       });
 
-      // Filtrar en frontend para coins/tickets
+      // Filtrar en frontend para coins/tickets, pero
+      // preservando la paginación original del backend
       const filteredData = filterBySubtype(response.data, filter);
       setRewards(filteredData);
-
-      // Ajustar paginación si filtramos en frontend
-      if (filter === "coins" || filter === "tickets") {
-        setPagination({
-          ...response.meta.pagination,
-          total: filteredData.length,
-          pageCount: 1,
-        });
-      } else {
-        setPagination(response.meta.pagination);
-      }
+      setPagination(response.meta.pagination);
     } catch (err) {
       console.error("Error fetching catalog:", err);
       setError("No se pudo cargar el catálogo de premios");

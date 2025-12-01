@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import { useRewardStore } from "@/store/useRewardStore";
@@ -56,15 +56,30 @@ export default function DiscoverRewardsPage() {
     }
   }, [error, toast]);
 
+  // Ref para almacenar el timeout de revelación y poder limpiarlo
+  const revealTimeoutRef = useRef<number | null>(null);
+
   // Manejar el fin de la animación del spinner
   const handleSpinComplete = useCallback(() => {
     setPhase("revealing");
 
     // Pequeño delay antes de mostrar el modal
-    setTimeout(() => {
+    if (revealTimeoutRef.current) {
+      clearTimeout(revealTimeoutRef.current);
+    }
+    revealTimeoutRef.current = window.setTimeout(() => {
       setPhase("revealed");
     }, REVEAL_DELAY);
   }, [setPhase]);
+
+  // Limpiar timeout al desmontar para evitar updates en componentes desmontados
+  useEffect(() => {
+    return () => {
+      if (revealTimeoutRef.current) {
+        clearTimeout(revealTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Manejar click en girar
   const handleSpin = async () => {

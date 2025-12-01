@@ -1,20 +1,21 @@
-\"use client\";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
+import { useAchievementsStore } from "@/store/useAchievementsStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
 
-export default function GameLay<<<<<<< HEAD
-  const { isAuthenticated, user } = useAuthStore();
+export default function GameLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { isAuthenticated, user, token } = useAuthStore();
   const { fetchStatus } = useDailyRewardsStore();
   const { fetchAchievements } = useAchievementsStore();
-  const router = useRouter();
-=======
-  const { isAuthenticated, token, user } = useAuthStore();
->>>>>>> 2b21f737173cb95cc8d776cade8a1c1bbaf6cef1
-evements } = useAchievementsStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -24,15 +25,26 @@ evements } = useAchievementsStore();
 
   useEffect(() => {
     if (mounted) {
-      // Check both isAuthenticated flag and actual token/user presen      ce
+      // Check both isAuthenticated flag and actual token/user presence
       const hasValidSession = isAuthenticated && token && user;
 
       if (!hasValidSession) {
-        // Use window.location for forced redirect that works even with navigation errors
-        window.location.href = \"/auth/login\";
+        // Redirección robusta según entorno
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        } else {
+          router.push("/auth/login");
+        }
       }
     }
-  }, [isAuthenticated, token, user, mounted]);
+  }, [isAuthenticated, token, user, mounted, router]);
+
+  useEffect(() => {
+    if (mounted && isAuthenticated && user?.id) {
+      fetchStatus();
+      fetchAchievements();
+    }
+  }, [mounted, isAuthenticated, user?.id, fetchStatus, fetchAchievements]);
 
   if (!mounted) {
     return null;
@@ -44,14 +56,14 @@ evements } = useAchievementsStore();
   }
 
   return (
-    <div className=\"min-h-screen bg-transparent text-foreground selection:bg-primary/30 relative\">
+    <div className="min-h-screen bg-transparent text-foreground selection:bg-primary/30 relative">
       <RetroBackground />
       <Header />
       <main
-        className=\"pt-32 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8 mx-auto min-h-screen flex flex-col\"
+        className="pt-32 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8 mx-auto min-h-screen flex flex-col"
         style={{
-          maxWidth: \"1200px\",
-          width: \"100%\",
+          maxWidth: "1200px",
+          width: "100%",
         }}
       >
         {children}
@@ -59,3 +71,5 @@ evements } = useAchievementsStore();
     </div>
   );
 }
+
+
