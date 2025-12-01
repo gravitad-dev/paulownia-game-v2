@@ -18,7 +18,7 @@ interface AuthState {
 // Helper function to check if authenticated
 const checkIsAuthenticated = (
   token: string | null,
-  user: User | null
+  user: User | null,
 ): boolean => {
   if (!token || !user) return false;
   // Also check cookie to ensure sync
@@ -33,7 +33,11 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       login: (user, token) => {
-        Cookies.set("auth_token", token, { expires: 7 }); // Expires in 7 days
+        Cookies.set("auth_token", token, {
+          expires: 7,
+          sameSite: "Lax",
+          secure: window.location.protocol === "https:",
+        });
         set({
           user,
           token,
@@ -41,7 +45,7 @@ export const useAuthStore = create<AuthState>()(
         });
       },
       logout: () => {
-        Cookies.remove("auth_token");
+        Cookies.remove("auth_token", { sameSite: "Lax" });
         // Reset stores to prevent data leaking between users
         useDailyRewardsStore.getState().reset();
         useAchievementsStore.getState().reset();
@@ -67,6 +71,6 @@ export const useAuthStore = create<AuthState>()(
           state.isAuthenticated = checkIsAuthenticated(state.token, state.user);
         }
       },
-    }
-  )
+    },
+  ),
 );
