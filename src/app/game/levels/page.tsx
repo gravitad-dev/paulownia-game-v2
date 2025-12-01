@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TablePagination } from "@/components/ui/TablePagination";
-import { Layers } from "lucide-react";
 import { LevelsGrid } from "@/components/levels/LevelsGrid";
 import { LevelService, LevelsResponse } from "@/services/level.service";
 import { Level } from "@/types/level";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 const PAGE_SIZE = 12;
 
@@ -57,36 +56,36 @@ export default function LevelsPage() {
   };
 
   return (
-    <div className="w-full">
-      <Card className="bg-card/80 backdrop-blur-md border-border">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Layers className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Niveles</CardTitle>
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title="Niveles" />
+
+      <div className="flex-1 p-4 space-y-4">
+        {/* Subtítulo descriptivo */}
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Selecciona un nivel para comenzar a jugar
+          </p>
+        </div>
+
+        {/* Contenido principal */}
+        {error ? (
+          <div className="text-center py-12">
+            <p className="text-destructive">{error}</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {error ? (
-            <div className="text-center py-12">
-              <p className="text-destructive">{error}</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <LevelsGrid levels={levels} isLoading={loading} />
-              <TablePagination
-                page={pagination.page}
-                pageCount={pagination.pageCount}
-                pageSize={pagination.pageSize}
-                total={pagination.total}
-                onPageChange={handlePageChange}
-                label="niveles"
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : (
+          <div className="space-y-6 flex-1">
+            <LevelsGrid levels={levels} isLoading={loading} />
+            <TablePagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              label="niveles"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
