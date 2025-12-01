@@ -15,6 +15,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import Game from "@/components/game/Game";
+import { mapLevelDifficultyToGameDifficulty } from "@/lib/game/three/grid3d";
 
 const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = {
   easy: "Fácil",
@@ -72,11 +74,12 @@ export default function LevelDetailPage() {
 
   const coverUrl = getStrapiImageUrl(level?.cover?.url);
   const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty;
+  const gameDifficulty = mapLevelDifficultyToGameDifficulty(difficulty);
   const puzzleImages = level?.puzzleImage || [];
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div className="w-full px-4 py-8">
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -88,7 +91,7 @@ export default function LevelDetailPage() {
 
   if (error || !level) {
     return (
-      <div className="container mx-auto py-8 px-4">
+      <div className="w-full px-4">
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-destructive mb-4">
@@ -108,130 +111,133 @@ export default function LevelDetailPage() {
   }
 
   return (
-    <div className="container mx-auto">
-      <Button
-        variant="ghost"
-        className=" bg-white/80 backdrop-blur-md border-border"
-        onClick={() => router.push("/game/levels")}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Volver a niveles
-      </Button>
-
-      <div className="w-full h-full bg-white/80 backdrop-blur-md border-border my-8 p-4 flex items-center justify-center rounded-lg">
-        <div
-          id="game-container"
-          className="w-[600px] h-[600px] bg-gray-700"
-        ></div>
+    <div className="w-full">
+      <div className="px-4">
+        <Button
+          variant="ghost"
+          className=" bg-white/80 backdrop-blur-md border-border"
+          onClick={() => router.push("/game/levels")}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Volver a niveles
+        </Button>
       </div>
 
-      <Collapsible open={isCardExpanded} onOpenChange={setIsCardExpanded}>
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <CardTitle className="text-3xl mb-2">{level.name}</CardTitle>
-                {difficulty && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium border",
-                      DIFFICULTY_COLORS[difficulty]
-                    )}
-                  >
-                    {DIFFICULTY_LABELS[difficulty]}
-                  </span>
-                )}
-              </div>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                >
-                  <ChevronDown
-                    className={cn(
-                      "h-5 w-5 transition-transform duration-200",
-                      isCardExpanded && "rotate-180"
-                    )}
-                  />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </CardHeader>
+      <div className="w-full h-full bg-white/80 backdrop-blur-md border-border my-8 p-2 flex items-center justify-center rounded-lg">
+        <div id="game-container" className="w-full h-[700px] bg-gray-700">
+          <Game difficulty={gameDifficulty} />
+        </div>
+      </div>
 
-          <CollapsibleContent>
-            <CardContent className="space-y-6">
-              {coverUrl && (
-                <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
-                  <Image
-                    src={coverUrl}
-                    alt={level.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 1200px"
-                    priority
-                  />
-                </div>
-              )}
-
-              {level.description && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Descripción</h2>
-                  <p className="text-muted-foreground whitespace-pre-line">
-                    {level.description}
-                  </p>
-                </div>
-              )}
-
-              {puzzleImages.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">
-                    Imágenes del Puzzle
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {puzzleImages.map((image, index) => {
-                      const imageUrl = getStrapiImageUrl(
-                        typeof image === "object" &&
-                          image !== null &&
-                          "url" in image
-                          ? image.url
-                          : null
-                      );
-                      if (!imageUrl) return null;
-
-                      return (
-                        <div
-                          key={index}
-                          className="relative aspect-square rounded-lg overflow-hidden border bg-muted"
-                        >
-                          <Image
-                            src={imageUrl}
-                            alt={`Puzzle ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {difficulty && (
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    Dificultad seleccionada:{" "}
-                    <span className="font-medium">
+      <div className="px-4">
+        <Collapsible open={isCardExpanded} onOpenChange={setIsCardExpanded}>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
+                  <CardTitle className="text-3xl mb-2">{level.name}</CardTitle>
+                  {difficulty && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium border",
+                        DIFFICULTY_COLORS[difficulty]
+                      )}
+                    >
                       {DIFFICULTY_LABELS[difficulty]}
                     </span>
-                  </p>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "h-5 w-5 transition-transform duration-200",
+                        isCardExpanded && "rotate-180"
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+
+            <CollapsibleContent>
+              <CardContent className="space-y-6">
+                {coverUrl && (
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <Image
+                      src={coverUrl}
+                      alt={level.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 1200px"
+                      priority
+                    />
+                  </div>
+                )}
+
+                {level.description && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-2">Descripción</h2>
+                    <p className="text-muted-foreground whitespace-pre-line">
+                      {level.description}
+                    </p>
+                  </div>
+                )}
+
+                {puzzleImages.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">
+                      Imágenes del Puzzle
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {puzzleImages.map((image, index) => {
+                        const imageUrl = getStrapiImageUrl(
+                          typeof image === "object" &&
+                            image !== null &&
+                            "url" in image
+                            ? image.url
+                            : null
+                        );
+                        if (!imageUrl) return null;
+
+                        return (
+                          <div
+                            key={index}
+                            className="relative aspect-square rounded-lg overflow-hidden border bg-muted"
+                          >
+                            <Image
+                              src={imageUrl}
+                              alt={`Puzzle ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {difficulty && (
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Dificultad seleccionada:{" "}
+                      <span className="font-medium">
+                        {DIFFICULTY_LABELS[difficulty]}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      </div>
     </div>
   );
 }

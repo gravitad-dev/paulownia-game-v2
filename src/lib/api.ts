@@ -21,7 +21,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  },
+  }
 );
 
 // Tipos de error personalizados para mejor manejo
@@ -37,7 +37,7 @@ const createApiError = (
   message: string,
   code: ApiError["code"],
   status?: number,
-  originalError?: unknown,
+  originalError?: unknown
 ): ApiError => ({
   message,
   code,
@@ -66,7 +66,7 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -83,7 +83,7 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -97,7 +97,7 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -118,7 +118,7 @@ api.interceptors.response.use(
         "Tu sesión ha expirado",
         "AUTH_ERROR",
         401,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -129,7 +129,7 @@ api.interceptors.response.use(
         "Ocurrió un error en el servidor. Por favor, intenta más tarde.",
         "SERVER_ERROR",
         error.response.status,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -144,7 +144,7 @@ api.interceptors.response.use(
         message,
         "UNKNOWN_ERROR",
         error.response.status,
-        error,
+        error
       );
       return Promise.reject(apiError);
     }
@@ -154,10 +154,10 @@ api.interceptors.response.use(
       "Ocurrió un error inesperado. Por favor, intenta nuevamente.",
       "UNKNOWN_ERROR",
       undefined,
-      error,
+      error
     );
     return Promise.reject(apiError);
-  },
+  }
 );
 
 // Helper para verificar si un error es de tipo ApiError
