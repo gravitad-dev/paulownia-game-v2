@@ -17,6 +17,7 @@ import { useCameraConfigStore } from "@/store/useCameraConfigStore";
 import { useGameSpeedStore } from "@/store/useGameSpeedStore";
 import { CameraConfigPanel } from "./CameraConfigPanel";
 import { FpsCounter } from "./FpsCounter";
+import { PuzzleFloor } from "./PuzzleFloor";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
@@ -256,6 +257,7 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
 
 interface GameProps {
   difficulty: GameDifficulty;
+  puzzleImageUrl?: string;
 }
 
 // Función helper para crear geometría de líneas del grid (solo horizontal/vertical, sin diagonales)
@@ -345,7 +347,7 @@ const LightingRig = () => (
   </>
 );
 
-export default function Game({ difficulty }: GameProps) {
+export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
   const cameraConfig = useCameraConfigStore((state) => state.config);
   const cycleTime = useGameSpeedStore((state) => state.cycleTime);
@@ -965,23 +967,6 @@ export default function Game({ difficulty }: GameProps) {
           // Resetear fastForward cuando la pieza se bloquea
           setIsFastForward(false);
 
-          // Crear bloques visuales para los nuevos bloques fijados
-          const newVisualBlocks: VisualBlock[] = activeWorldBlocks
-            .filter((block) => isInsideBounds(block.x, block.y, block.z))
-            .map((block) => ({
-              id: generateBlockId(),
-              x: block.x,
-              y: block.y,
-              z: block.z,
-              targetX: block.x,
-              targetY: block.y,
-              targetZ: block.z,
-              scale: 1,
-              targetScale: 1,
-              destroying: false,
-              variantParams: getBlockVariantParams(block.y),
-            }));
-
           // Primero, crear el grid temporal para detectar líneas
           const tempGrid: Grid3D = grid.map((plane) =>
             plane.map((row) => [...row])
@@ -1001,28 +986,18 @@ export default function Game({ difficulty }: GameProps) {
               };
 
           // Actualizar bloques visuales con animaciones
-          // Sincronizar directamente con finalGrid para evitar desincronización
+          // Simplificar: regenerar directamente desde finalGrid para evitar desincronización
           setVisualBlocks((prev) => {
-            // 1. Crear un set de posiciones ocupadas en finalGrid
-            const occupiedPositions = new Set<string>();
-            for (let x = 0; x < size; x++) {
-              for (let y = 0; y < MAX_STACK_HEIGHT; y++) {
-                for (let z = 0; z < size; z++) {
-                  if (finalGrid[x][y][z] === "filled") {
-                    occupiedPositions.add(`${x},${y},${z}`);
-                  }
-                }
-              }
-            }
+            const newBlocks: VisualBlock[] = [];
+            const destroyingBlocks = prev.filter((vb) => vb.destroying);
 
-            // 2. Crear un set de posiciones que deben eliminarse (están en blocksToRemove)
+            // Crear un set de posiciones que deben eliminarse
             const positionsToRemove = new Set<string>();
             blocksToRemove.forEach((r) => {
               positionsToRemove.add(`${r.x},${r.y},${r.z}`);
             });
 
-            // 3. Agrupar bloques visuales existentes por columna (x, z)
-            // Excluir los que ya están marcados para destrucción
+            // Agrupar bloques existentes por columna (x, z) y ordenar por Y descendente
             const blocksByColumn = new Map<string, VisualBlock[]>();
             prev.forEach((vb) => {
               if (!vb.destroying) {
@@ -1034,34 +1009,18 @@ export default function Game({ difficulty }: GameProps) {
               }
             });
 
-            // 3b. Agrupar también los nuevos bloques por columna
-            newVisualBlocks.forEach((vb) => {
-              const key = `${vb.targetX},${vb.targetZ}`;
-              if (!blocksByColumn.has(key)) {
-                blocksByColumn.set(key, []);
-              }
-              blocksByColumn.get(key)!.push(vb);
-            });
-
-            // 4. Ordenar bloques en cada columna por Y descendente (de arriba hacia abajo)
+            // Ordenar bloques en cada columna por Y descendente
             blocksByColumn.forEach((blocks) => {
-              blocks.sort((a, b) => {
-                const yA = a.targetY ?? a.y;
-                const yB = b.targetY ?? b.y;
-                return yB - yA;
-              });
+              blocks.sort((a, b) => b.targetY - a.targetY);
             });
 
-            // 5. Reconstruir bloques visuales sincronizados con finalGrid
-            const syncedBlocks: VisualBlock[] = [];
-
-            // Para cada columna (x, z) en finalGrid
+            // Regenerar bloques desde finalGrid, asignando bloques existentes por columna
             for (let x = 0; x < size; x++) {
               for (let z = 0; z < size; z++) {
                 const columnKey = `${x},${z}`;
                 const columnBlocks = blocksByColumn.get(columnKey) || [];
 
-                // Obtener todas las posiciones Y ocupadas en esta columna (de arriba hacia abajo)
+                // Obtener posiciones Y ocupadas en esta columna (de arriba hacia abajo)
                 const occupiedYs: number[] = [];
                 for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
                   if (finalGrid[x][y][z] === "filled") {
@@ -1069,55 +1028,68 @@ export default function Game({ difficulty }: GameProps) {
                   }
                 }
 
-                // Asignar bloques visuales existentes a las posiciones ocupadas
-                // Si hay más bloques visuales que posiciones, los extras se marcan para eliminar
+                // Asignar bloques existentes a posiciones ocupadas
                 for (let i = 0; i < occupiedYs.length; i++) {
                   const targetY = occupiedYs[i];
                   const positionKey = `${x},${targetY},${z}`;
                   const shouldRemove = positionsToRemove.has(positionKey);
 
-                  if (i < columnBlocks.length) {
-                    // Reutilizar bloque visual existente
-                    const existingBlock = columnBlocks[i];
-                    syncedBlocks.push({
-                      ...existingBlock,
-                      y: targetY,
-                      targetX: x,
-                      targetY: targetY,
-                      targetZ: z,
-                      targetScale: shouldRemove ? 0 : 1,
-                      destroying: shouldRemove,
-                      variantParams: shouldRemove
-                        ? existingBlock.variantParams
-                        : getBlockVariantParams(targetY),
-                    });
+                  if (shouldRemove) {
+                    // Marcar para eliminación
+                    if (i < columnBlocks.length) {
+                      const existing = columnBlocks[i];
+                      newBlocks.push({
+                        ...existing,
+                        x,
+                        y: targetY,
+                        z,
+                        targetX: x,
+                        targetY: targetY,
+                        targetZ: z,
+                        targetScale: 0,
+                        destroying: true,
+                      });
+                    }
                   } else {
-                    // No hay bloque visual existente, pero hay posición ocupada
-                    // Esto no debería pasar normalmente, pero lo manejamos
-                    // (puede pasar si hay un desajuste previo)
+                    // Bloque que permanece
+                    if (i < columnBlocks.length) {
+                      // Reutilizar bloque existente
+                      const existing = columnBlocks[i];
+                      newBlocks.push({
+                        ...existing,
+                        x,
+                        y: targetY,
+                        z,
+                        targetX: x,
+                        targetY: targetY,
+                        targetZ: z,
+                        scale: existing.scale,
+                        targetScale: 1,
+                        destroying: false,
+                        variantParams: getBlockVariantParams(targetY),
+                      });
+                    } else {
+                      // Crear nuevo bloque
+                      newBlocks.push({
+                        id: generateBlockId(),
+                        x,
+                        y: targetY,
+                        z,
+                        targetX: x,
+                        targetY: targetY,
+                        targetZ: z,
+                        scale: 1,
+                        targetScale: 1,
+                        destroying: false,
+                        variantParams: getBlockVariantParams(targetY),
+                      });
+                    }
                   }
-                }
-
-                // Marcar para eliminar bloques visuales que no tienen posición en finalGrid
-                for (let i = occupiedYs.length; i < columnBlocks.length; i++) {
-                  const extraBlock = columnBlocks[i];
-                  syncedBlocks.push({
-                    ...extraBlock,
-                    targetScale: 0,
-                    destroying: true,
-                  });
                 }
               }
             }
 
-            // 6. Añadir bloques que están siendo destruidos (para mantener la animación)
-            prev.forEach((vb) => {
-              if (vb.destroying) {
-                syncedBlocks.push(vb);
-              }
-            });
-
-            return syncedBlocks;
+            return [...destroyingBlocks, ...newBlocks];
           });
 
           // Actualizar grid lógico final
@@ -1467,14 +1439,23 @@ export default function Game({ difficulty }: GameProps) {
         {/* Paredes que se muestran/ocultan según la vista de cámara (como en el repo original) */}
         <group>
           {/* Suelo - siempre visible */}
-          <GridPlane
-            width={size}
-            height={size}
-            segments={size}
-            position={[0, -halfSize, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            visible={true}
-          />
+          {puzzleImageUrl ? (
+            <PuzzleFloor
+              imageUrl={puzzleImageUrl}
+              size={size}
+              gridSize={size}
+              position={[0, -halfSize, 0]}
+            />
+          ) : (
+            <GridPlane
+              width={size}
+              height={size}
+              segments={size}
+              position={[0, -halfSize, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              visible={true}
+            />
+          )}
 
           {/* Pared izquierda (L) - visible en vistas 0 y 1 */}
           <GridPlane

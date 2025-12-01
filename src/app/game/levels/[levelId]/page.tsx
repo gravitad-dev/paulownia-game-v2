@@ -77,6 +77,16 @@ export default function LevelDetailPage() {
   const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty;
   const gameDifficulty = mapLevelDifficultyToGameDifficulty(difficulty);
   const puzzleImages = level?.puzzleImage || [];
+  const puzzleImageUrl =
+    puzzleImages.length > 0
+      ? getStrapiImageUrl(
+          typeof puzzleImages[0] === "object" &&
+            puzzleImages[0] !== null &&
+            "url" in puzzleImages[0]
+            ? puzzleImages[0].url
+            : null
+        ) || undefined
+      : undefined;
 
   if (loading) {
     return (
@@ -135,7 +145,7 @@ export default function LevelDetailPage() {
 
         <div className="w-full h-full bg-white/80 backdrop-blur-md border-border p-2 flex items-center justify-center rounded-lg">
           <div id="game-container" className="w-full h-[700px] bg-gray-700">
-            <Game difficulty={gameDifficulty} />
+            <Game difficulty={gameDifficulty} puzzleImageUrl={puzzleImageUrl} />
           </div>
         </div>
 
@@ -145,7 +155,9 @@ export default function LevelDetailPage() {
               <CardHeader>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-3xl mb-2">{level.name}</CardTitle>
+                    <CardTitle className="text-3xl mb-2">
+                      {level.name}
+                    </CardTitle>
                     {difficulty && (
                       <span
                         className={cn(
@@ -191,7 +203,9 @@ export default function LevelDetailPage() {
 
                   {level.description && (
                     <div>
-                      <h2 className="text-xl font-semibold mb-2">Descripción</h2>
+                      <h2 className="text-xl font-semibold mb-2">
+                        Descripción
+                      </h2>
                       <p className="text-muted-foreground whitespace-pre-line">
                         {level.description}
                       </p>
