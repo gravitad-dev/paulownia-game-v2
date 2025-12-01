@@ -3,7 +3,13 @@
  */
 
 export type RewardType = "currency" | "consumable" | "cosmetic";
-export type RewardStatus = "pending" | "claimed" | "available";
+export type RewardStatus =
+  | "notAvailable"
+  | "available"
+  | "claimed"
+  | "expired"
+  | "blocked"
+  | "pending";
 
 export interface RewardImage {
   id: number;
@@ -75,6 +81,37 @@ export interface CatalogReward {
 }
 
 /**
+ * Premio obtenido por el usuario (desde /api/user-rewards)
+ */
+export interface UserRewardDetailed {
+  id: number;
+  documentId: string;
+  uuid: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  rewardStatus: RewardStatus;
+  claimed: boolean;
+  obtainedAt: string;
+  claimedAt: string | null;
+  expiresAt: string | null;
+  quantity: number;
+  reward: {
+    id: number;
+    uuid: string;
+    name: string;
+    description: string;
+    typeReward: RewardType;
+    value: number;
+    quantity: number;
+    probability: number;
+    isActive: boolean;
+    isUnique: boolean;
+    image: RewardImage | null;
+  };
+}
+
+/**
  * Respuesta paginada de Strapi
  */
 export interface StrapiPagination {
@@ -89,4 +126,18 @@ export interface CatalogResponse {
   meta: {
     pagination: StrapiPagination;
   };
+}
+
+export interface UserRewardsResponse {
+  data: UserRewardDetailed[];
+  meta: {
+    pagination: StrapiPagination;
+  };
+}
+
+export interface UserRewardsFilters {
+  page?: number;
+  pageSize?: number;
+  rewardStatus?: RewardStatus | "all";
+  claimed?: boolean;
 }

@@ -3,6 +3,8 @@ import type {
   SpinResponse,
   RouletteHistoryItem,
   CatalogResponse,
+  UserRewardsResponse,
+  UserRewardsFilters,
 } from "@/types/reward";
 import type { CatalogFilterType } from "@/store/useCatalogStore";
 
@@ -51,6 +53,38 @@ export const RewardService = {
       // Si el endpoint no existe o falla, retornar array vacío
       return [];
     }
+  },
+
+  /**
+   * Obtiene los premios del usuario autenticado
+   */
+  getUserRewards: async (
+    filters: UserRewardsFilters = {},
+  ): Promise<UserRewardsResponse> => {
+    const { page = 1, pageSize = 10, rewardStatus = "all", claimed } = filters;
+
+    const queryParts: string[] = [
+      "populate=reward.image",
+      `pagination[page]=${page}`,
+      `pagination[pageSize]=${pageSize}`,
+      "sort[0]=obtainedAt:desc",
+    ];
+
+    // Filtrar por estado si no es "all"
+    if (rewardStatus && rewardStatus !== "all") {
+      queryParts.push(`filters[rewardStatus][$eq]=${rewardStatus}`);
+    }
+
+    // Filtrar por claimed si está definido
+    if (claimed !== undefined) {
+      queryParts.push(`filters[claimed][$eq]=${claimed}`);
+    }
+
+    const response = await api.get<UserRewardsResponse>(
+      `/api/user-rewards?${queryParts.join("&")}`,
+    );
+
+    return response.data;
   },
 
   /**
