@@ -13,6 +13,7 @@ import {
   RewardRevealModal,
   SessionRewardsList,
 } from "@/components/game/rewards/discover";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 // Duración de la animación de la ruleta (en ms)
 const SPIN_ANIMATION_DURATION = 3000;
@@ -91,55 +92,59 @@ export default function DiscoverRewardsPage() {
   const showRevealModal = phase === "revealed" && currentReward !== null;
 
   return (
-    <div className="h-full p-4 sm:p-6 overflow-y-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full max-w-6xl mx-auto">
-        {/* Columna principal: Ruleta */}
-        <div className="lg:col-span-8 flex flex-col items-center justify-center">
-          {/* Animación de la ruleta */}
-          <SpinnerAnimation
-            isSpinning={isSpinning}
-            onSpinComplete={handleSpinComplete}
-            duration={SPIN_ANIMATION_DURATION}
-            className="mb-8"
-          />
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title="Descubrir Premio" />
 
-          {/* Botón para girar */}
-          <SpinButton
-            onClick={handleSpin}
-            disabled={phase !== "idle"}
-            isSpinning={isSpinning}
-            ticketCount={ticketCount}
-          />
+      <div className="h-full p-4 sm:p-6 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full max-w-6xl mx-auto">
+          {/* Columna principal: Ruleta */}
+          <div className="lg:col-span-8 flex flex-col items-center justify-center">
+            {/* Animación de la ruleta */}
+            <SpinnerAnimation
+              isSpinning={isSpinning}
+              onSpinComplete={handleSpinComplete}
+              duration={SPIN_ANIMATION_DURATION}
+              className="mb-8"
+            />
 
-          {/* Mensaje si no tiene tickets */}
-          {ticketCount === 0 && phase === "idle" && (
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed border-border text-center max-w-sm">
-              <AlertCircle className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No tienes tickets disponibles.{" "}
-                <span className="font-medium text-foreground">
-                  Canjea tus monedas
-                </span>{" "}
-                para obtener tickets y poder girar la ruleta.
-              </p>
-            </div>
-          )}
+            {/* Botón para girar */}
+            <SpinButton
+              onClick={handleSpin}
+              disabled={phase !== "idle"}
+              isSpinning={isSpinning}
+              ticketCount={ticketCount}
+            />
+
+            {/* Mensaje si no tiene tickets */}
+            {ticketCount === 0 && phase === "idle" && (
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed border-border text-center max-w-sm">
+                <AlertCircle className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  No tienes tickets disponibles.{" "}
+                  <span className="font-medium text-foreground">
+                    Canjea tus monedas
+                  </span>{" "}
+                  para obtener tickets y poder girar la ruleta.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Columna secundaria: Historial */}
+          <div className="lg:col-span-4">
+            <SessionRewardsList rewards={history} />
+          </div>
         </div>
 
-        {/* Columna secundaria: Historial */}
-        <div className="lg:col-span-4">
-          <SessionRewardsList rewards={history} />
-        </div>
+        {/* Modal de revelación del premio */}
+        <RewardRevealModal
+          open={showRevealModal}
+          onOpenChange={(open) => !open && handleCloseReveal()}
+          reward={currentReward}
+          userReward={currentUserReward}
+          onClose={handleCloseReveal}
+        />
       </div>
-
-      {/* Modal de revelación del premio */}
-      <RewardRevealModal
-        open={showRevealModal}
-        onOpenChange={(open) => !open && handleCloseReveal()}
-        reward={currentReward}
-        userReward={currentUserReward}
-        onClose={handleCloseReveal}
-      />
     </div>
   );
 }

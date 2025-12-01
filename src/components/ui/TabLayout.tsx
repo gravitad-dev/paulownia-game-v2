@@ -3,8 +3,7 @@
 import { useEffect, useRef, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { IconTabs, IconTab } from "@/components/ui/IconTabs";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { LucideIcon } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import gsap from "gsap";
 
 export interface TabLayoutProps {
@@ -30,22 +29,6 @@ export interface TabLayoutProps {
    * @default true
    */
   animateContent?: boolean;
-  /**
-   * Título opcional con icono
-   */
-  title?: string;
-  /**
-   * Icono para el título
-   */
-  titleIcon?: LucideIcon;
-  /**
-   * Subtítulo opcional (gris, pequeño, descriptivo)
-   */
-  subtitle?: string;
-  /**
-   * Componente adicional para mostrar en el header (ej: countdown)
-   */
-  headerAction?: ReactNode;
 }
 
 /**
@@ -79,10 +62,6 @@ export function TabLayout({
   className = "",
   tabsClassName = "",
   animateContent = true,
-  title,
-  titleIcon: TitleIcon,
-  subtitle,
-  headerAction,
 }: TabLayoutProps) {
   const pathname = usePathname();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -101,7 +80,7 @@ export function TabLayout({
           y: 0,
           duration: 0.3,
           ease: "power2.out",
-        },
+        }
       );
     }
   }, [pathname, animateContent]);
@@ -118,36 +97,6 @@ export function TabLayout({
         className={tabsClassName}
       />
       <Card className="relative z-20 flex-1 flex flex-col -mt-px rounded-b-lg border-t-0 border-x border-b border-border/60 shadow-lg overflow-hidden">
-        {(title || subtitle || headerAction) && (
-          <CardHeader className="pt-4 pb-2 px-4 sm:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-              <div className="flex-1 min-w-0">
-                {title && (
-                  <div className="flex items-center gap-2">
-                    {TitleIcon && (
-                      <div className="p-1.5 bg-primary/10 rounded-lg">
-                        <TitleIcon className="h-4 w-4 text-primary" />
-                      </div>
-                    )}
-                    <CardTitle className="text-lg sm:text-xl">
-                      {title}
-                    </CardTitle>
-                  </div>
-                )}
-                {subtitle && (
-                  <p className="text-xs sm:text-sm text-accent-foreground mt-0.5 leading-snug">
-                    {subtitle}
-                  </p>
-                )}
-              </div>
-              {headerAction && (
-                <div className="shrink-0 flex justify-center sm:justify-end">
-                  {headerAction}
-                </div>
-              )}
-            </div>
-          </CardHeader>
-        )}
         <div ref={contentRef} className="flex-1 overflow-y-auto" key={pathname}>
           {children}
         </div>

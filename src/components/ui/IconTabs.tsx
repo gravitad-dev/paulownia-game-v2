@@ -121,9 +121,8 @@ export function IconTabs({
                   aria-label={tab.label}
                   className={cn(
                     "relative flex items-center justify-center gap-2 rounded-t-lg rounded-b-none border-x-0 border-t border-b-0 border-border/60 bg-muted/70 transition-all first:border-l last:border-r first:rounded-tl-lg last:rounded-tr-lg overflow-visible z-30",
-                    // Mobile/Tablet (< md): Tab inactiva 40x40px (cubo), activa se expande
+                    // Mobile/Tablet (< md): Tabs cuadradas 40x40px solo iconos
                     "flex-initial w-10 h-10 px-1 py-1",
-                    "data-[state=active]:w-20 data-[state=active]:h-10 data-[state=active]:px-2 data-[state=active]:py-2",
                     // Desktop (>= md): Tamaño base según si muestra labels
                     showLabelsOnDesktop
                       ? "md:w-auto md:min-w-[120px] md:max-w-[200px] md:h-10 md:px-3 md:py-2"
@@ -136,13 +135,14 @@ export function IconTabs({
                 >
                   <span
                     className={cn(
-                      "flex text-base md:text-xl",
+                      // Tamaño de iconos unificado
+                      "flex text-lg md:text-xl",
                       showLabelsOnDesktop && "md:text-lg",
                     )}
                   >
                     <tab.icon aria-hidden="true" />
                   </span>
-                  {showLabelsOnDesktop && tab.value !== value && (
+                  {showLabelsOnDesktop && (
                     <span className="hidden text-sm font-medium md:inline whitespace-nowrap overflow-hidden text-ellipsis">
                       {tab.label}
                     </span>

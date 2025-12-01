@@ -54,12 +54,12 @@ export interface GridContainerProps {
 
 /**
  * Contenedor reutilizable para grids de recompensas/logros
- * 
+ *
  * Características:
  * - Grid responsive configurable
  * - Estados de carga y vacío
  * - Configuración flexible de columnas y espaciado
- * 
+ *
  * @example
  * ```tsx
  * <GridContainer
@@ -97,7 +97,9 @@ export function GridContainer({
         </div>
       ) : !hasChildren && !showEmpty ? (
         <div className="text-center py-12 text-muted-foreground">
-          {EmptyIcon && <EmptyIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />}
+          {EmptyIcon && (
+            <EmptyIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          )}
           <p>{emptyMessage}</p>
         </div>
       ) : (

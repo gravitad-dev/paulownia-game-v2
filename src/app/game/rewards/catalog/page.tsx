@@ -1,12 +1,13 @@
 "use client";
 
-import { CatalogGrid } from "@/components/game/rewards/catalog";
+import { CatalogGrid, CatalogFilters } from "@/components/game/rewards/catalog";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { RewardService } from "@/services/reward.service";
 import { useCatalogStore } from "@/store/useCatalogStore";
 import type { CatalogReward, StrapiPagination } from "@/types/reward";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Gift } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 const PAGE_SIZE = 8;
 
@@ -15,7 +16,7 @@ const PAGE_SIZE = 8;
  */
 function filterBySubtype(
   rewards: CatalogReward[],
-  filter: string,
+  filter: string
 ): CatalogReward[] {
   if (filter === "coins") {
     return rewards.filter((r) => r.name.toLowerCase().includes("coin"));
@@ -27,7 +28,7 @@ function filterBySubtype(
 }
 
 export default function CatalogPage() {
-  const filter = useCatalogStore((state) => state.filter);
+  const { filter, setFilter } = useCatalogStore();
   const [rewards, setRewards] = useState<CatalogReward[]>([]);
   const [pagination, setPagination] = useState<StrapiPagination | null>(null);
   const [page, setPage] = useState(1);
@@ -81,6 +82,9 @@ export default function CatalogPage() {
     setPage(newPage);
   };
 
+  const title = "Catálogo de Premios";
+  const subtitle = "Explora todos los premios que puedes ganar";
+
   // Error state
   if (error && !isLoading && rewards.length === 0) {
     return (
@@ -92,25 +96,34 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 sm:p-6 max-w-6xl mx-auto">
-      {/* Grid de premios - ocupa todo el espacio disponible */}
-      <div className="flex-1">
-        <CatalogGrid rewards={rewards} isLoading={isLoading} />
-      </div>
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title={title} subtitle={subtitle} titleIcon={Gift} />
 
-      {/* Paginación - siempre al fondo */}
-      {pagination && pagination.total > 0 && (
-        <div className="pt-4">
-          <TablePagination
-            page={pagination.page}
-            pageCount={pagination.pageCount}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            onPageChange={handlePageChange}
-            label="premios"
-          />
+      <div className="flex flex-col flex-1 p-4 sm:p-6 space-y-4 overflow-y-auto">
+        {/* Filtros arriba del grid */}
+        <div className="flex justify-start">
+          <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
         </div>
-      )}
+
+        {/* Grid de premios - ocupa todo el ancho disponible */}
+        <div className="flex-1">
+          <CatalogGrid rewards={rewards} isLoading={isLoading} />
+        </div>
+
+        {/* Paginación - siempre al fondo */}
+        {pagination && pagination.total > 0 && (
+          <div className="pt-4">
+            <TablePagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              label="premios"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

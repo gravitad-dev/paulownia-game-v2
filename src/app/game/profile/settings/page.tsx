@@ -22,12 +22,13 @@ import { GuardianService } from "@/services/guardian.service";
 import { MediaService, UploadedFile } from "@/services/media.service";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { ChangePasswordModal } from "@/components/profile/ChangePasswordModal";
-import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
@@ -501,11 +502,9 @@ export default function ProfilePage() {
         className="flex flex-col h-full"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <CardHeader className="sticky top-0 z-10 bg-card space-y-0 p-0 shrink-0 border-b border-border/50">
-          <div className="flex flex-row items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-3">
-            <CardTitle className="text-lg font-semibold sm:text-xl">
-              Configuración
-            </CardTitle>
+        <CardHeaderSticky
+          title="Configuración"
+          actions={
             <div className="flex items-center gap-2 shrink-0">
               {isEditing ? (
                 <>
@@ -543,8 +542,8 @@ export default function ProfilePage() {
                 </Button>
               )}
             </div>
-          </div>
-        </CardHeader>
+          }
+        />
 
         <CardContent className="space-y-6 px-6 py-6">
           <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">

@@ -1,19 +1,12 @@
 "use client";
 
-import { CatalogFilters } from "@/components/game/rewards/catalog";
 import { IconTab } from "@/components/ui/IconTabs";
 import { TabLayout } from "@/components/ui/TabLayout";
-import { useCatalogStore } from "@/store/useCatalogStore";
-import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import { ArrowLeftRight, Gift, Sparkles } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 interface RewardTab extends IconTab {
   href: string;
-  getContent: (stats: { coins?: number; tickets?: number } | null) => {
-    title: string;
-    subtitle: string;
-  };
 }
 
 const rewardTabs: RewardTab[] = [
@@ -22,35 +15,18 @@ const rewardTabs: RewardTab[] = [
     label: "Canjear",
     href: "/game/rewards",
     icon: ArrowLeftRight,
-    getContent: () => ({
-      title: "Canjear Monedas",
-      subtitle:
-        "Convierte tus monedas en tickets para participar en los premios",
-    }),
   },
   {
     value: "discover",
     label: "Descubrir",
     href: "/game/rewards/discover",
     icon: Sparkles,
-    getContent: (stats) => ({
-      title: "Descubrir Premio",
-      subtitle: stats?.tickets
-        ? `Tienes ${stats.tickets} ticket${
-            stats.tickets !== 1 ? "s" : ""
-          } disponible${stats.tickets !== 1 ? "s" : ""} para descubrir premios`
-        : "Consigue tickets para descubrir premios increíbles",
-    }),
   },
   {
     value: "catalog",
     label: "Catálogo",
     href: "/game/rewards/catalog",
     icon: Gift,
-    getContent: () => ({
-      title: "Catálogo de Premios",
-      subtitle: "Explora todos los premios que puedes ganar",
-    }),
   },
 ];
 
@@ -67,12 +43,8 @@ export default function RewardsLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const playerStats = usePlayerStatsStore((state) => state.stats);
-  const { filter, setFilter } = useCatalogStore();
 
   const currentTab = getTabFromPathname(pathname);
-  const { title, subtitle } = currentTab.getContent(playerStats);
-  const isCatalogPage = pathname === "/game/rewards/catalog";
 
   const handleTabChange = (value: string) => {
     const tab = rewardTabs.find((t) => t.value === value);
@@ -87,13 +59,6 @@ export default function RewardsLayout({
       value={currentTab.value}
       onValueChange={handleTabChange}
       showLabelsOnDesktop
-      title={title}
-      subtitle={subtitle}
-      headerAction={
-        isCatalogPage ? (
-          <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
-        ) : undefined
-      }
     >
       {children}
     </TabLayout>

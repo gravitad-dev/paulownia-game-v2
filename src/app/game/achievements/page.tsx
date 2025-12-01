@@ -1,44 +1,35 @@
 "use client";
 
 import { AchievementsList } from "@/components/game/achievements";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
-import { Trophy } from "lucide-react";
 
 export default function AchievementsPage() {
   const { availableCount } = useAchievementsStore();
 
+  // Subtítulo dinámico según logros disponibles
+  const subtitle =
+    availableCount > 0
+      ? `¡Tienes ${availableCount} logro${
+          availableCount > 1 ? "s" : ""
+        } disponible${availableCount > 1 ? "s" : ""} para reclamar!`
+      : "Completa desafíos y obtén recompensas";
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Trophy className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-2xl">Logros</CardTitle>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Completa desafíos y obtén recompensas
-              </p>
-            </div>
-          </div>
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title="Logros" />
 
-          {/* Indicador de logros disponibles */}
-          {availableCount > 0 && (
-            <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm text-primary font-medium">
-                ¡Tienes {availableCount} logro{availableCount > 1 ? "s" : ""}{" "}
-                disponible{availableCount > 1 ? "s" : ""} para reclamar!
-              </p>
-            </div>
-          )}
-        </CardHeader>
+      <div className="flex flex-col flex-1 space-y-4 overflow-y-auto">
+        {/* Info de logros disponibles */}
+        <div className="px-4 py-3 sm:px-6 sm:py-3">
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div>
 
-        <CardContent>
+        {/* Lista de logros */}
+        <div className="flex-1 px-4 sm:px-6">
           <AchievementsList />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
