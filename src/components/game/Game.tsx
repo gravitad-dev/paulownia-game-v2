@@ -1541,6 +1541,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     isFastForward,
     cycleTime,
     lockedPieces,
+    puzzleImageUrl,
+    puzzleStore,
   ]);
 
   // Controles de movimiento y rotación
@@ -1760,6 +1762,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     cameraCorrection,
     isGameOver,
     gameState,
+    puzzleStore,
   ]);
 
   // Handler para keyup de espacio (desactivar fastForward)

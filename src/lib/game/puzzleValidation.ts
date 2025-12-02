@@ -3,7 +3,6 @@ import {
   Tile,
   areTilesConnected,
   isBaseOrientation,
-  BASE_ORIENTATION,
 } from "./puzzleTile";
 
 /**
