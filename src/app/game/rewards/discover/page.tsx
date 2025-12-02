@@ -103,6 +103,22 @@ export default function DiscoverRewardsPage() {
   };
 
   const ticketCount = playerStats?.tickets ?? 0;
+
+  // Manejar tecla Enter para girar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Solo activar si presiona Enter, está en idle, y tiene tickets
+      if (e.key === "Enter" && phase === "idle" && ticketCount > 0) {
+        e.preventDefault();
+        handleSpin();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, ticketCount]);
+
   const isSpinning = phase === "spinning";
   const showRevealModal = phase === "revealed" && currentReward !== null;
 

@@ -3,7 +3,7 @@
 import { UserRewardDetailed } from "@/types/reward";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Gift, Package, Sparkles, FileText, Clock } from "lucide-react";
+import { Gift, Package, Coins, Ticket, FileText, Clock } from "lucide-react";
 import Image from "next/image";
 import { FALLBACK_IMAGES } from "@/constants/images";
 import { useState } from "react";
@@ -18,16 +18,29 @@ interface UserRewardsTableProps {
   onClaimSuccess?: () => void;
 }
 
-const rewardTypeIcons = {
-  currency: Sparkles,
-  consumable: Package,
-  cosmetic: Gift,
+// Helper para detectar si es coin o ticket
+const isTicket = (name: string) => name.toLowerCase().includes("ticket");
+
+// Obtener el icono según el tipo y nombre del premio
+const getRewardIcon = (typeReward: string, name: string) => {
+  if (typeReward === "currency") {
+    if (isTicket(name)) return Ticket;
+    return Coins; // Por defecto coins
+  }
+  if (typeReward === "consumable") return Package;
+  if (typeReward === "cosmetic") return Gift;
+  return Gift;
 };
 
-const rewardTypeLabels = {
-  currency: "Moneda",
-  consumable: "Consumible",
-  cosmetic: "Cosmético",
+// Obtener la etiqueta según el tipo y nombre del premio
+const getRewardTypeLabel = (typeReward: string, name: string) => {
+  if (typeReward === "currency") {
+    if (isTicket(name)) return "Tickets";
+    return "Monedas";
+  }
+  if (typeReward === "consumable") return "Consumible";
+  if (typeReward === "cosmetic") return "Cosmético";
+  return "Premio";
 };
 
 const statusLabels = {
@@ -136,7 +149,14 @@ export function UserRewardsTable({
           </thead>
           <tbody>
             {data.map((userReward) => {
-              const TypeIcon = rewardTypeIcons[userReward.reward.typeReward];
+              const TypeIcon = getRewardIcon(
+                userReward.reward.typeReward,
+                userReward.reward.name,
+              );
+              const typeLabel = getRewardTypeLabel(
+                userReward.reward.typeReward,
+                userReward.reward.name,
+              );
               // El premio se puede reclamar si:
               // 1. Es de tipo consumable
               // 2. El estado es pending o available
@@ -184,18 +204,16 @@ export function UserRewardsTable({
                   <td className="p-3 text-center hidden sm:table-cell">
                     <div className="flex items-center justify-center gap-1">
                       <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs">
-                        {rewardTypeLabels[userReward.reward.typeReward]}
-                      </span>
+                      <span className="text-xs">{typeLabel}</span>
                     </div>
                   </td>
 
                   {/* Cantidad */}
                   <td className="p-3 text-center">
                     <span className="font-medium">
-                      {userReward.quantity}
-                      {userReward.reward.typeReward === "currency" &&
-                        ` × ${userReward.reward.value}`}
+                      {userReward.reward.typeReward === "currency"
+                        ? userReward.reward.value
+                        : userReward.quantity}
                     </span>
                   </td>
 
