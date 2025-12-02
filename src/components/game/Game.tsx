@@ -23,6 +23,7 @@ import { PuzzleFloor } from "./PuzzleFloor";
 import { PuzzleTileCube } from "./PuzzleTileCube";
 import { generatePuzzlePattern } from "@/lib/game/puzzleGenerator";
 import { validatePuzzlePlacement } from "@/lib/game/puzzleValidation";
+import { useGameLogStore } from "@/store/useGameLogStore";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
@@ -664,10 +665,24 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         puzzleActions.setCurrentPuzzlePiece(firstPuzzlePiece);
         setActiveType(firstPuzzlePiece.type);
         setActiveRotation(firstPuzzlePiece.rotation);
-        setActivePosition({
+        const spawnPos = {
           x: Math.floor(size / 2) - 1,
           y: size - 1,
           z: Math.floor(size / 2) - 1,
+        };
+        setActivePosition(spawnPos);
+
+        // Log spawn de primera pieza puzzle
+        useGameLogStore.getState().addLog({
+          type: "spawn",
+          pieceId: firstPuzzlePiece.id,
+          pieceType: firstPuzzlePiece.type,
+          position: spawnPos,
+          rotation: firstPuzzlePiece.rotation,
+          patternRotation: firstPuzzlePiece.rotation,
+          remainingPieces: remainingPieces.length,
+          totalPieces: pattern.length,
+          details: "Primera pieza puzzle (startGame)",
         });
       }
     }
@@ -759,15 +774,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         }
         if (zLineFull) {
           for (let z = 0; z < size; z++) {
-            // No eliminar bloques bloqueados (pero sí los normales)
-            if (!lockedPositions.has(`${x},${z}`)) {
+            // Solo proteger bloques en Y=0; en niveles superiores todos son eliminables
+            if (level > 0 || !lockedPositions.has(`${x},${z}`)) {
               toRemove.push({ x, z });
             }
-            // Marcar bloques superiores para bajar (excepto en columnas bloqueadas)
+            // Marcar bloques superiores para bajar
+            // En Y>0 todos los bloques pueden moverse; en Y=0 solo los no bloqueados
             for (let yy = level + 1; yy < size; yy++) {
               if (
                 gridToCheck[x][yy][z] === "filled" &&
-                !lockedPositions.has(`${x},${z}`)
+                (level > 0 || !lockedPositions.has(`${x},${z}`))
               ) {
                 toMove.push({ x, z, fromY: yy, toY: yy - 1 });
               }
@@ -789,18 +805,20 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         }
         if (xLineFull) {
           for (let x = 0; x < size; x++) {
-            // Solo añadir si no está ya en toRemove y no está bloqueado
+            // Solo añadir si no está ya en toRemove
+            // Solo proteger bloques en Y=0; en niveles superiores todos son eliminables
             if (
               !toRemove.some((r) => r.x === x && r.z === z) &&
-              !lockedPositions.has(`${x},${z}`)
+              (level > 0 || !lockedPositions.has(`${x},${z}`))
             ) {
               toRemove.push({ x, z });
             }
-            // Marcar bloques superiores para bajar (excepto en columnas bloqueadas)
+            // Marcar bloques superiores para bajar
+            // En Y>0 todos los bloques pueden moverse; en Y=0 solo los no bloqueados
             for (let yy = level + 1; yy < size; yy++) {
               if (
                 gridToCheck[x][yy][z] === "filled" &&
-                !lockedPositions.has(`${x},${z}`)
+                (level > 0 || !lockedPositions.has(`${x},${z}`))
               ) {
                 const existing = toMove.find(
                   (m) => m.x === x && m.z === z && m.fromY === yy
@@ -820,7 +838,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   );
 
   // Aplica la limpieza al grid lógico
-  // Las piezas bloqueadas SÍ cuentan para completar líneas pero NO se mueven ni eliminan
+  // Las piezas bloqueadas en Y=0 SÍ cuentan para completar líneas pero NO se mueven ni eliminan
+  // En niveles Y>0, todos los bloques son movibles/eliminables
   const applyLineClearToGrid = useCallback(
     (
       gridToClean: Grid3D,
@@ -834,12 +853,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       // lockedPositions ya viene calculado con todas las celdas protegidas
       // incluyendo la pieza recién colocada
 
-      const shiftColumnDown = (x: number, z: number) => {
-        // No mover bloques en posiciones bloqueadas
-        if (lockedPositions.has(`${x},${z}`)) {
-          return;
-        }
-        for (let yy = level; yy < size - 1; yy++) {
+      const shiftColumnDown = (x: number, z: number, startLevel: number) => {
+        // Si hay pieza bloqueada en Y=0 y estamos limpiando nivel 0,
+        // mantenerla fija pero permitir que bloques superiores caigan hacia Y=1
+        const hasLockedAtY0 = lockedPositions.has(`${x},${z}`);
+        
+        // Si level=0 y hay bloque bloqueado, empezar desde Y=1 para no tocar Y=0
+        // Si level>0, hacer shift normal desde el nivel de la línea eliminada
+        const minY = (startLevel === 0 && hasLockedAtY0) ? 1 : startLevel;
+        
+        for (let yy = minY; yy < size - 1; yy++) {
           gridToClean[x][yy][z] = gridToClean[x][yy + 1][z];
         }
         gridToClean[x][size - 1][z] = "empty";
@@ -859,13 +882,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
           if (zLineFull) {
+            let didMove = false;
             for (let z = 0; z < size; z++) {
-              // Solo mover columnas no bloqueadas
-              if (!lockedPositions.has(`${x},${z}`)) {
-                shiftColumnDown(x, z);
+              // En Y=0: solo mover columnas no bloqueadas
+              // En Y>0: mover todas las columnas (la protección solo aplica a Y=0)
+              if (level > 0 || !lockedPositions.has(`${x},${z}`)) {
+                shiftColumnDown(x, z, level);
+                didMove = true;
               }
             }
-            changed = true;
+            // Solo marcar changed si realmente se movió algo
+            if (didMove) {
+              changed = true;
+            }
           }
         }
 
@@ -879,13 +908,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
           if (xLineFull) {
+            let didMove = false;
             for (let x = 0; x < size; x++) {
-              // Solo mover columnas no bloqueadas
-              if (!lockedPositions.has(`${x},${z}`)) {
-                shiftColumnDown(x, z);
+              // En Y=0: solo mover columnas no bloqueadas
+              // En Y>0: mover todas las columnas (la protección solo aplica a Y=0)
+              if (level > 0 || !lockedPositions.has(`${x},${z}`)) {
+                shiftColumnDown(x, z, level);
+                didMove = true;
               }
             }
-            changed = true;
+            // Solo marcar changed si realmente se movió algo
+            if (didMove) {
+              changed = true;
+            }
           }
         }
       }
@@ -905,117 +940,127 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       blocksToMove: { x: number; y: number; z: number; newY: number }[];
       finalGrid: Grid3D;
     } => {
-      const blocksToRemove: { x: number; y: number; z: number }[] = [];
+      try {
+        const blocksToRemove: { x: number; y: number; z: number }[] = [];
 
-      // Guardar el grid original para comparar después
-      const originalGrid: Grid3D = gridToProcess.map((plane) =>
-        plane.map((row) => [...row])
-      );
+        // Guardar el grid original para comparar después
+        const originalGrid: Grid3D = gridToProcess.map((plane) =>
+          plane.map((row) => [...row])
+        );
 
-      // Crear una copia del grid para trabajar
-      let workingGrid: Grid3D = gridToProcess.map((plane) =>
-        plane.map((row) => [...row])
-      );
+        // Crear una copia del grid para trabajar
+        let workingGrid: Grid3D = gridToProcess.map((plane) =>
+          plane.map((row) => [...row])
+        );
 
-      let hasMoreLines = true;
-      const maxIterations = 100; // Prevenir bucles infinitos
-      let iterations = 0;
+        let hasMoreLines = true;
+        const maxIterations = 100; // Prevenir bucles infinitos
+        let iterations = 0;
 
-      while (hasMoreLines && iterations < maxIterations) {
-        iterations++;
-        hasMoreLines = false;
+        while (hasMoreLines && iterations < maxIterations) {
+          iterations++;
+          hasMoreLines = false;
 
-        // Verificar todos los niveles desde 0 hasta MAX_STACK_HEIGHT
-        for (let level = 0; level < MAX_STACK_HEIGHT; level++) {
-          const { toRemove } = detectLineClears(
-            workingGrid,
-            level,
-            lockedPositions
-          );
-
-          if (toRemove.length > 0) {
-            hasMoreLines = true;
-
-            // Añadir bloques a eliminar (con su coordenada Y)
-            toRemove.forEach((r) => {
-              if (
-                !blocksToRemove.some(
-                  (b) => b.x === r.x && b.y === level && b.z === r.z
-                )
-              ) {
-                blocksToRemove.push({ x: r.x, y: level, z: r.z });
-              }
-            });
-
-            // Aplicar la limpieza al grid de trabajo
-            workingGrid = applyLineClearToGrid(
+          // Verificar todos los niveles desde 0 hasta MAX_STACK_HEIGHT
+          for (let level = 0; level < MAX_STACK_HEIGHT; level++) {
+            const { toRemove } = detectLineClears(
               workingGrid,
               level,
               lockedPositions
             );
-          }
-        }
-      }
 
-      // Calcular los movimientos finales comparando el grid original con el final
-      // Para cada columna (x, z), calcular cuántos bloques hay en cada nivel
-      // y mapear los bloques originales a sus nuevas posiciones
-      const blocksToMove: {
-        x: number;
-        y: number;
-        z: number;
-        newY: number;
-      }[] = [];
+            if (toRemove.length > 0) {
+              hasMoreLines = true;
 
-      // Para cada columna (x, z)
-      for (let x = 0; x < size; x++) {
-        for (let z = 0; z < size; z++) {
-          // Obtener todos los bloques originales en esta columna (de arriba hacia abajo)
-          const originalBlocksInColumn: number[] = [];
-          for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
-            if (originalGrid[x][y][z] === "filled") {
-              // Verificar si este bloque no fue eliminado
-              const wasRemoved = blocksToRemove.some(
-                (r) => r.x === x && r.y === y && r.z === z
+              // Añadir bloques a eliminar (con su coordenada Y)
+              toRemove.forEach((r) => {
+                if (
+                  !blocksToRemove.some(
+                    (b) => b.x === r.x && b.y === level && b.z === r.z
+                  )
+                ) {
+                  blocksToRemove.push({ x: r.x, y: level, z: r.z });
+                }
+              });
+
+              // Aplicar la limpieza al grid de trabajo
+              workingGrid = applyLineClearToGrid(
+                workingGrid,
+                level,
+                lockedPositions
               );
-              if (!wasRemoved) {
-                originalBlocksInColumn.push(y);
+            }
+          }
+        }
+
+        // Calcular los movimientos finales comparando el grid original con el final
+        // Para cada columna (x, z), calcular cuántos bloques hay en cada nivel
+        // y mapear los bloques originales a sus nuevas posiciones
+        const blocksToMove: {
+          x: number;
+          y: number;
+          z: number;
+          newY: number;
+        }[] = [];
+
+        // Para cada columna (x, z)
+        for (let x = 0; x < size; x++) {
+          for (let z = 0; z < size; z++) {
+            // Obtener todos los bloques originales en esta columna (de arriba hacia abajo)
+            const originalBlocksInColumn: number[] = [];
+            for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
+              if (originalGrid[x][y][z] === "filled") {
+                // Verificar si este bloque no fue eliminado
+                const wasRemoved = blocksToRemove.some(
+                  (r) => r.x === x && r.y === y && r.z === z
+                );
+                if (!wasRemoved) {
+                  originalBlocksInColumn.push(y);
+                }
               }
             }
-          }
 
-          // Obtener todas las posiciones ocupadas en el grid final (de arriba hacia abajo)
-          const finalBlocksInColumn: number[] = [];
-          for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
-            if (workingGrid[x][y][z] === "filled") {
-              finalBlocksInColumn.push(y);
+            // Obtener todas las posiciones ocupadas en el grid final (de arriba hacia abajo)
+            const finalBlocksInColumn: number[] = [];
+            for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
+              if (workingGrid[x][y][z] === "filled") {
+                finalBlocksInColumn.push(y);
+              }
             }
-          }
 
-          // Mapear cada bloque original a su nueva posición
-          // Asumimos que los bloques mantienen su orden relativo
-          for (let i = 0; i < originalBlocksInColumn.length; i++) {
-            const originalY = originalBlocksInColumn[i];
-            if (i < finalBlocksInColumn.length) {
-              const newY = finalBlocksInColumn[i];
-              if (newY !== originalY) {
-                blocksToMove.push({
-                  x,
-                  y: originalY,
-                  z,
-                  newY,
-                });
+            // Mapear cada bloque original a su nueva posición
+            // Asumimos que los bloques mantienen su orden relativo
+            for (let i = 0; i < originalBlocksInColumn.length; i++) {
+              const originalY = originalBlocksInColumn[i];
+              if (i < finalBlocksInColumn.length) {
+                const newY = finalBlocksInColumn[i];
+                if (newY !== originalY) {
+                  blocksToMove.push({
+                    x,
+                    y: originalY,
+                    z,
+                    newY,
+                  });
+                }
               }
             }
           }
         }
-      }
 
-      return {
-        blocksToRemove,
-        blocksToMove,
-        finalGrid: workingGrid,
-      };
+        return {
+          blocksToRemove,
+          blocksToMove,
+          finalGrid: workingGrid,
+        };
+      } catch (error) {
+        console.error("[GAME ERROR] Error in processLineClearsIteratively:", error);
+        // Retornar valores seguros para no crashear el juego
+        return {
+          blocksToRemove: [],
+          blocksToMove: [],
+          finalGrid: gridToProcess,
+        };
+      }
     },
     [size, detectLineClears, applyLineClearToGrid]
   );
@@ -1045,6 +1090,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const activePositionRef = useRef(activePosition);
   const activeShapeRef = useRef(activeShape);
   const activeWorldBlocksRef = useRef(activeWorldBlocks);
+  const activeRotationRef = useRef(activeRotation);
   const gridRef = useRef(grid);
   const lockedPiecesRef = useRef(lockedPieces);
   const isFastForwardRef = useRef(isFastForward);
@@ -1073,6 +1119,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   useEffect(() => {
     activeWorldBlocksRef.current = activeWorldBlocks;
   }, [activeWorldBlocks]);
+  useEffect(() => {
+    activeRotationRef.current = activeRotation;
+  }, [activeRotation]);
   useEffect(() => {
     gridRef.current = grid;
   }, [grid]);
@@ -1377,18 +1426,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         });
 
         if (hasCollision) {
-          // Fijar pieza en el grid en la posición actual
-          const currentActiveWorldBlocks = activeWorldBlocksRef.current;
-          const highestBlock = Math.max(
-            ...currentActiveWorldBlocks.map((block) => block.y)
-          );
-          const reachedLimit = highestBlock >= MAX_STACK_HEIGHT;
+          try {
+            // Fijar pieza en el grid en la posición actual
+            const currentActiveWorldBlocks = activeWorldBlocksRef.current;
+            const highestBlock = Math.max(
+              ...currentActiveWorldBlocks.map((block) => block.y)
+            );
+            const reachedLimit = highestBlock >= MAX_STACK_HEIGHT;
 
-          // Resetear fastForward cuando la pieza se bloquea
-          setIsFastForward(false);
+            // Resetear fastForward cuando la pieza se bloquea
+            setIsFastForward(false);
 
-          // Verificar si es una pieza puzzle y si coincide con el patrón
-          let isPuzzleCorrectlyPlaced = false;
+            // Verificar si es una pieza puzzle y si coincide con el patrón
+            let isPuzzleCorrectlyPlaced = false;
 
           if (currentPuzzlePiece && puzzleImageUrl) {
             // Buscar la pieza en el patrón
@@ -1412,20 +1462,68 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   new Set(prev).add(currentPuzzlePiece.id)
                 );
 
-                // Verificar condición de victoria: todas las piezas puzzle colocadas
-                // remainingPieces se actualiza dentro de placePiece, verificamos si queda solo esta
-                if (currentRemainingPieces.length === 1) {
-                  // Esta era la última pieza - VICTORIA
+                // Verificar condición de victoria: TODAS las piezas del patrón colocadas correctamente
+                // Usamos pattern.length porque es el número total de piezas requeridas
+                const totalPieces = currentPattern.length;
+                // placePiece() ya actualizó Zustand, así que placedPieces.length YA incluye esta pieza
+                const placedCount = usePuzzleStore.getState().placedPieces.length;
+
+                // Log colocación exitosa
+                useGameLogStore.getState().addLog({
+                  type: "place_success",
+                  pieceId: currentPuzzlePiece.id,
+                  pieceType: currentPuzzlePiece.type,
+                  position: currentActiveWorldBlocks[0],
+                  rotation: activeRotationRef.current,
+                  patternRotation: patternPiece.rotation,
+                  placedPieces: placedCount,
+                  totalPieces: totalPieces,
+                  remainingPieces: currentRemainingPieces.length - 1,
+                });
+
+                if (placedCount === totalPieces) {
+                  // TODAS las piezas colocadas correctamente - VICTORIA
+                  useGameLogStore.getState().addLog({
+                    type: "victory",
+                    placedPieces: placedCount,
+                    totalPieces: totalPieces,
+                    details: "Todas las piezas colocadas correctamente",
+                  });
                   setGameState("victory");
                 }
               } else {
                 // Pieza puzzle fallida - se degrada a pieza normal
-                // Se descarta de remainingPieces para evitar que se seleccione de nuevo
+                // La pieza vuelve al final del pool para reintentarla más tarde
                 // Los bloques se crearán como bloques normales (sin isPuzzleBlock)
+
+                // Log colocación fallida
+                useGameLogStore.getState().addLog({
+                  type: "place_fail",
+                  pieceId: currentPuzzlePiece.id,
+                  pieceType: currentPuzzlePiece.type,
+                  position: currentActiveWorldBlocks[0],
+                  rotation: activeRotationRef.current,
+                  patternRotation: patternPiece.rotation,
+                  failReason: validation.reason,
+                  remainingPieces: currentRemainingPieces.length,
+                  totalPieces: currentPattern.length,
+                  details: `Esperado: rot=${patternPiece.rotation}, cells=${JSON.stringify(patternPiece.cells)}`,
+                });
+
                 puzzleActions.discardPiece(currentPuzzlePiece.id);
+
+                // Log discard/requeue
+                useGameLogStore.getState().addLog({
+                  type: "discard",
+                  pieceId: currentPuzzlePiece.id,
+                  remainingPieces: usePuzzleStore.getState().remainingPieces.length,
+                  details: "Pieza devuelta al pool para reintentar",
+                });
               }
             }
           }
+
+          console.log("[DEBUG] Checkpoint 1: Starting tempGrid creation");
 
           // Primero, crear el grid temporal para detectar líneas
           const tempGrid: Grid3D = currentGrid.map((plane) =>
@@ -1436,6 +1534,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               tempGrid[block.x][block.y][block.z] = "filled";
             }
           });
+
+          console.log("[DEBUG] Checkpoint 2: tempGrid created, blocks added");
 
           // CORRECCIÓN BUG: Calcular lockedPositions con TODAS las celdas protegidas
           // Esto incluye piezas ya colocadas + la pieza recién colocada
@@ -1469,6 +1569,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             });
           }
 
+          console.log("[DEBUG] Checkpoint 3: lockedPositions calculated", { size: lockedPositions.size });
+
           // Procesar todas las líneas de forma iterativa
           // Ahora pasamos lockedPositions directamente (celdas x,z protegidas)
           const { blocksToRemove, finalGrid } = !reachedLimit
@@ -1477,6 +1579,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 blocksToRemove: [] as { x: number; y: number; z: number }[],
                 finalGrid: tempGrid,
               };
+
+          console.log("[DEBUG] Checkpoint 4: processLineClearsIteratively done", { blocksToRemove: blocksToRemove.length });
 
           // Crear mapa de celdas puzzle recién colocadas (si aplica)
           // Esto captura la info ANTES de setVisualBlocks para evitar problemas de timing
@@ -1498,6 +1602,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
 
+          console.log("[DEBUG] Checkpoint 5: newPuzzleCells map created");
+
           // OPTIMIZACIÓN: Capturar el Map actualizado antes de setVisualBlocks
           // Obtener el estado actualizado de Zustand para placedPieces
           const currentPlacedPuzzleCellsMap = new Map<string, { tileX: number; tileZ: number }>();
@@ -1510,6 +1616,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               });
             });
           });
+
+          console.log("[DEBUG] Checkpoint 6: Starting setVisualBlocks");
 
           // Actualizar bloques visuales con animaciones
           setVisualBlocks((prev) => {
@@ -1680,14 +1788,27 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             return [...destroyingBlocks, ...newBlocks];
           });
 
+          console.log("[DEBUG] Checkpoint 7: setVisualBlocks done");
+
           // Actualizar grid lógico final
           setGrid(finalGrid);
 
+          console.log("[DEBUG] Checkpoint 8: setGrid done");
+
           if (reachedLimit) {
+            // Log gameover
+            useGameLogStore.getState().addLog({
+              type: "gameover",
+              placedPieces: usePuzzleStore.getState().placedPieces.length,
+              totalPieces: currentPattern.length,
+              details: `Límite de altura alcanzado (MAX_STACK_HEIGHT=${MAX_STACK_HEIGHT})`,
+            });
             setIsGameOver(true);
             setGameState("gameover");
             return;
           }
+
+          console.log("[DEBUG] Checkpoint 9: Starting new piece generation");
 
           // Generar nueva pieza
           puzzleActions.incrementPieceCounter();
@@ -1711,6 +1832,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               !placedPieceIds.has(p.id)
           );
 
+          // Log de diagnóstico antes del spawn
+          console.log("[GAME DEBUG] Pre-spawn state:", {
+            remainingPieces: updatedRemainingPieces.length,
+            availablePuzzlePieces: availablePuzzlePieces.length,
+            placedPieces: updatedPlacedPieces.length,
+            totalPattern: currentPattern.length,
+            testMode: updatedTestMode,
+            pieceCounter: updatedPieceCounter,
+            remainingIds: updatedRemainingPieces.map((p) => p.id),
+            availableIds: availablePuzzlePieces.map((p) => p.id),
+          });
+
           // Determinar si la siguiente pieza es puzzle:
           // - testMode=true: SIEMPRE puzzle si hay disponibles (para testing)
           // - testMode=false: cada 3 piezas, 1 puzzle (comportamiento normal)
@@ -1720,24 +1853,57 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           const isPuzzlePiece = puzzleImageUrl && shouldBePuzzlePiece;
 
-          if (isPuzzlePiece) {
+          if (isPuzzlePiece && availablePuzzlePieces.length > 0) {
             // Seleccionar una pieza puzzle aleatoria de las disponibles
             const randomIndex = Math.floor(
               Math.random() * availablePuzzlePieces.length
             );
             const puzzlePiece = availablePuzzlePieces[randomIndex];
 
-            puzzleActions.setCurrentPuzzlePiece(puzzlePiece);
+            // Protección contra undefined
+            if (!puzzlePiece) {
+              console.error("[GAME ERROR] puzzlePiece is undefined!", {
+                availablePuzzlePieces,
+                randomIndex,
+                updatedRemainingPieces,
+              });
+              // Fallback: generar pieza normal
+              puzzleActions.setCurrentPuzzlePiece(null);
+              const fallbackTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+              const fallbackType = fallbackTypes[Math.floor(Math.random() * fallbackTypes.length)];
+              setActiveType(fallbackType);
+              setActiveRotation(0);
+              setActivePosition({
+                x: Math.floor(size / 2) - 1,
+                y: size - 1,
+                z: Math.floor(size / 2) - 1,
+              });
+            } else {
+              puzzleActions.setCurrentPuzzlePiece(puzzlePiece);
 
-            const spawnPosition = {
-              x: Math.floor(size / 2) - 1,
-              y: size - 1,
-              z: Math.floor(size / 2) - 1,
-            };
+              const spawnPosition = {
+                x: Math.floor(size / 2) - 1,
+                y: size - 1,
+                z: Math.floor(size / 2) - 1,
+              };
 
-            setActiveType(puzzlePiece.type);
-            setActiveRotation(puzzlePiece.rotation);
-            setActivePosition(spawnPosition);
+              setActiveType(puzzlePiece.type);
+              setActiveRotation(puzzlePiece.rotation);
+              setActivePosition(spawnPosition);
+
+              // Log spawn de pieza puzzle
+              useGameLogStore.getState().addLog({
+                type: "spawn",
+                pieceId: puzzlePiece.id,
+                pieceType: puzzlePiece.type,
+                position: spawnPosition,
+                rotation: puzzlePiece.rotation,
+                patternRotation: puzzlePiece.rotation,
+                remainingPieces: updatedRemainingPieces.length,
+                totalPieces: currentPattern.length,
+                details: "Spawn pieza puzzle",
+              });
+            }
           } else {
             // Pieza normal (solo cuando testMode=false o no hay más puzzle pieces)
             puzzleActions.setCurrentPuzzlePiece(null);
@@ -1771,6 +1937,17 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           // Programar siguiente tick antes de salir (necesario porque el return evita llegar al requestAnimationFrame del final)
           animationFrameId = requestAnimationFrame(tick);
           return;
+          } catch (error) {
+            // Capturar y loggear cualquier error en el proceso de colocación
+            console.error("[GAME ERROR] Error en proceso de colocación:", error);
+            useGameLogStore.getState().addLog({
+              type: "gameover",
+              details: `Error interno: ${error instanceof Error ? error.message : String(error)}`,
+            });
+            // Intentar continuar el juego programando el siguiente tick
+            animationFrameId = requestAnimationFrame(tick);
+            return;
+          }
         }
 
         setActivePosition(nextPosition);
@@ -1829,10 +2006,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       };
 
       const tryRotate = (delta: number) => {
-        // Si hay una pieza puzzle activa, no permitir rotación
-        if (currentPuzzlePiece) {
-          return;
-        }
+        // Las piezas puzzle ahora pueden rotar
+        // Si la orientación es incorrecta, se mostrarán como pieza normal (feedback visual)
 
         const nextRotation = (activeRotation + delta + 4) % 4;
         const baseShape = TETROMINO_SHAPES[activeType];
@@ -1871,6 +2046,21 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             y: activePosition.y,
             z: pivotWorld.z - pivotCell.z,
           });
+
+          // Log rotación si es pieza puzzle
+          if (currentPuzzlePiece) {
+            const patternPiece = pattern.find((p) => p.id === currentPuzzlePiece.id);
+            const isCorrect = patternPiece ? nextRotation === patternPiece.rotation : false;
+            useGameLogStore.getState().addLog({
+              type: "rotate",
+              pieceId: currentPuzzlePiece.id,
+              pieceType: currentPuzzlePiece.type,
+              rotation: nextRotation,
+              patternRotation: patternPiece?.rotation,
+              isCorrectOrientation: isCorrect,
+              details: isCorrect ? "Orientación correcta" : "Orientación incorrecta (se verá como pieza normal)",
+            });
+          }
         };
 
         if (!checkCollision(rotatedWorldBlocks)) {
@@ -2245,17 +2435,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           />
 
           {/* Piezas activas: cubos de la pieza actual */}
-          {/* Si es pieza puzzle, muestra tiles de imagen; si no, cubos blancos con borde */}
+          {/* Si es pieza puzzle con orientación correcta, muestra tiles de imagen; si no, cubos blancos */}
           {activeWorldBlocks.map((block, index) => {
-            // Si es una pieza puzzle y tenemos la imagen, mostrar con tile de imagen
+            // Si es una pieza puzzle y tenemos la imagen, verificar orientación
             if (currentPuzzlePiece && puzzleImageUrl) {
               const patternPiece = pattern.find(
                 (p) => p.id === currentPuzzlePiece.id
               );
 
-              // El índice se mantiene estable durante la rotación (map preserva el orden)
-              // Cada bloque siempre muestra su tile asignado, rotando junto con la pieza
-              if (patternPiece && index < patternPiece.cells.length) {
+              // Solo mostrar tiles si la orientación es correcta (feedback visual)
+              const isCorrectOrientation = patternPiece && activeRotation === patternPiece.rotation;
+
+              if (isCorrectOrientation && index < patternPiece.cells.length) {
                 const targetCell = patternPiece.cells[index];
 
                 return (
@@ -2276,7 +2467,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               }
             }
 
-            // Pieza normal: cubo blanco con bordes
+            // Pieza normal o puzzle con orientación incorrecta: cubo blanco con bordes
             return (
               <ActiveCube
                 key={`active-${index}`}

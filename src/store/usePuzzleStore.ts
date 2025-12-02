@@ -99,10 +99,18 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
     }),
 
   discardPiece: (pieceId) =>
-    set((state) => ({
-      remainingPieces: state.remainingPieces.filter((p) => p.id !== pieceId),
-      currentPuzzlePiece: null,
-    })),
+    set((state) => {
+      const piece = state.remainingPieces.find((p) => p.id === pieceId);
+      if (!piece) return { currentPuzzlePiece: null };
+
+      // Quitar la pieza de su posición actual y añadirla al final del pool
+      // para que el jugador pueda reintentarla más tarde
+      const otherPieces = state.remainingPieces.filter((p) => p.id !== pieceId);
+      return {
+        remainingPieces: [...otherPieces, piece],
+        currentPuzzlePiece: null,
+      };
+    }),
 
   setCurrentPuzzlePiece: (piece) => set({ currentPuzzlePiece: piece }),
 
