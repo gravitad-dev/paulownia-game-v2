@@ -71,7 +71,6 @@ const porousTexture = loader.load("/textures/porous.jpg");
 // Evita crear nuevas geometrías para cada cubo, reduciendo uso de memoria GPU
 // ============================================================================
 const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
-const SHARED_PLANE_GEOMETRY = new THREE.PlaneGeometry(1, 1);
 
 // Interfaz para parámetros de variante de cubo
 interface CubeVariantParams {
@@ -269,6 +268,12 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
     prevVariantParamsRef.current = block.variantParams;
   }
 
+  // Asegurar que el material siempre esté inicializado
+  if (!materialRef.current) {
+    materialRef.current = getCachedMaterial(block.variantParams);
+    prevVariantParamsRef.current = block.variantParams;
+  }
+
   useFrame((state) => {
     if (!meshRef.current) return;
 
@@ -299,7 +304,7 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
 
   return (
     <mesh ref={meshRef} geometry={SHARED_BOX_GEOMETRY}>
-      <primitive object={materialRef.current} attach="material" />
+      <primitive object={materialRef.current!} attach="material" />
     </mesh>
   );
 }
