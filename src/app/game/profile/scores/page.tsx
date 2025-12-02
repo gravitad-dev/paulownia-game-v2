@@ -73,7 +73,7 @@ export default function ScoresPage() {
   return (
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Puntajes" />
-      <div className="flex-1 p-4 space-y-4">
+      <div className="flex-1 p-4 flex flex-col">
         {!hasUserDocumentId ? (
           <div className="flex h-full flex-col items-center justify-center text-center py-8">
             <p className="text-sm text-muted-foreground max-w-md">
@@ -82,14 +82,16 @@ export default function ScoresPage() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex-1 flex flex-col gap-4">
             <ScoresSummary histories={histories} />
 
-            <ScoresTable
-              data={histories}
-              isLoading={loading}
-              error={error || undefined}
-            />
+            <div className="flex-1 min-h-0">
+              <ScoresTable
+                data={histories}
+                isLoading={loading}
+                error={error || undefined}
+              />
+            </div>
 
             <TablePagination
               page={pagination.page}

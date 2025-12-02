@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { searchAddress } from '@/services/nominatim.service';
-import { AddressSuggestion } from '@/types/address';
-import { Loader2, MapPin, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { searchAddress } from "@/services/nominatim.service";
+import { AddressSuggestion } from "@/types/address";
+import { Loader2, MapPin, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AddressAutocompleteProps {
   id?: string;
@@ -26,13 +26,13 @@ interface AddressAutocompleteProps {
 export function AddressAutocomplete({
   id,
   name,
-  label = 'Dirección',
+  label = "Dirección",
   value,
   onChange,
   onSuggestionSelect,
   disabled = false,
   countryCode,
-  placeholder = 'Buscar dirección...',
+  placeholder = "Buscar dirección...",
   required = false,
   error,
   showManualEntry = true,
@@ -42,7 +42,7 @@ export function AddressAutocomplete({
   const [showDropdown, setShowDropdown] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  
+
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,8 +60,8 @@ export function AddressAutocomplete({
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const performSearch = useCallback(
@@ -79,14 +79,14 @@ export function AddressAutocomplete({
         setShowDropdown(results.length > 0);
         setHighlightedIndex(-1);
       } catch (error) {
-        console.error('Error searching address:', error);
+        console.error("Error searching address:", error);
         setSuggestions([]);
         setShowDropdown(false);
       } finally {
         setLoading(false);
       }
     },
-    [countryCode, manualMode]
+    [countryCode, manualMode],
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,25 +122,25 @@ export function AddressAutocomplete({
     if (!showDropdown || suggestions.length === 0) return;
 
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < suggestions.length - 1 ? prev + 1 : 0
+          prev < suggestions.length - 1 ? prev + 1 : 0,
         );
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : suggestions.length - 1
+          prev > 0 ? prev - 1 : suggestions.length - 1,
         );
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
           handleSuggestionClick(suggestions[highlightedIndex]);
         }
         break;
-      case 'Escape':
+      case "Escape":
         setShowDropdown(false);
         setHighlightedIndex(-1);
         break;
@@ -168,12 +168,12 @@ export function AddressAutocomplete({
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               disabled={disabled}
             >
-              {manualMode ? 'Activar autocompletado' : 'Entrada manual'}
+              {manualMode ? "Activar autocompletado" : "Entrada manual"}
             </button>
           )}
         </div>
       )}
-      
+
       <div className="relative">
         <div className="relative">
           <Input
@@ -191,11 +191,8 @@ export function AddressAutocomplete({
             }}
             disabled={disabled}
             placeholder={placeholder}
-            className={cn(
-              'pr-10',
-              error && 'border-destructive'
-            )}
-            aria-invalid={error ? 'true' : 'false'}
+            className={cn("pr-10", error && "border-destructive")}
+            aria-invalid={error ? "true" : "false"}
             aria-describedby={error ? `${id}-error` : undefined}
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
@@ -221,20 +218,21 @@ export function AddressAutocomplete({
                 type="button"
                 onClick={() => handleSuggestionClick(suggestion)}
                 className={cn(
-                  'w-full px-3 py-2 text-left text-sm transition-colors',
-                  'hover:bg-muted focus:bg-muted focus:outline-none',
-                  highlightedIndex === index && 'bg-muted'
+                  "w-full px-3 py-2 text-left text-sm transition-colors",
+                  "hover:bg-muted focus:bg-muted focus:outline-none",
+                  highlightedIndex === index && "bg-muted",
                 )}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">
                       {suggestion.address.address}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {suggestion.address.city && `${suggestion.address.city}, `}
+                      {suggestion.address.city &&
+                        `${suggestion.address.city}, `}
                       {suggestion.address.country}
                     </div>
                   </div>
@@ -259,4 +257,3 @@ export function AddressAutocomplete({
     </div>
   );
 }
-

@@ -128,15 +128,15 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   html {
     overflow-y: scroll !important;
   }
-  
+
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Prevenir CUALQUIER padding en el body */
   body,
   body[style],
@@ -147,38 +147,38 @@
     margin-right: 0 !important;
     margin-left: 0 !important;
   }
-  
+
   /* Scrollbar personalizado - Webkit (Chrome, Safari, Edge) */
   ::-webkit-scrollbar {
     width: 8px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: hsl(var(--muted) / 0.3); /* Fondo más sutil */
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--muted-foreground) / 0.3); /* Thumb sutil */
     border-radius: 4px;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.5); /* Más visible al hover */
   }
-  
+
   /* Scrollbar personalizado - Firefox */
   * {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted) / 0.3);
   }
-  
+
   /* Utilidad para ocultar scrollbar pero mantener funcionalidad */
   .scrollbar-hide {
     -ms-overflow-style: none; /* IE y Edge */
     scrollbar-width: none; /* Firefox */
     -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none; /* Chrome, Safari y Opera */
   }
@@ -187,6 +187,14 @@
 /* Estilos para react-phone-input-2 */
 .phone-input-container {
   width: 100%;
+  max-width: 100%;
+}
+
+.phone-input-container input {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
 }
 
 .phone-input-container .phone-input-button {
@@ -204,11 +212,6 @@
 
 .phone-input-container.phone-input-error .phone-input-button {
   border-color: hsl(var(--destructive));
-}
-
-.phone-input-container input {
-  border-top-left-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
 }
 
 .phone-input-dropdown {

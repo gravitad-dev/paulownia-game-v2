@@ -2,14 +2,39 @@ import { withBasePath } from "./base.service";
 import { User } from "@/types/user";
 
 // Mock logger functions since we don't have the historyLogger module yet
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-const logCreate = async (collection: string, entity: string, id: string, data: any) => console.log(`[CREATE] ${collection} ${entity} ${id}`, data);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const logUpdate = async (collection: string, entity: string, id: string, data: any) => console.log(`[UPDATE] ${collection} ${entity} ${id}`, data);
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-const logDelete = async (collection: string, entity: string, id: string, data: any) => console.log(`[DELETE] ${collection} ${entity} ${id}`, data);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const logError = async (collection: string, action: string, message: string, data: any) => console.error(`[ERROR] ${collection} ${action} ${message}`, data);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const logCreate = async (
+  collection: string,
+  entity: string,
+  id: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
+) => console.log(`[CREATE] ${collection} ${entity} ${id}`, data);
+
+const logUpdate = async (
+  collection: string,
+  entity: string,
+  id: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
+) => console.log(`[UPDATE] ${collection} ${entity} ${id}`, data);
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const logDelete = async (
+  collection: string,
+  entity: string,
+  id: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
+) => console.log(`[DELETE] ${collection} ${entity} ${id}`, data);
+
+const logError = async (
+  collection: string,
+  action: string,
+  message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
+) => console.error(`[ERROR] ${collection} ${action} ${message}`, data);
 
 const usersApi = withBasePath("/api/users");
 
@@ -61,9 +86,7 @@ export const UserService = {
   async get(identifier: string): Promise<User> {
     // Intentar obtener por ID numérico primero
     if (!isNaN(Number(identifier))) {
-      const res = await usersApi.get<User>(
-        `/${identifier}?populate=*`
-      );
+      const res = await usersApi.get<User>(`/${identifier}?populate=*`);
       return res.data;
     }
 
@@ -79,46 +102,50 @@ export const UserService = {
       (u) =>
         String(u.id) === identifier ||
         (u as User).documentId === identifier ||
-        u.username === identifier
+        u.username === identifier,
     );
     if (!user) {
       throw new Error("Usuario no encontrado");
     }
     return user;
   },
-  
+
   async getMe(): Promise<User> {
-      // IMPORTANTE: guardiands se obtienen por separado usando GuardianService
-      const res = await usersApi.get<User>('/me?populate[0]=role&populate[1]=avatar&populate[2]=player_stat');
-      return res.data;
+    // IMPORTANTE: guardiands se obtienen por separado usando GuardianService
+    // UPDATE: El usuario indica que populate=* trae los guardianes
+    const res = await usersApi.get<User>("/me?populate=*");
+    return res.data;
   },
 
   async getById(id: number): Promise<User> {
     // IMPORTANTE: guardiands se obtienen por separado usando GuardianService
     const res = await usersApi.get<User>(
-      `/${id}?populate[0]=role&populate[1]=avatar&populate[2]=player_stat`
+      `/${id}?populate[0]=role&populate[1]=avatar&populate[2]=player_stat`,
     );
     return res.data;
   },
 
   /**
    * Actualiza un usuario en Strapi.
-   * 
+   *
    * IMPORTANTE: Guardians ahora es una relación oneToMany y se gestiona por separado
    * usando GuardianService. Este método NO debe recibir ni actualizar Guardians.
-   * 
+   *
    * El endpoint /api/users/:id del plugin users-permissions:
    * - NO usa el wrapper { data: ... } como el Document Service API
    * - Se envía el payload directamente
    * - SOLO acepta ID numérico, NO acepta documentId
-   * 
+   *
    * @param identifier - ID numérico del usuario (como string)
    * @param input - Datos a actualizar (sin Guardians)
    * @returns Usuario actualizado con los datos de Strapi
    */
   async update(identifier: string, input: UpdateUserInput): Promise<User> {
     try {
-      console.log(`[DEBUG] Updating user ${identifier} with payload:`, JSON.stringify(input, null, 2));
+      console.log(
+        `[DEBUG] Updating user ${identifier} with payload:`,
+        JSON.stringify(input, null, 2),
+      );
 
       // IMPORTANTE: El endpoint /api/users/:id del plugin users-permissions
       // NO usa el wrapper { data: ... } como el Document Service API.
@@ -129,9 +156,12 @@ export const UserService = {
       const payload: UpdateUserInput = { ...restInput };
 
       // El plugin users-permissions SOLO acepta ID numérico, no documentId
-      console.log('[DEBUG] Sending PUT request to:', `/api/users/${identifier}`);
-      console.log('[DEBUG] Request payload:', JSON.stringify(payload, null, 2));
-      
+      console.log(
+        "[DEBUG] Sending PUT request to:",
+        `/api/users/${identifier}`,
+      );
+      console.log("[DEBUG] Request payload:", JSON.stringify(payload, null, 2));
+
       const res = await usersApi.put<User>(`/${identifier}`, payload);
       const userId = identifier;
 
@@ -139,19 +169,19 @@ export const UserService = {
 
       console.log(
         "[DEBUG] Updated user response:",
-        JSON.stringify(updatedUser, null, 2)
+        JSON.stringify(updatedUser, null, 2),
       );
 
       // Registrar en historial (sin bloquear)
       const updatePayload: Record<string, string | number | boolean> = {};
       if (input.username) updatePayload.username = input.username;
       if (input.email) updatePayload.email = input.email;
-      
+
       logUpdate(
         "users",
         "Usuario",
         input.username || userId,
-        updatePayload
+        updatePayload,
       ).catch(() => {
         // Ignorar errores de logging silenciosamente
       });
@@ -160,14 +190,23 @@ export const UserService = {
     } catch (error: unknown) {
       const strapiError = parseStrapiError(error);
       const errorData = strapiError?.response?.data;
-      console.error('[DEBUG] Update error response:', JSON.stringify(errorData, null, 2));
-      console.error('[DEBUG] Update error status:', strapiError?.response?.status);
-      console.error('[DEBUG] Update error message:', errorData?.error?.message);
-      
+      console.error(
+        "[DEBUG] Update error response:",
+        JSON.stringify(errorData, null, 2),
+      );
+      console.error(
+        "[DEBUG] Update error status:",
+        strapiError?.response?.status,
+      );
+      console.error("[DEBUG] Update error message:", errorData?.error?.message);
+
       if (errorData?.error?.details) {
-        console.error('[DEBUG] Strapi error details:', JSON.stringify(errorData.error.details, null, 2));
+        console.error(
+          "[DEBUG] Strapi error details:",
+          JSON.stringify(errorData.error.details, null, 2),
+        );
       }
-      
+
       logError(
         "users",
         "actualizar usuario",
@@ -175,12 +214,14 @@ export const UserService = {
         {
           identifier,
           error: String(error),
-          details: errorData
-        }
+          details: errorData,
+        },
       ).catch(() => {
         // Ignorar errores de logging
       });
-      throw error instanceof Error ? error : new Error('Error al actualizar el usuario');
+      throw error instanceof Error
+        ? error
+        : new Error("Error al actualizar el usuario");
     }
   },
 };

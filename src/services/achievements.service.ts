@@ -20,10 +20,10 @@ export const AchievementsService = {
     const params = new URLSearchParams();
 
     if (filters?.page) {
-      params.append("page", filters.page.toString());
+      params.append("pagination[page]", filters.page.toString());
     }
     if (filters?.pageSize) {
-      params.append("pageSize", filters.pageSize.toString());
+      params.append("pagination[pageSize]", filters.pageSize.toString());
     }
     if (filters?.status) {
       params.append("status", filters.status);

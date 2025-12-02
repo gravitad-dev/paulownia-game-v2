@@ -7,6 +7,7 @@ import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
+import { usePlayerSessionManager } from "@/hooks/usePlayerSessionManager";
 
 export default function GameLayout({
   children,
@@ -17,37 +18,45 @@ export default function GameLayout({
   const { fetchStatus } = useDailyRewardsStore();
   const { fetchAchievements } = useAchievementsStore();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
+  const sessionEnabled = isReady && isAuthenticated && !!token;
+  usePlayerSessionManager(sessionEnabled, "idle");
+
+  // Esperar al montaje y dar tiempo a Zustand para hidratarse
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (mounted) {
-      // Check both isAuthenticated flag and actual token/user presence
-      const hasValidSession = isAuthenticated && token && user;
+    if (!isReady) return;
 
-      if (!hasValidSession) {
-        // Redirección robusta según entorno
-        if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
-        } else {
-          router.push("/auth/login");
-        }
-      }
+    // Check both isAuthenticated flag and actual token/user presence
+    const hasValidSession = isAuthenticated && token && user;
+
+    if (!hasValidSession) {
+      router.replace("/auth/login");
     }
-  }, [isAuthenticated, token, user, mounted, router]);
+  }, [isAuthenticated, token, user, isReady, router]);
 
   useEffect(() => {
-    if (mounted && isAuthenticated && user?.id) {
+    if (isReady && isAuthenticated && user?.id) {
       fetchStatus();
       fetchAchievements();
     }
-  }, [mounted, isAuthenticated, user?.id, fetchStatus, fetchAchievements]);
+  }, [isReady, isAuthenticated, user?.id, fetchStatus, fetchAchievements]);
 
-  if (!mounted) {
-    return null;
+  // Mostrar loading mientras se prepara
+  if (!isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-primary">Cargando...</div>
+      </div>
+    );
   }
 
   // Double check before rendering
@@ -71,5 +80,3 @@ export default function GameLayout({
     </div>
   );
 }
-
-

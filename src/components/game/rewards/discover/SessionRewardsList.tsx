@@ -69,16 +69,10 @@ export function SessionRewardsList({
   const getRewardValue = (item: RouletteHistoryItem) => {
     if (!item.reward) return null;
 
-    const quantity = item.reward.quantity;
     const value = item.reward.value;
 
-    // Si el premio tiene cantidad, mostrarla
-    if (quantity > 1) {
-      return `x${quantity}`;
-    }
-
-    // Si tiene valor (ej: monedas), mostrarlo
-    if (value > 0) {
+    // Para monedas/tickets, mostrar el valor que el usuario recibe
+    if (item.reward.typeReward === "currency" && value > 0) {
       return `+${value}`;
     }
 

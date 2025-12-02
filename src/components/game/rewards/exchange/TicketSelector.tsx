@@ -83,7 +83,7 @@ export function TicketSelector({
   const quickValues = [1, 5, 10].filter((v) => v <= max);
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-4 pt-4", className)}>
       <p className="text-sm text-muted-foreground text-center">
         ¿Cuántos tickets quieres obtener?
       </p>

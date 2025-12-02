@@ -49,7 +49,7 @@ const profileTabs: ProfileTab[] = [
   },
   {
     value: "changes",
-    label: "Cambios",
+    label: "Canjes",
     href: "/game/profile/changes",
     icon: LuRefreshCw,
     group: "public",
