@@ -75,6 +75,7 @@ interface GridCell {
 
 /**
  * Tipos de piezas disponibles para rellenar el puzzle
+ * Incluye O1 (1x1) para garantizar que el puzzle siempre sea 100% resoluble
  */
 const PIECE_TYPES: TetrominoType[] = [
   "I",
@@ -88,6 +89,7 @@ const PIECE_TYPES: TetrominoType[] = [
   "I2",
   "O2",
   "L2",
+  "O1", // Pieza de 1 bloque para rellenar huecos individuales
 ];
 
 /**
@@ -205,6 +207,7 @@ function fillGridWithTetrominos(
         rotateShapeHorizontal(TETROMINO_SHAPES["I2"], 1),
       ];
 
+      let i2Placed = false;
       for (let shapeIdx = 0; shapeIdx < i2Shapes.length; shapeIdx++) {
         const shape = i2Shapes[shapeIdx];
         const cells: { x: number; z: number }[] = [];
@@ -245,8 +248,27 @@ function fillGridWithTetrominos(
           }
 
           pieces.push(piece);
+          i2Placed = true;
           break;
         }
+      }
+
+      // Fallback final: usar O1 (1x1) para rellenar huecos individuales
+      // Esto garantiza que el puzzle SIEMPRE sea 100% resoluble
+      if (!i2Placed && !grid[cell.x][cell.z].occupied) {
+        const piece: PuzzlePiece = {
+          id: `puzzle-${pieceId++}`,
+          type: "O1",
+          rotation: 0,
+          position: { x: cell.x, z: cell.z },
+          cells: [{ x: cell.x, z: cell.z }],
+          tiles: [],
+          placed: false,
+        };
+
+        grid[cell.x][cell.z].occupied = true;
+        grid[cell.x][cell.z].pieceId = piece.id;
+        pieces.push(piece);
       }
     }
   }
@@ -418,7 +440,9 @@ export function generatePuzzlePattern(
   const isComplete = isGridComplete(occupancyGrid);
   if (process.env.NODE_ENV === "development") {
     console.log(
-      `📊 Resultado: ${pieces.length} piezas, grid ${isComplete ? "completo" : "incompleto"}`
+      `📊 Resultado: ${pieces.length} piezas, grid ${
+        isComplete ? "completo" : "incompleto"
+      }`
     );
   }
 

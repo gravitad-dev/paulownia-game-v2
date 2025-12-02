@@ -9,7 +9,8 @@ export type TetrominoType =
   | "I3"
   | "I2"
   | "O2"
-  | "L2";
+  | "L2"
+  | "O1"; // Pieza de 1 solo bloque para rellenar huecos individuales
 
 export interface TetrominoCell {
   x: number;
@@ -91,6 +92,8 @@ export const TETROMINO_SHAPES: Record<TetrominoType, TetrominoShape> = {
     { x: 0, y: 0, z: 1 },
     { x: 1, y: 0, z: 1 },
   ],
+  // Bloque único (1x1) para rellenar huecos individuales
+  O1: [{ x: 0, y: 0, z: 0 }],
 };
 
 /**
@@ -99,7 +102,7 @@ export const TETROMINO_SHAPES: Record<TetrominoType, TetrominoShape> = {
  */
 export function rotateCellHorizontal(
   cell: TetrominoCell,
-  rotationSteps: number,
+  rotationSteps: number
 ): TetrominoCell {
   const steps = ((rotationSteps % 4) + 4) % 4;
   const y = cell.y;
@@ -120,9 +123,7 @@ export function rotateCellHorizontal(
 
 export function rotateShapeHorizontal(
   shape: TetrominoShape,
-  rotationSteps: number,
+  rotationSteps: number
 ): TetrominoShape {
   return shape.map((cell) => rotateCellHorizontal(cell, rotationSteps));
 }
-
-

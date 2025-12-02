@@ -2,6 +2,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import {
   createEmptyGrid,
   Grid3D,
@@ -497,6 +498,38 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const puzzleStore = usePuzzleStore();
   const [lockedPieces, setLockedPieces] = useState<Set<string>>(new Set()); // IDs de piezas bloqueadas (no eliminables)
 
+  // Sistema de pantalla completa
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Toggle pantalla completa
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      gameContainerRef.current?.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch((err) => {
+        console.error("Error al activar pantalla completa:", err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      }).catch((err) => {
+        console.error("Error al salir de pantalla completa:", err);
+      });
+    }
+  }, []);
+
+  // Escuchar cambios de fullscreen (por si el usuario usa ESC o F11)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   // Callback cuando un bloque termina de destruirse
   const handleBlockDestroyed = useCallback((id: number) => {
     setVisualBlocks((prev) => prev.filter((b) => b.id !== id));
@@ -598,9 +631,21 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
   // Función para iniciar el juego
   const startGame = useCallback(() => {
+    // Si hay puzzle, la primera pieza debe ser de puzzle (no una "I" normal)
+    if (puzzleImageUrl && puzzleStore.remainingPieces.length > 0) {
+      const firstPuzzlePiece = puzzleStore.remainingPieces[0];
+      puzzleStore.setCurrentPuzzlePiece(firstPuzzlePiece);
+      setActiveType(firstPuzzlePiece.type);
+      setActiveRotation(0);
+      setActivePosition({
+        x: Math.floor(size / 2) - 1,
+        y: size - 1,
+        z: Math.floor(size / 2) - 1,
+      });
+    }
     setGameState("playing");
     lastTickTimeRef.current = performance.now();
-  }, []);
+  }, [puzzleImageUrl, puzzleStore, size]);
 
   // Función para reiniciar el juego
   const restartGame = useCallback(() => {
@@ -1409,7 +1454,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   const targetY = occupiedYs[i];
                   const positionKey = `${x},${targetY},${z}`;
                   const shouldRemove = positionsToRemove.has(positionKey);
-                  const puzzleInfo = getPuzzleTileInfo(x, z);
+                  // CORRECCIÓN BUG: Solo asignar isPuzzleBlock si el bloque está en Y=0 (nivel del suelo)
+                  // Bloques apilados (Y > 0) NUNCA deben ser puzzle blocks, incluso si están en la misma columna X,Z
+                  const puzzleInfo =
+                    targetY === 0
+                      ? getPuzzleTileInfo(x, z)
+                      : { isPuzzle: false, tileX: 0, tileZ: 0 };
 
                   if (shouldRemove) {
                     // Marcar para eliminación
@@ -1444,15 +1494,25 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                         targetScale: 1,
                         destroying: false,
                         variantParams: getBlockVariantParams(targetY),
-                        // Mantener info de puzzle si existía o añadir nueva
+                        // CORRECCIÓN: Solo mantener isPuzzleBlock si targetY === 0
+                        // Si un bloque se mueve a Y > 0, pierde su estatus de puzzle
                         isPuzzleBlock:
-                          existing.isPuzzleBlock || puzzleInfo.isPuzzle,
+                          targetY === 0 &&
+                          (existing.isPuzzleBlock || puzzleInfo.isPuzzle),
                         puzzleTileX:
-                          existing.puzzleTileX ??
-                          (puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined),
+                          targetY === 0
+                            ? existing.puzzleTileX ??
+                              (puzzleInfo.isPuzzle
+                                ? puzzleInfo.tileX
+                                : undefined)
+                            : undefined,
                         puzzleTileZ:
-                          existing.puzzleTileZ ??
-                          (puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined),
+                          targetY === 0
+                            ? existing.puzzleTileZ ??
+                              (puzzleInfo.isPuzzle
+                                ? puzzleInfo.tileZ
+                                : undefined)
+                            : undefined,
                       });
                     } else {
                       // Crear nuevo bloque
@@ -1468,14 +1528,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                         targetScale: 1,
                         destroying: false,
                         variantParams: getBlockVariantParams(targetY),
-                        // Añadir info de puzzle si corresponde
-                        isPuzzleBlock: puzzleInfo.isPuzzle,
-                        puzzleTileX: puzzleInfo.isPuzzle
-                          ? puzzleInfo.tileX
-                          : undefined,
-                        puzzleTileZ: puzzleInfo.isPuzzle
-                          ? puzzleInfo.tileZ
-                          : undefined,
+                        // Solo asignar isPuzzleBlock si targetY === 0
+                        isPuzzleBlock: targetY === 0 && puzzleInfo.isPuzzle,
+                        puzzleTileX:
+                          targetY === 0 && puzzleInfo.isPuzzle
+                            ? puzzleInfo.tileX
+                            : undefined,
+                        puzzleTileZ:
+                          targetY === 0 && puzzleInfo.isPuzzle
+                            ? puzzleInfo.tileZ
+                            : undefined,
                       });
                     }
                   }
@@ -1849,9 +1911,22 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   }, [cameraPositions, cameraViewIndex]);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={gameContainerRef} className="relative h-full w-full bg-slate-950">
       <CameraConfigPanel />
       <FpsCounter />
+
+      {/* Botón flotante de pantalla completa */}
+      <button
+        onClick={toggleFullscreen}
+        className="fixed top-4 left-4 z-50 p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+      >
+        {isFullscreen ? (
+          <FiMinimize2 className="w-5 h-5" />
+        ) : (
+          <FiMaximize2 className="w-5 h-5" />
+        )}
+      </button>
 
       {/* Pantalla de inicio - Botón "Iniciar Nivel" */}
       {gameState === "waiting" && (
