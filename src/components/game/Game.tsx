@@ -631,21 +631,33 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
   // Función para iniciar el juego
   const startGame = useCallback(() => {
-    // Si hay puzzle, la primera pieza debe ser de puzzle (no una "I" normal)
-    if (puzzleImageUrl && puzzleStore.remainingPieces.length > 0) {
-      const firstPuzzlePiece = puzzleStore.remainingPieces[0];
-      puzzleStore.setCurrentPuzzlePiece(firstPuzzlePiece);
-      setActiveType(firstPuzzlePiece.type);
-      setActiveRotation(0);
-      setActivePosition({
-        x: Math.floor(size / 2) - 1,
-        y: size - 1,
-        z: Math.floor(size / 2) - 1,
-      });
+    // CORRECCIÓN BUG: Si hay puzzle y no hay pieza ya en progreso,
+    // la primera pieza debe ser de puzzle (no una "I" normal)
+    // Verificamos que no haya currentPuzzlePiece para evitar duplicación
+    if (
+      puzzleImageUrl &&
+      puzzleStore.remainingPieces.length > 0 &&
+      !puzzleStore.currentPuzzlePiece
+    ) {
+      // Filtrar para excluir piezas ya bloqueadas
+      const availablePieces = puzzleStore.remainingPieces.filter(
+        (p) => !lockedPieces.has(p.id)
+      );
+      if (availablePieces.length > 0) {
+        const firstPuzzlePiece = availablePieces[0];
+        puzzleStore.setCurrentPuzzlePiece(firstPuzzlePiece);
+        setActiveType(firstPuzzlePiece.type);
+        setActiveRotation(firstPuzzlePiece.rotation);
+        setActivePosition({
+          x: Math.floor(size / 2) - 1,
+          y: size - 1,
+          z: Math.floor(size / 2) - 1,
+        });
+      }
     }
     setGameState("playing");
     lastTickTimeRef.current = performance.now();
-  }, [puzzleImageUrl, puzzleStore, size]);
+  }, [puzzleImageUrl, puzzleStore, size, lockedPieces]);
 
   // Función para reiniciar el juego
   const restartGame = useCallback(() => {
@@ -703,7 +715,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     (
       gridToCheck: Grid3D,
       level: number,
-      lockedPieceIds: Set<string> = new Set()
+      lockedPositions: Set<string> = new Set()
     ): {
       toRemove: { x: number; z: number }[];
       toMove: { x: number; z: number; fromY: number; toY: number }[];
@@ -715,17 +727,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         return { toRemove, toMove };
       }
 
-      // Crear set de posiciones bloqueadas (piezas puzzle correctamente colocadas)
-      const lockedPositions = new Set<string>();
-      if (lockedPieceIds.size > 0 && puzzleImageUrl) {
-        puzzleStore.placedPieces.forEach((piece) => {
-          if (lockedPieceIds.has(piece.id)) {
-            piece.cells.forEach((cell) => {
-              lockedPositions.add(`${cell.x},${cell.z}`);
-            });
-          }
-        });
-      }
+      // lockedPositions ya viene calculado con todas las celdas protegidas
+      // incluyendo la pieza recién colocada
 
       // Verificar líneas Z (para cada X fijo)
       // Las celdas bloqueadas SÍ cuentan como "filled" para completar la línea
@@ -797,7 +800,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
       return { toRemove, toMove };
     },
-    [size, puzzleImageUrl, puzzleStore]
+    [size]
   );
 
   // Aplica la limpieza al grid lógico
@@ -806,23 +809,14 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     (
       gridToClean: Grid3D,
       level: number,
-      lockedPieceIds: Set<string> = new Set()
+      lockedPositions: Set<string> = new Set()
     ): Grid3D => {
       if (level < 0 || level >= size) {
         return gridToClean;
       }
 
-      // Crear un set de posiciones bloqueadas
-      const lockedPositions = new Set<string>();
-      if (lockedPieceIds.size > 0 && puzzleImageUrl) {
-        puzzleStore.placedPieces.forEach((piece) => {
-          if (lockedPieceIds.has(piece.id)) {
-            piece.cells.forEach((cell) => {
-              lockedPositions.add(`${cell.x},${cell.z}`);
-            });
-          }
-        });
-      }
+      // lockedPositions ya viene calculado con todas las celdas protegidas
+      // incluyendo la pieza recién colocada
 
       const shiftColumnDown = (x: number, z: number) => {
         // No mover bloques en posiciones bloqueadas
@@ -882,14 +876,14 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
       return gridToClean;
     },
-    [size, puzzleImageUrl, puzzleStore]
+    [size]
   );
 
   // Procesa todas las líneas completas de forma iterativa hasta que no haya más
   const processLineClearsIteratively = useCallback(
     (
       gridToProcess: Grid3D,
-      lockedPieceIds: Set<string> = new Set()
+      lockedPositions: Set<string> = new Set()
     ): {
       blocksToRemove: { x: number; y: number; z: number }[];
       blocksToMove: { x: number; y: number; z: number; newY: number }[];
@@ -920,7 +914,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           const { toRemove } = detectLineClears(
             workingGrid,
             level,
-            lockedPieceIds
+            lockedPositions
           );
 
           if (toRemove.length > 0) {
@@ -941,7 +935,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             workingGrid = applyLineClearToGrid(
               workingGrid,
               level,
-              lockedPieceIds
+              lockedPositions
             );
           }
         }
@@ -1336,10 +1330,42 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           });
 
+          // CORRECCIÓN BUG: Calcular lockedPositions con TODAS las celdas protegidas
+          // Esto incluye piezas ya colocadas + la pieza recién colocada
+          // Se calcula ANTES de llamar a processLineClearsIteratively para que el grid
+          // no pierda las celdas de la pieza recién bloqueada
+          const lockedPositions = new Set<string>();
+
+          // Añadir celdas de piezas ya colocadas (usando IDs bloqueados)
+          const currentLockedPieceIds = new Set(lockedPieces);
+          if (isPuzzleCorrectlyPlaced && currentPuzzlePiece) {
+            currentLockedPieceIds.add(currentPuzzlePiece.id);
+          }
+
+          puzzleStore.placedPieces.forEach((piece) => {
+            if (currentLockedPieceIds.has(piece.id)) {
+              piece.cells.forEach((c) => {
+                lockedPositions.add(`${c.x},${c.z}`);
+              });
+            }
+          });
+
+          // Añadir celdas de la pieza recién colocada (si aplica)
+          // Esto es CRUCIAL porque placedPieces aún no incluye esta pieza
+          // (Zustand actualiza el estado pero el hook no se ha re-renderizado)
+          if (isPuzzleCorrectlyPlaced && currentPuzzlePiece) {
+            const patternPiece = puzzleStore.pattern.find(
+              (p) => p.id === currentPuzzlePiece.id
+            );
+            patternPiece?.cells.forEach((c) => {
+              lockedPositions.add(`${c.x},${c.z}`);
+            });
+          }
+
           // Procesar todas las líneas de forma iterativa
-          // Excluir bloques de piezas bloqueadas de la detección de líneas
+          // Ahora pasamos lockedPositions directamente (celdas x,z protegidas)
           const { blocksToRemove, finalGrid } = !reachedLimit
-            ? processLineClearsIteratively(tempGrid, lockedPieces)
+            ? processLineClearsIteratively(tempGrid, lockedPositions)
             : {
                 blocksToRemove: [] as { x: number; y: number; z: number }[],
                 finalGrid: tempGrid,
@@ -1560,9 +1586,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           // Generar nueva pieza
           puzzleStore.incrementPieceCounter();
 
-          // Filtrar piezas puzzle disponibles (excluir las ya bloqueadas por seguridad)
+          // CORRECCIÓN BUG: Filtrar piezas puzzle disponibles con múltiples verificaciones
+          // 1. Excluir piezas ya bloqueadas (lockedPieces)
+          // 2. Excluir la pieza actual (currentPuzzlePiece) para evitar duplicación
+          // 3. Excluir piezas ya en placedPieces para mayor seguridad
+          const placedPieceIds = new Set(puzzleStore.placedPieces.map((p) => p.id));
           const availablePuzzlePieces = puzzleStore.remainingPieces.filter(
-            (p) => !lockedPieces.has(p.id)
+            (p) =>
+              !lockedPieces.has(p.id) &&
+              p.id !== puzzleStore.currentPuzzlePiece?.id &&
+              !placedPieceIds.has(p.id)
           );
 
           // Determinar si la siguiente pieza es puzzle:
