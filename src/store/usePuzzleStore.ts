@@ -52,7 +52,7 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
   pieceCounter: 0,
   currentPuzzlePiece: null,
   isComplete: false,
-  testMode: true, // Por defecto en modo test (solo piezas puzzle)
+  testMode: false, // Por defecto intercala piezas puzzle con normales (1:1)
 
   initializeFromResult: (seed, result) =>
     set({

@@ -552,6 +552,40 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     setVisualBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
+  // Función para limpiar todos los bloques por encima del suelo (Y > 0)
+  // Mantiene intactos los bloques en Y=0 (piezas puzzle colocadas)
+  const clearAboveFloor = useCallback(() => {
+    // Actualizar grid lógico: vaciar todas las celdas con Y > 0
+    setGrid((prevGrid) => {
+      const newGrid: Grid3D = prevGrid.map((plane) =>
+        plane.map((row) => [...row])
+      );
+      for (let x = 0; x < size; x++) {
+        for (let y = 1; y < size; y++) {
+          // Solo Y > 0
+          for (let z = 0; z < size; z++) {
+            newGrid[x][y][z] = "empty";
+          }
+        }
+      }
+      return newGrid;
+    });
+
+    // Actualizar bloques visuales: marcar como destroying los que tienen Y > 0
+    setVisualBlocks((prev) =>
+      prev.map((block) => {
+        if (block.targetY > 0) {
+          return {
+            ...block,
+            targetScale: 0,
+            destroying: true,
+          };
+        }
+        return block;
+      })
+    );
+  }, [size]);
+
   // Parámetros de variante para bloques apilados (basado en altura, como en el original)
   const getBlockVariantParams = useCallback((y: number): CubeVariantParams => {
     const variants: CubeVariantParams[] = [
@@ -1163,6 +1197,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     });
     return map;
   }, [placedPieces]);
+
+  // Ref para placedPuzzleCellsMap (evita re-crear el tick loop cuando cambia)
+  const placedPuzzleCellsMapRef = useRef(placedPuzzleCellsMap);
+  useEffect(() => {
+    placedPuzzleCellsMapRef.current = placedPuzzleCellsMap;
+  }, [placedPuzzleCellsMap]);
 
   const checkCollision = useCallback(
     (
@@ -1846,10 +1886,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           // Determinar si la siguiente pieza es puzzle:
           // - testMode=true: SIEMPRE puzzle si hay disponibles (para testing)
-          // - testMode=false: cada 3 piezas, 1 puzzle (comportamiento normal)
+          // - testMode=false: alternar 1 puzzle + 1 normal (par=puzzle, impar=normal)
           const shouldBePuzzlePiece = updatedTestMode
             ? availablePuzzlePieces.length > 0 // Test mode: siempre puzzle
-            : updatedPieceCounter % 3 === 0 && availablePuzzlePieces.length > 0; // Normal: cada 3
+            : updatedPieceCounter % 2 === 0 && availablePuzzlePieces.length > 0; // Normal: alternar
 
           const isPuzzlePiece = puzzleImageUrl && shouldBePuzzlePiece;
 
@@ -1965,6 +2005,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     };
     // OPTIMIZACIÓN: Solo dependencias estables - el tick usa refs para valores que cambian frecuentemente
     // puzzleActions es estable (getState()) y no necesita estar en dependencias
+    // placedPuzzleCellsMap se obtiene directamente de Zustand dentro del tick, no necesita estar aquí
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     size,
@@ -1975,7 +2016,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     isInsideBounds,
     processLineClearsIteratively,
     getBlockVariantParams,
-    placedPuzzleCellsMap, // Map memoizado
   ]);
 
   // Controles de movimiento y rotación
@@ -2151,6 +2191,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         case "R":
           action = "rotate";
           break;
+        case "e":
+        case "E":
+          action = "clear_upper_layers";
+          break;
         case " ":
           setIsFastForward(true);
           event.preventDefault();
@@ -2189,6 +2233,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         case "camera_rotate_right":
           rotateCameraView("right");
           break;
+        case "clear_upper_layers":
+          clearAboveFloor();
+          break;
         default:
           break;
       }
@@ -2209,6 +2256,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     isGameOver,
     gameState,
     currentPuzzlePiece,
+    clearAboveFloor,
   ]);
 
   // Handler para keyup de espacio (desactivar fastForward)
