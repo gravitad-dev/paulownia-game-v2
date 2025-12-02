@@ -1420,9 +1420,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 }
               } else {
                 // Pieza puzzle fallida - se degrada a pieza normal
-                // NO se añade a lockedPieces, NO se llama placePiece
+                // Se descarta de remainingPieces para evitar que se seleccione de nuevo
                 // Los bloques se crearán como bloques normales (sin isPuzzleBlock)
-                puzzleActions.setCurrentPuzzlePiece(null);
+                puzzleActions.discardPiece(currentPuzzlePiece.id);
               }
             }
           }
@@ -1768,6 +1768,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             setActivePosition(spawnPosition);
           }
 
+          // Programar siguiente tick antes de salir (necesario porque el return evita llegar al requestAnimationFrame del final)
+          animationFrameId = requestAnimationFrame(tick);
           return;
         }
 

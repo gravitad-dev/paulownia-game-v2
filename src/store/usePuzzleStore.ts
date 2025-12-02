@@ -29,6 +29,8 @@ interface PuzzleState {
   initialize: (seed: number, pattern: PuzzlePiece[]) => void;
   /** Marca una pieza como colocada correctamente */
   placePiece: (pieceId: string) => void;
+  /** Descarta una pieza puzzle que fue mal colocada (la quita de remainingPieces sin añadirla a placedPieces) */
+  discardPiece: (pieceId: string) => void;
   /** Establece la pieza puzzle actual que está cayendo */
   setCurrentPuzzlePiece: (piece: PuzzlePiece | null) => void;
   /** Incrementa el contador de piezas */
@@ -95,6 +97,12 @@ export const usePuzzleStore = create<PuzzleState>((set, get) => ({
         isComplete,
       };
     }),
+
+  discardPiece: (pieceId) =>
+    set((state) => ({
+      remainingPieces: state.remainingPieces.filter((p) => p.id !== pieceId),
+      currentPuzzlePiece: null,
+    })),
 
   setCurrentPuzzlePiece: (piece) => set({ currentPuzzlePiece: piece }),
 
