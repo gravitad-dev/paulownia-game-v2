@@ -7,6 +7,7 @@ import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
 import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
+import { usePlayerSessionManager } from "@/hooks/usePlayerSessionManager";
 
 export default function GameLayout({
   children,
@@ -18,6 +19,9 @@ export default function GameLayout({
   const { fetchAchievements } = useAchievementsStore();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+
+  const sessionEnabled = isReady && isAuthenticated && !!token;
+  usePlayerSessionManager(sessionEnabled, "idle");
 
   // Esperar al montaje y dar tiempo a Zustand para hidratarse
   useEffect(() => {
