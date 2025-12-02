@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { memo } from 'react';
-import { Label } from '@/components/ui/label';
+import { memo } from "react";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { COUNTRIES } from '@/lib/countries';
+} from "@/components/ui/select";
+import { COUNTRIES } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 
 interface CountrySelectProps {
   value?: string;
@@ -19,6 +20,10 @@ interface CountrySelectProps {
   name?: string;
   error?: string;
   loading?: boolean;
+  /** Si es true, no muestra la label interna */
+  compact?: boolean;
+  /** Altura del input: true = h-9, false = h-10 (default) */
+  small?: boolean;
 }
 
 function CountrySelectComponent({
@@ -29,21 +34,23 @@ function CountrySelectComponent({
   name,
   error,
   loading = false,
+  compact = false,
+  small = false,
 }: CountrySelectProps) {
   return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>País</Label>
+    <div className={cn("grid", compact ? "gap-0" : "gap-2")}>
+      {!compact && <Label htmlFor={id}>País</Label>}
       <div className="relative">
         <Select
-          value={value || ''}
+          value={value || ""}
           onValueChange={onChange}
           disabled={disabled || loading}
         >
           <SelectTrigger
             id={id}
             name={name}
-            aria-invalid={error ? 'true' : 'false'}
-            className={error ? 'border-destructive' : ''}
+            aria-invalid={error ? "true" : "false"}
+            className={cn(small && "h-9", error && "border-destructive")}
           >
             <SelectValue placeholder="Selecciona un país" />
           </SelectTrigger>
@@ -67,16 +74,20 @@ function CountrySelectComponent({
 }
 
 // Memoizar el componente para evitar re-renders innecesarios
-export const CountrySelect = memo(CountrySelectComponent, (prevProps, nextProps) => {
-  // Comparar props relevantes
-  return (
-    prevProps.value === nextProps.value &&
-    prevProps.disabled === nextProps.disabled &&
-    prevProps.id === nextProps.id &&
-    prevProps.name === nextProps.name &&
-    prevProps.error === nextProps.error &&
-    prevProps.loading === nextProps.loading &&
-    prevProps.onChange === nextProps.onChange
-  );
-});
-
+export const CountrySelect = memo(
+  CountrySelectComponent,
+  (prevProps, nextProps) => {
+    // Comparar props relevantes
+    return (
+      prevProps.value === nextProps.value &&
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.id === nextProps.id &&
+      prevProps.name === nextProps.name &&
+      prevProps.error === nextProps.error &&
+      prevProps.loading === nextProps.loading &&
+      prevProps.compact === nextProps.compact &&
+      prevProps.small === nextProps.small &&
+      prevProps.onChange === nextProps.onChange
+    );
+  },
+);

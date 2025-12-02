@@ -15,9 +15,8 @@ export function UserRewardsFilters({
   const filters: { label: string; value: RewardStatus | "all" }[] = [
     { label: "Todos", value: "all" },
     { label: "Disponibles", value: "available" },
-    { label: "Reclamados", value: "claimed" },
-    { label: "Pendientes", value: "pending" },
-    { label: "Expirados", value: "expired" },
+    { label: "En trámite", value: "in_claim" },
+    { label: "Entregados", value: "claimed" },
   ];
 
   return (

@@ -9,7 +9,8 @@ export type RewardStatus =
   | "claimed"
   | "expired"
   | "blocked"
-  | "pending";
+  | "pending"
+  | "in_claim";
 
 export interface RewardImage {
   id: number;
@@ -34,6 +35,9 @@ export interface UserReward {
   obtainedAt: string;
   claimedAt: string | null;
   quantity: number;
+  canBeClaimed?: boolean;
+  hasClaim?: boolean;
+  claimDeadline?: string;
 }
 
 export interface SpinResponse {
@@ -96,6 +100,9 @@ export interface UserRewardDetailed {
   claimedAt: string | null;
   expiresAt: string | null;
   quantity: number;
+  canBeClaimed?: boolean;
+  hasClaim?: boolean;
+  claimDeadline?: string;
   reward: {
     id: number;
     uuid: string;

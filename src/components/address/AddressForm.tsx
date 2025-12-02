@@ -1,22 +1,26 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect, memo } from 'react';
-import { AddressData, AddressSuggestion } from '@/types/address';
-import { AddressAutocomplete } from './AddressAutocomplete';
-import { CountrySelect } from '@/components/profile/CountrySelect';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useCallback, useRef, useEffect, memo } from "react";
+import { AddressData, AddressSuggestion } from "@/types/address";
+import { AddressAutocomplete } from "./AddressAutocomplete";
+import { CountrySelect } from "@/components/profile/CountrySelect";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   validateCityInCountry,
   validateZipCodeInCity,
-} from '@/services/nominatim.service';
-import { getCountryCode } from '@/lib/countries';
-import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "@/services/nominatim.service";
+import { getCountryCode } from "@/lib/countries";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AddressFormProps {
   value: Partial<AddressData>;
-  onChange: (data: Partial<AddressData> | ((prev: Partial<AddressData>) => Partial<AddressData>)) => void;
+  onChange: (
+    data:
+      | Partial<AddressData>
+      | ((prev: Partial<AddressData>) => Partial<AddressData>),
+  ) => void;
   disabled?: boolean;
   required?: boolean;
   showManualEntry?: boolean;
@@ -29,7 +33,7 @@ function AddressFormComponent({
   disabled = false,
   required = false,
   showManualEntry = true,
-  idPrefix = 'address',
+  idPrefix = "address",
 }: AddressFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -44,10 +48,10 @@ function AddressFormComponent({
     // Copiar referencias a variables locales para el cleanup
     const timers = debounceTimersRef.current;
     const controllers = abortControllersRef.current;
-    
+
     return () => {
-      timers.forEach(timer => clearTimeout(timer));
-      controllers.forEach(controller => controller.abort());
+      timers.forEach((timer) => clearTimeout(timer));
+      controllers.forEach((controller) => controller.abort());
     };
   }, []);
 
@@ -55,15 +59,15 @@ function AddressFormComponent({
     (field: keyof AddressData, newValue: string) => {
       // Usar función de actualización para evitar dependencia de value
       onChange((prev) => {
-        if (typeof prev === 'function') return prev;
+        if (typeof prev === "function") return prev;
         return { ...prev, [field]: newValue };
       });
-      
+
       // Limpiar estado de validación al cambiar
-      setErrors((prev) => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
       setValidated((prev) => ({ ...prev, [field]: false }));
     },
-    [onChange]
+    [onChange],
   );
 
   // Usar ref para acceder a value sin causar re-renders
@@ -74,20 +78,20 @@ function AddressFormComponent({
 
   const handleCountryChange = useCallback(
     async (countryName: string) => {
-      handleFieldChange('country', countryName);
-      setErrors((prev) => ({ ...prev, country: '' }));
+      handleFieldChange("country", countryName);
+      setErrors((prev) => ({ ...prev, country: "" }));
       setValidated((prev) => ({ ...prev, country: true }));
 
       // No validar automáticamente - solo al hacer blur
     },
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleAddressSuggestionSelect = useCallback(
     (suggestion: AddressSuggestion) => {
       // Auto-rellenar todos los campos con la sugerencia
       onChange((prev) => {
-        if (typeof prev === 'function') return prev;
+        if (typeof prev === "function") return prev;
         return {
           address: suggestion.address.address,
           city: suggestion.address.city,
@@ -108,7 +112,7 @@ function AddressFormComponent({
       });
       setErrors({});
     },
-    [onChange]
+    [onChange],
   );
 
   const handleCityBlur = useCallback(async () => {
@@ -118,14 +122,17 @@ function AddressFormComponent({
     // Validar inmediatamente al blur (sin debounce)
     setLoading((prev) => ({ ...prev, city: true }));
     try {
-      const result = await validateCityInCountry(currentValue.city, currentValue.country);
+      const result = await validateCityInCountry(
+        currentValue.city,
+        currentValue.country,
+      );
       setErrors((prev) => ({
         ...prev,
-        city: result.isValid ? '' : result.message,
+        city: result.isValid ? "" : result.message,
       }));
       setValidated((prev) => ({ ...prev, city: result.isValid }));
     } catch (error) {
-      console.error('Error validating city:', error);
+      console.error("Error validating city:", error);
     } finally {
       setLoading((prev) => ({ ...prev, city: false }));
     }
@@ -138,7 +145,7 @@ function AddressFormComponent({
     if (!currentValue.city) {
       setErrors((prev) => ({
         ...prev,
-        zipcode: 'Por favor, introduce primero la ciudad.',
+        zipcode: "Por favor, introduce primero la ciudad.",
       }));
       return;
     }
@@ -146,14 +153,18 @@ function AddressFormComponent({
     // Validar inmediatamente al blur (sin debounce)
     setLoading((prev) => ({ ...prev, zipcode: true }));
     try {
-      const result = await validateZipCodeInCity(currentValue.zipcode, currentValue.city, currentValue.country);
+      const result = await validateZipCodeInCity(
+        currentValue.zipcode,
+        currentValue.city,
+        currentValue.country,
+      );
       setErrors((prev) => ({
         ...prev,
-        zipcode: result.isValid ? '' : result.message,
+        zipcode: result.isValid ? "" : result.message,
       }));
       setValidated((prev) => ({ ...prev, zipcode: result.isValid }));
     } catch (error) {
-      console.error('Error validating zipcode:', error);
+      console.error("Error validating zipcode:", error);
     } finally {
       setLoading((prev) => ({ ...prev, zipcode: false }));
     }
@@ -187,7 +198,7 @@ function AddressFormComponent({
         />
         {!loading.country && validated.country && (
           <div className="absolute right-3 top-9 pointer-events-none">
-            {renderValidationIcon('country')}
+            {renderValidationIcon("country")}
           </div>
         )}
       </div>
@@ -198,12 +209,16 @@ function AddressFormComponent({
           id={`${idPrefix}-address`}
           name="address"
           label="Dirección"
-          value={value.address || ''}
-          onChange={(newValue) => handleFieldChange('address', newValue)}
+          value={value.address || ""}
+          onChange={(newValue) => handleFieldChange("address", newValue)}
           onSuggestionSelect={handleAddressSuggestionSelect}
           disabled={disabled || !value.country}
-          countryCode={value.country ? getCountryCode(value.country) : undefined}
-          placeholder={value.country ? 'Calle y número...' : 'Selecciona primero un país'}
+          countryCode={
+            value.country ? getCountryCode(value.country) : undefined
+          }
+          placeholder={
+            value.country ? "Calle y número..." : "Selecciona primero un país"
+          }
           required={required}
           error={errors.address}
           showManualEntry={showManualEntry}
@@ -221,19 +236,16 @@ function AddressFormComponent({
             <Input
               id={`${idPrefix}-city`}
               name="city"
-              value={value.city || ''}
-              onChange={(e) => handleFieldChange('city', e.target.value)}
+              value={value.city || ""}
+              onChange={(e) => handleFieldChange("city", e.target.value)}
               onBlur={handleCityBlur}
               disabled={disabled || !value.country}
-              placeholder={value.country ? 'Ciudad...' : 'Selecciona país'}
-              className={cn(
-                'pr-10',
-                errors.city && 'border-destructive'
-              )}
-              aria-invalid={errors.city ? 'true' : 'false'}
+              placeholder={value.country ? "Ciudad..." : "Selecciona país"}
+              className={cn("pr-10", errors.city && "border-destructive")}
+              aria-invalid={errors.city ? "true" : "false"}
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              {renderValidationIcon('city')}
+              {renderValidationIcon("city")}
             </div>
           </div>
           {errors.city && (
@@ -247,19 +259,16 @@ function AddressFormComponent({
             <Input
               id={`${idPrefix}-zipcode`}
               name="zipcode"
-              value={value.zipcode || ''}
-              onChange={(e) => handleFieldChange('zipcode', e.target.value)}
+              value={value.zipcode || ""}
+              onChange={(e) => handleFieldChange("zipcode", e.target.value)}
               onBlur={handleZipcodeBlur}
               disabled={disabled || !value.city}
-              placeholder={value.city ? 'Código postal...' : 'Introduce ciudad'}
-              className={cn(
-                'pr-10',
-                errors.zipcode && 'border-destructive'
-              )}
-              aria-invalid={errors.zipcode ? 'true' : 'false'}
+              placeholder={value.city ? "Código postal..." : "Introduce ciudad"}
+              className={cn("pr-10", errors.zipcode && "border-destructive")}
+              aria-invalid={errors.zipcode ? "true" : "false"}
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              {renderValidationIcon('zipcode')}
+              {renderValidationIcon("zipcode")}
             </div>
           </div>
           {errors.zipcode && (
@@ -272,9 +281,11 @@ function AddressFormComponent({
       {value.formattedAddress && validated.address && (
         <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="h-4 w-4 mt-0.5 text-success flex-shrink-0" />
+            <CheckCircle2 className="h-4 w-4 mt-0.5 text-success shrink-0" />
             <div>
-              <p className="font-medium text-xs text-muted-foreground mb-1">Dirección confirmada:</p>
+              <p className="font-medium text-xs text-muted-foreground mb-1">
+                Dirección confirmada:
+              </p>
               <p className="text-foreground">{value.formattedAddress}</p>
             </div>
           </div>
@@ -285,15 +296,17 @@ function AddressFormComponent({
 }
 
 // Memoizar el componente para evitar re-renders innecesarios
-export const AddressForm = memo(AddressFormComponent, (prevProps, nextProps) => {
-  // Comparar props relevantes
-  return (
-    prevProps.disabled === nextProps.disabled &&
-    prevProps.required === nextProps.required &&
-    prevProps.showManualEntry === nextProps.showManualEntry &&
-    prevProps.idPrefix === nextProps.idPrefix &&
-    prevProps.onChange === nextProps.onChange &&
-    JSON.stringify(prevProps.value) === JSON.stringify(nextProps.value)
-  );
-});
-
+export const AddressForm = memo(
+  AddressFormComponent,
+  (prevProps, nextProps) => {
+    // Comparar props relevantes
+    return (
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.required === nextProps.required &&
+      prevProps.showManualEntry === nextProps.showManualEntry &&
+      prevProps.idPrefix === nextProps.idPrefix &&
+      prevProps.onChange === nextProps.onChange &&
+      JSON.stringify(prevProps.value) === JSON.stringify(nextProps.value)
+    );
+  },
+);

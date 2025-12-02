@@ -87,6 +87,7 @@ export default function AwardsPage() {
             data={rewards}
             isLoading={loading}
             error={error || undefined}
+            onClaimSuccess={fetchRewards}
           />
         </div>
 

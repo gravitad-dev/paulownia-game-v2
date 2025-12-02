@@ -9,6 +9,7 @@ import {
 } from "react-hook-form";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Save, ChevronDown, Loader2, Plus } from "lucide-react";
 import { Guardian, User, CreateGuardianInput, Media } from "@/types/user";
 import { useToast } from "@/hooks/useToast";
@@ -41,6 +42,7 @@ export default function ProfilePage() {
   // Archivo de avatar pendiente de subir
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const [guardiansOpen, setGuardiansOpen] = useState(true);
   const toast = useToast();
@@ -83,7 +85,7 @@ export default function ProfilePage() {
       city: guardian.city || "",
       country: guardian.country || "",
     }),
-    []
+    [],
   );
 
   const mapUserToFormData = useCallback(
@@ -100,7 +102,7 @@ export default function ProfilePage() {
       age: userData.age || "",
       guardians: [],
     }),
-    []
+    [],
   );
 
   // Cargar datos del usuario y guardians
@@ -151,22 +153,34 @@ export default function ProfilePage() {
   }, [user, form, mapUserToFormData]);
 
   // Sincronizar guardians del servidor con useFieldArray
+  const { replace } = guardiansFieldArray;
   useEffect(() => {
     const guardiansFormData = serverGuardiansSnapshot.map(
-      mapGuardianToFormData
+      mapGuardianToFormData,
     );
-    console.log("[DEBUG] Syncing guardians to fieldArray:", guardiansFormData);
-    console.log(
-      "[DEBUG] Current fields before sync:",
-      guardiansFieldArray.fields.length
+
+    // Solo actualizar si hay diferencias para evitar loops
+    const currentDataStr = JSON.stringify(
+      guardiansFieldArray.fields.map((f) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...rest } = f;
+        return rest;
+      }),
     );
-    guardiansFieldArray.replace(guardiansFormData);
-    console.log(
-      "[DEBUG] Fields after sync:",
-      guardiansFieldArray.fields.length
+    const newDataStr = JSON.stringify(
+      guardiansFormData.map((f) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...rest } = f;
+        return rest;
+      }),
     );
+
+    if (currentDataStr !== newDataStr) {
+      console.log("[DEBUG] Syncing guardians to fieldArray");
+      replace(guardiansFormData);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverGuardiansSnapshot]);
+  }, [serverGuardiansSnapshot, mapGuardianToFormData, replace]);
 
   // Calcular si es menor de edad
   const age = form.watch("age");
@@ -237,7 +251,7 @@ export default function ProfilePage() {
         try {
           console.log("[DEBUG] Uploading pending avatar...");
           const uploadedFile: UploadedFile = await MediaService.uploadAvatar(
-            pendingAvatarFile
+            pendingAvatarFile,
           );
           avatarMediaId = uploadedFile.id;
         } catch (error) {
@@ -310,7 +324,7 @@ export default function ProfilePage() {
         const existsInForm = formGuardians.some(
           (fg) =>
             fg.documentId === serverGuardian.documentId &&
-            serverGuardian.documentId
+            serverGuardian.documentId,
         );
         if (!existsInForm) {
           toDelete.push(serverGuardian.documentId);
@@ -337,7 +351,7 @@ export default function ProfilePage() {
         } else {
           // Es un guardian existente, verificar si cambió
           const serverGuardian = serverGuardiansSnapshot.find(
-            (sg) => sg.documentId === formGuardian.documentId
+            (sg) => sg.documentId === formGuardian.documentId,
           );
           if (serverGuardian) {
             // Comparar campos para ver si hay cambios
@@ -437,33 +451,39 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCancelEditing = () => {
-    if (!user) return;
+  // Verifica si hay cambios sin guardar
+  const hasUnsavedChanges = useCallback(() => {
+    if (!user) return false;
     const originalForm = mapUserToFormData(user);
     const currentFormData = form.getValues();
     const formChanged = Object.keys(originalForm).some(
       (key) =>
         originalForm[key as keyof ProfileFormData] !==
-        currentFormData[key as keyof ProfileFormData]
+        currentFormData[key as keyof ProfileFormData],
     );
 
-    // Comparar guardians actuales con snapshot
     const currentGuardians = form.getValues("guardians") || [];
     const guardiansChanged =
       JSON.stringify(currentGuardians) !==
       JSON.stringify(serverGuardiansSnapshot.map(mapGuardianToFormData));
 
-    // Verificar si hay avatar pendiente
     const hasPendingAvatar = pendingAvatarFile !== null;
 
-    if (
-      (formChanged || guardiansChanged || hasPendingAvatar) &&
-      !window.confirm("¿Deseas descartar los cambios?")
-    ) {
-      return;
-    }
+    return formChanged || guardiansChanged || hasPendingAvatar;
+  }, [
+    user,
+    form,
+    serverGuardiansSnapshot,
+    pendingAvatarFile,
+    mapUserToFormData,
+    mapGuardianToFormData,
+  ]);
 
-    // Limpiar avatar pendiente y preview
+  // Ejecuta el descarte de cambios
+  const executeDiscardChanges = useCallback(() => {
+    if (!user) return;
+    const originalForm = mapUserToFormData(user);
+
     if (avatarPreviewUrl) {
       URL.revokeObjectURL(avatarPreviewUrl);
       setAvatarPreviewUrl(null);
@@ -472,11 +492,27 @@ export default function ProfilePage() {
 
     setIsEditing(false);
     form.reset(originalForm);
-    // Restaurar guardians desde snapshot
     const guardiansFormData = serverGuardiansSnapshot.map(
-      mapGuardianToFormData
+      mapGuardianToFormData,
     );
     guardiansFieldArray.replace(guardiansFormData);
+    setShowDiscardConfirm(false);
+  }, [
+    user,
+    avatarPreviewUrl,
+    form,
+    serverGuardiansSnapshot,
+    guardiansFieldArray,
+    mapUserToFormData,
+    mapGuardianToFormData,
+  ]);
+
+  const handleCancelEditing = () => {
+    if (hasUnsavedChanges()) {
+      setShowDiscardConfirm(true);
+    } else {
+      executeDiscardChanges();
+    }
   };
 
   const handleFileSelected = (file: File | null) => {
@@ -616,6 +652,17 @@ export default function ProfilePage() {
           )}
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showDiscardConfirm}
+        onClose={() => setShowDiscardConfirm(false)}
+        onConfirm={executeDiscardChanges}
+        title="Descartar cambios"
+        description="¿Deseas descartar los cambios realizados? Los cambios no guardados se perderán."
+        confirmText="Sí, descartar"
+        cancelText="No, continuar editando"
+        variant="warning"
+      />
     </FormProvider>
   );
 }
