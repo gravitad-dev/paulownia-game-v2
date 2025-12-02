@@ -1,5 +1,5 @@
 import { useLoader } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import * as THREE from "three";
 
 // ============================================================================
@@ -9,35 +9,24 @@ import * as THREE from "three";
 const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 const SHARED_PLANE_GEOMETRY = new THREE.PlaneGeometry(1, 1);
 
-interface PuzzleTileCubeProps {
-  position: [number, number, number];
-  imageUrl: string;
-  gridSize: number;
-  tileX: number;
-  tileZ: number;
-  scale?: number;
-}
+// ============================================================================
+// OPTIMIZACIÓN: Cache global de materiales por (gridSize, tileX, tileZ)
+// Evita crear nuevos ShaderMaterials cuando los parámetros son idénticos
+// ============================================================================
+const tileMaterialCache = new Map<string, THREE.ShaderMaterial>();
+const bodyMaterialCache = new Map<string, THREE.ShaderMaterial>();
 
-/**
- * Renderiza un cubo con el tile correspondiente de la imagen del puzzle.
- * 
- * SIMPLE: Misma lógica que el suelo, solo recorta la porción correspondiente.
- * - PlaneGeometry rotado -90° en X (igual que PuzzleFloor)
- * - UV directo, solo recorta la región del tile
- */
-export function PuzzleTileCube({
-  position,
-  imageUrl,
-  gridSize,
-  tileX,
-  tileZ,
-  scale = 0.9,
-}: PuzzleTileCubeProps) {
-  const texture = useLoader(THREE.TextureLoader, imageUrl);
-
-  // Material para la cara superior - igual que el suelo, solo recorta
-  const topMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
+function getCachedTileMaterial(
+  texture: THREE.Texture,
+  gridSize: number,
+  tileX: number,
+  tileZ: number
+): THREE.ShaderMaterial {
+  const key = `${gridSize}-${tileX}-${tileZ}`;
+  let material = tileMaterialCache.get(key);
+  
+  if (!material) {
+    material = new THREE.ShaderMaterial({
       uniforms: {
         u_texture: { value: texture },
         u_gridSize: { value: gridSize },
@@ -77,42 +66,88 @@ export function PuzzleTileCube({
         }
       `,
     });
+    tileMaterialCache.set(key, material);
+  } else {
+    // Actualizar la textura si cambió (misma key pero diferente textura)
+    material.uniforms.u_texture.value = texture;
+  }
+  
+  return material;
+}
+
+function getCachedBodyMaterial(): THREE.ShaderMaterial {
+  const key = "body-material";
+  if (!bodyMaterialCache.has(key)) {
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        u_thickness: { value: 0.02 },
+        u_color: { value: new THREE.Color("#ffffff") },
+        u_border_color: { value: new THREE.Color("#333333") },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform float u_thickness;
+        uniform vec3 u_color;
+        uniform vec3 u_border_color;
+        void main() {
+          float thickness = u_thickness;
+          if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
+              vUv.x < thickness || vUv.x > 1.0 - thickness) {
+            gl_FragColor = vec4(u_border_color, 1.0);
+          } else {
+            gl_FragColor = vec4(u_color, 1.0);
+          }
+        }
+      `,
+    });
+    bodyMaterialCache.set(key, material);
+  }
+  return bodyMaterialCache.get(key)!;
+}
+
+interface PuzzleTileCubeProps {
+  position: [number, number, number];
+  imageUrl: string;
+  gridSize: number;
+  tileX: number;
+  tileZ: number;
+  scale?: number;
+}
+
+/**
+ * Renderiza un cubo con el tile correspondiente de la imagen del puzzle.
+ * 
+ * SIMPLE: Misma lógica que el suelo, solo recorta la porción correspondiente.
+ * - PlaneGeometry rotado -90° en X (igual que PuzzleFloor)
+ * - UV directo, solo recorta la región del tile
+ * 
+ * OPTIMIZACIÓN: Memoizado y usa cache de materiales
+ */
+export const PuzzleTileCube = memo(function PuzzleTileCube({
+  position,
+  imageUrl,
+  gridSize,
+  tileX,
+  tileZ,
+  scale = 0.9,
+}: PuzzleTileCubeProps) {
+  const texture = useLoader(THREE.TextureLoader, imageUrl);
+
+  // OPTIMIZACIÓN: Usar materiales cacheados en lugar de crear nuevos
+  const topMaterial = useMemo(() => {
+    return getCachedTileMaterial(texture, gridSize, tileX, tileZ);
   }, [texture, gridSize, tileX, tileZ]);
 
-  // Material para el cuerpo del cubo (blanco con borde)
-  const bodyMaterial = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: {
-          u_thickness: { value: 0.02 },
-          u_color: { value: new THREE.Color("#ffffff") },
-          u_border_color: { value: new THREE.Color("#333333") },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 vUv;
-          uniform float u_thickness;
-          uniform vec3 u_color;
-          uniform vec3 u_border_color;
-          void main() {
-            float thickness = u_thickness;
-            if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
-                vUv.x < thickness || vUv.x > 1.0 - thickness) {
-              gl_FragColor = vec4(u_border_color, 1.0);
-            } else {
-              gl_FragColor = vec4(u_color, 1.0);
-            }
-          }
-        `,
-      }),
-    []
-  );
+  const bodyMaterial = useMemo(() => {
+    return getCachedBodyMaterial();
+  }, []);
 
   return (
     <group position={position} scale={scale}>
@@ -128,4 +163,4 @@ export function PuzzleTileCube({
       <mesh material={bodyMaterial} geometry={SHARED_BOX_GEOMETRY} />
     </group>
   );
-}
+});

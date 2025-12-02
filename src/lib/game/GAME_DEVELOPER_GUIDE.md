@@ -13,6 +13,7 @@
 9. [Componentes Principales](#9-componentes-principales)
 10. [Guía de Modificaciones](#10-guía-de-modificaciones)
 11. [Errores Comunes y Soluciones](#11-errores-comunes-y-soluciones)
+12. [Optimizaciones de Rendimiento](#12-optimizaciones-de-rendimiento)
 
 ---
 
@@ -165,12 +166,17 @@ El grid se centra en el origen, así:
 
 ```typescript
 // Ejecutado en useEffect con requestAnimationFrame
+// OPTIMIZACIÓN: Usa refs para valores frecuentes, solo depende de valores estables
 const tick = () => {
   // 1. Calcular tiempo desde último tick
   const deltaTime = now - lastTickTime;
 
   // 2. Si ha pasado suficiente tiempo, bajar la pieza
   if (deltaTime >= cycleTime) {
+    // Usar refs en lugar de estado directo (evita re-crear el useEffect)
+    const currentPosition = activePositionRef.current;
+    const currentShape = activeShapeRef.current;
+
     // Intentar mover hacia abajo
     if (!checkCollision(nextBlocks)) {
       setActivePosition(nextPosition);
@@ -180,6 +186,7 @@ const tick = () => {
     }
   }
 };
+// Dependencias: [size, cycleTime, puzzleImageUrl, ...] (solo valores estables)
 ```
 
 ### 4.3 Colocación de Piezas
@@ -360,6 +367,18 @@ interface PuzzleState {
 }
 ```
 
+**Patrón de uso optimizado** (ver sección 12.2):
+
+```typescript
+// Selectores específicos (recomendado)
+const currentPuzzlePiece = usePuzzleStore((state) => state.currentPuzzlePiece);
+const pattern = usePuzzleStore((state) => state.pattern);
+
+// Actions sin suscripción
+const puzzleActions = usePuzzleStore.getState();
+puzzleActions.placePiece(id);
+```
+
 ### 8.2 useCameraConfigStore
 
 Almacena configuración de cámara (distancia, altura, offset).
@@ -393,6 +412,29 @@ const [visualBlocks, setVisualBlocks] = useState(...);   // Bloques con animaci�
 const [lockedPieces, setLockedPieces] = useState(...);   // IDs de piezas bloqueadas
 ```
 
+**Selectores de Zustand (optimizados):**
+
+```typescript
+// Selectores específicos en lugar de usePuzzleStore()
+const currentPuzzlePiece = usePuzzleStore((state) => state.currentPuzzlePiece);
+const pattern = usePuzzleStore((state) => state.pattern);
+const remainingPieces = usePuzzleStore((state) => state.remainingPieces);
+const placedPieces = usePuzzleStore((state) => state.placedPieces);
+
+// Actions sin suscripción
+const puzzleActions = usePuzzleStore.getState();
+```
+
+**Refs para el Tick Loop:**
+
+```typescript
+// Refs que el tick loop usa para evitar dependencias excesivas
+const activePositionRef = useRef(activePosition);
+const activeShapeRef = useRef(activeShape);
+const gridRef = useRef(grid);
+// Se sincronizan con useEffect individuales
+```
+
 ### 9.2 PuzzleFloor.tsx
 
 Renderiza la imagen completa del puzzle en el suelo (Y = -halfSize).
@@ -408,7 +450,7 @@ Renderiza la imagen completa del puzzle en el suelo (Y = -halfSize).
 
 ### 9.3 PuzzleTileCube.tsx
 
-Renderiza un cubo con la textura del tile correspondiente.
+Renderiza un cubo con la textura del tile correspondiente. Memoizado con `React.memo` y usa caché global de materiales.
 
 ```typescript
 <PuzzleTileCube
@@ -419,6 +461,8 @@ Renderiza un cubo con la textura del tile correspondiente.
   tileZ={cell.z} // Fila del tile (se invierte en shader)
 />
 ```
+
+**Optimización**: Los `ShaderMaterial` se cachean globalmente por `(gridSize, tileX, tileZ)` para evitar crear nuevos en cada render.
 
 ---
 
@@ -547,6 +591,169 @@ puzzleStore.placePiece(id);
 // BIEN: Calcular localmente
 const patternPiece = puzzleStore.pattern.find(p => p.id === id);
 patternPiece.cells.forEach(...); // Usar directamente
+```
+
+### Error: "Stutters o congelaciones de 0.4-1s durante el juego"
+
+**Causa**: El `useEffect` del tick loop tiene demasiadas dependencias y se re-crea constantemente.
+
+**Solución**: Usar refs para valores que cambian frecuentemente:
+
+```typescript
+// MAL: Muchas dependencias causan re-creación del loop
+useEffect(() => { ... }, [
+  activePosition, activeShape, grid, lockedPieces, // ❌ Cambian frecuentemente
+]);
+
+// BIEN: Usar refs y solo dependencias estables
+const activePositionRef = useRef(activePosition);
+useEffect(() => { activePositionRef.current = activePosition; }, [activePosition]);
+
+useEffect(() => {
+  const tick = () => {
+    const pos = activePositionRef.current; // ✅ Lee del ref
+  };
+}, [size, cycleTime]); // ✅ Solo valores estables
+```
+
+Ver sección 12 para más optimizaciones de rendimiento.
+
+---
+
+## 12. Optimizaciones de Rendimiento
+
+El juego implementa varias optimizaciones para mantener 60+ FPS sin stutters.
+
+### 12.1 Tick Loop con Refs
+
+El loop principal usa `useRef` para valores que cambian frecuentemente, evitando que el `useEffect` se re-cree constantemente:
+
+```typescript
+// Refs para valores frecuentes (no causan re-render)
+const activePositionRef = useRef(activePosition);
+const activeShapeRef = useRef(activeShape);
+const gridRef = useRef(grid);
+// ... más refs
+
+// Sincronizar refs con estado
+useEffect(() => {
+  activePositionRef.current = activePosition;
+}, [activePosition]);
+
+// El tick solo depende de valores ESTABLES
+useEffect(() => {
+  const tick = () => {
+    // Usar refs en lugar de estado directo
+    const currentPosition = activePositionRef.current;
+    const currentShape = activeShapeRef.current;
+    // ...
+  };
+}, [size, cycleTime, puzzleImageUrl]); // Solo 3 dependencias
+```
+
+**Beneficio**: El loop no se re-crea en cada movimiento de pieza.
+
+### 12.2 Selectores de Zustand
+
+En lugar de suscribirse a todo el store, se usan selectores específicos:
+
+```typescript
+// MAL: Suscribe a TODO el store (re-render en cualquier cambio)
+const puzzleStore = usePuzzleStore();
+
+// BIEN: Selectores específicos (re-render solo cuando cambia ESE valor)
+const currentPuzzlePiece = usePuzzleStore((state) => state.currentPuzzlePiece);
+const pattern = usePuzzleStore((state) => state.pattern);
+const placedPieces = usePuzzleStore((state) => state.placedPieces);
+
+// Actions sin suscripción
+const puzzleActions = usePuzzleStore.getState();
+puzzleActions.placePiece(id); // No causa re-render
+```
+
+### 12.3 Componentes Memoizados
+
+Los componentes de renderizado están envueltos con `React.memo`:
+
+```typescript
+// Componentes memoizados:
+const AnimatedCube = memo(function AnimatedCube({ ... }) { ... });
+const AnimatedPuzzleCube = memo(function AnimatedPuzzleCube({ ... }) { ... });
+const ActiveCube = memo(function ActiveCube({ ... }) { ... });
+const GridPlane = memo(function GridPlane({ ... }) { ... });
+export const PuzzleTileCube = memo(function PuzzleTileCube({ ... }) { ... });
+```
+
+**Beneficio**: Evita re-renders cuando las props no cambian.
+
+### 12.4 Caché de Materiales (PuzzleTileCube)
+
+Los `ShaderMaterial` se cachean globalmente para evitar crear nuevos en cada render:
+
+```typescript
+// Cache global por (gridSize, tileX, tileZ)
+const tileMaterialCache = new Map<string, THREE.ShaderMaterial>();
+
+function getCachedTileMaterial(texture, gridSize, tileX, tileZ) {
+  const key = `${gridSize}-${tileX}-${tileZ}`;
+  let material = tileMaterialCache.get(key);
+
+  if (!material) {
+    material = new THREE.ShaderMaterial({ ... });
+    tileMaterialCache.set(key, material);
+  } else {
+    // Actualizar textura si cambió
+    material.uniforms.u_texture.value = texture;
+  }
+
+  return material;
+}
+```
+
+### 12.5 Pre-cálculo de Maps
+
+El `placedPuzzleCellsMap` se pre-calcula con `useMemo` cuando cambia `placedPieces`:
+
+```typescript
+// Se calcula UNA vez cuando cambia placedPieces
+const placedPuzzleCellsMap = useMemo(() => {
+  const map = new Map<string, { tileX: number; tileZ: number }>();
+  placedPieces.forEach((piece) => {
+    piece.cells.forEach((cell) => {
+      map.set(`${cell.x},${cell.z}`, { tileX: cell.x, tileZ: cell.z });
+    });
+  });
+  return map;
+}, [placedPieces]);
+```
+
+**Beneficio**: Evita O(n²) en lookups dentro del tick.
+
+### 12.6 Object Pooling (Vector3)
+
+Los componentes de animación reutilizan `Vector3` en lugar de crear nuevos cada frame:
+
+```typescript
+// En AnimatedCube
+const tempVectorRef = useRef(new THREE.Vector3());
+
+useFrame(() => {
+  // Reutilizar en lugar de: new THREE.Vector3(x, y, z)
+  tempVectorRef.current.set(targetX, targetY, targetZ);
+  positionRef.current.lerp(tempVectorRef.current, 0.22);
+});
+```
+
+### 12.7 Geometrías Compartidas
+
+Una sola geometría se comparte entre todos los cubos:
+
+```typescript
+// Global - una sola instancia
+const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+
+// En cada componente
+<mesh geometry={SHARED_BOX_GEOMETRY} material={...} />
 ```
 
 ---
