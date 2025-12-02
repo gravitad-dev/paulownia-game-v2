@@ -65,6 +65,13 @@ interface AnimatedCubeProps {
 const loader = new THREE.TextureLoader();
 const porousTexture = loader.load("/textures/porous.jpg");
 
+// ============================================================================
+// OPTIMIZACIÓN: Geometrías compartidas globales
+// Evita crear nuevas geometrías para cada cubo, reduciendo uso de memoria GPU
+// ============================================================================
+const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+const SHARED_PLANE_GEOMETRY = new THREE.PlaneGeometry(1, 1);
+
 // Interfaz para parámetros de variante de cubo
 interface CubeVariantParams {
   colors: BlockColors;
@@ -174,6 +181,42 @@ const createNoisyCubeMaterial = (params: CubeVariantParams) => {
   });
 };
 
+// ============================================================================
+// OPTIMIZACIÓN: Cache de materiales por variante
+// Evita crear nuevos ShaderMaterials cuando los parámetros son idénticos
+// ============================================================================
+const materialCache = new Map<string, THREE.ShaderMaterial>();
+
+function getMaterialCacheKey(params: CubeVariantParams): string {
+  return `${params.colors.topBottom}-${params.colors.frontBack}-${params.colors.leftRight}-${params.patternFactor}-${params.patternScale}-${params.patternFaceConfig}-${params.thickness}-${params.scale}`;
+}
+
+function getCachedMaterial(params: CubeVariantParams): THREE.ShaderMaterial {
+  const key = getMaterialCacheKey(params);
+  if (!materialCache.has(key)) {
+    materialCache.set(key, createNoisyCubeMaterial(params));
+  }
+  return materialCache.get(key)!;
+}
+
+// Función optimizada para comparar parámetros de variante sin JSON.stringify
+function variantParamsChanged(
+  prev: CubeVariantParams | null,
+  next: CubeVariantParams
+): boolean {
+  if (!prev) return true;
+  return (
+    prev.colors.topBottom !== next.colors.topBottom ||
+    prev.colors.frontBack !== next.colors.frontBack ||
+    prev.colors.leftRight !== next.colors.leftRight ||
+    prev.patternFactor !== next.patternFactor ||
+    prev.patternScale !== next.patternScale ||
+    prev.patternFaceConfig !== next.patternFaceConfig ||
+    prev.thickness !== next.thickness ||
+    prev.scale !== next.scale
+  );
+}
+
 // Componente para bloques activos (blancos con bordes)
 function ActiveCube({
   position,
@@ -185,8 +228,9 @@ function ActiveCube({
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
+  // OPTIMIZACIÓN: Usar material cacheado en lugar de crear uno nuevo
   if (!materialRef.current) {
-    materialRef.current = createNoisyCubeMaterial(variantParams);
+    materialRef.current = getCachedMaterial(variantParams);
   }
 
   useFrame((state) => {
@@ -197,8 +241,7 @@ function ActiveCube({
   });
 
   return (
-    <mesh ref={meshRef} position={position} scale={variantParams.scale}>
-      <boxGeometry args={[1, 1, 1]} />
+    <mesh ref={meshRef} position={position} scale={variantParams.scale} geometry={SHARED_BOX_GEOMETRY}>
       <primitive object={materialRef.current} attach="material" />
     </mesh>
   );
@@ -207,6 +250,8 @@ function ActiveCube({
 function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  // OPTIMIZACIÓN: Reutilizar Vector3 para evitar creación de objetos en cada frame
+  const tempVectorRef = useRef(new THREE.Vector3());
   const positionRef = useRef(
     new THREE.Vector3(
       block.x - halfSize + 0.5,
@@ -217,26 +262,22 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
   const scaleRef = useRef(block.scale);
   const prevVariantParamsRef = useRef<CubeVariantParams | null>(null);
 
-  // Crear o actualizar material cuando cambien los parámetros de variante
-  if (
-    !materialRef.current ||
-    JSON.stringify(prevVariantParamsRef.current) !==
-      JSON.stringify(block.variantParams)
-  ) {
-    materialRef.current = createNoisyCubeMaterial(block.variantParams);
+  // OPTIMIZACIÓN: Usar material cacheado y comparación directa (sin JSON.stringify)
+  if (variantParamsChanged(prevVariantParamsRef.current, block.variantParams)) {
+    materialRef.current = getCachedMaterial(block.variantParams);
     prevVariantParamsRef.current = block.variantParams;
   }
 
   useFrame((state) => {
     if (!meshRef.current) return;
 
-    // Lerp posición (como en el proyecto original: 0.22)
-    const targetPos = new THREE.Vector3(
+    // OPTIMIZACIÓN: Reutilizar Vector3 en lugar de crear uno nuevo cada frame
+    tempVectorRef.current.set(
       block.targetX - halfSize + 0.5,
       block.targetY - halfSize + 0.5,
       block.targetZ - halfSize + 0.5
     );
-    positionRef.current.lerp(targetPos, 0.22);
+    positionRef.current.lerp(tempVectorRef.current, 0.22);
     meshRef.current.position.copy(positionRef.current);
 
     // Lerp escala (como en el proyecto original: 0.12)
@@ -256,8 +297,7 @@ function AnimatedCube({ block, halfSize, onDestroyed }: AnimatedCubeProps) {
   });
 
   return (
-    <mesh ref={meshRef}>
-      <boxGeometry args={[1, 1, 1]} />
+    <mesh ref={meshRef} geometry={SHARED_BOX_GEOMETRY}>
       <primitive object={materialRef.current} attach="material" />
     </mesh>
   );
@@ -280,6 +320,8 @@ function AnimatedPuzzleCube({
   gridSize,
 }: AnimatedPuzzleCubeProps) {
   const groupRef = useRef<THREE.Group>(null);
+  // OPTIMIZACIÓN: Reutilizar Vector3 para evitar creación de objetos en cada frame
+  const tempVectorRef = useRef(new THREE.Vector3());
   const positionRef = useRef(
     new THREE.Vector3(
       block.x - halfSize + 0.5,
@@ -292,13 +334,13 @@ function AnimatedPuzzleCube({
   useFrame(() => {
     if (!groupRef.current) return;
 
-    // Lerp posición
-    const targetPos = new THREE.Vector3(
+    // OPTIMIZACIÓN: Reutilizar Vector3 en lugar de crear uno nuevo cada frame
+    tempVectorRef.current.set(
       block.targetX - halfSize + 0.5,
       block.targetY - halfSize + 0.5,
       block.targetZ - halfSize + 0.5
     );
-    positionRef.current.lerp(targetPos, 0.22);
+    positionRef.current.lerp(tempVectorRef.current, 0.22);
     groupRef.current.position.copy(positionRef.current);
 
     // Lerp escala
@@ -1306,6 +1348,48 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               blocks.sort((a, b) => b.targetY - a.targetY);
             });
 
+            // OPTIMIZACIÓN: Crear Map de lookup para piezas puzzle colocadas
+            // Esto evita hacer findIndex en loops anidados (O(n²) -> O(1))
+            const placedPuzzleCellsMap = new Map<
+              string,
+              { tileX: number; tileZ: number }
+            >();
+            puzzleStore.placedPieces.forEach((piece) => {
+              piece.cells.forEach((cell) => {
+                placedPuzzleCellsMap.set(`${cell.x},${cell.z}`, {
+                  tileX: cell.x,
+                  tileZ: cell.z,
+                });
+              });
+            });
+
+            // Función optimizada para obtener info de tile puzzle
+            const getPuzzleTileInfo = (
+              blockX: number,
+              blockZ: number
+            ): { isPuzzle: boolean; tileX: number; tileZ: number } => {
+              const key = `${blockX},${blockZ}`;
+              // Primero verificar celdas recién colocadas
+              const newCell = newPuzzleCells.get(key);
+              if (newCell) {
+                return {
+                  isPuzzle: true,
+                  tileX: newCell.tileX,
+                  tileZ: newCell.tileZ,
+                };
+              }
+              // Luego verificar Map de piezas ya colocadas (O(1) lookup)
+              const placedCell = placedPuzzleCellsMap.get(key);
+              if (placedCell) {
+                return {
+                  isPuzzle: true,
+                  tileX: placedCell.tileX,
+                  tileZ: placedCell.tileZ,
+                };
+              }
+              return { isPuzzle: false, tileX: 0, tileZ: 0 };
+            };
+
             // Regenerar bloques desde finalGrid, asignando bloques existentes por columna
             for (let x = 0; x < size; x++) {
               for (let z = 0; z < size; z++) {
@@ -1319,39 +1403,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                     occupiedYs.push(y);
                   }
                 }
-
-                // Verificar si esta posición (x, z) es parte de una pieza puzzle
-                // Primero verificamos las celdas recién colocadas, luego el store
-                const getPuzzleTileInfo = (
-                  blockX: number,
-                  blockZ: number
-                ): { isPuzzle: boolean; tileX: number; tileZ: number } => {
-                  // Primero verificar celdas recién colocadas
-                  const newCellKey = `${blockX},${blockZ}`;
-                  const newCell = newPuzzleCells.get(newCellKey);
-                  if (newCell) {
-                    return {
-                      isPuzzle: true,
-                      tileX: newCell.tileX,
-                      tileZ: newCell.tileZ,
-                    };
-                  }
-
-                  // Luego verificar piezas ya colocadas anteriormente
-                  for (const piece of puzzleStore.placedPieces) {
-                    const cellIndex = piece.cells.findIndex(
-                      (cell) => cell.x === blockX && cell.z === blockZ
-                    );
-                    if (cellIndex !== -1) {
-                      return {
-                        isPuzzle: true,
-                        tileX: piece.cells[cellIndex].x,
-                        tileZ: piece.cells[cellIndex].z,
-                      };
-                    }
-                  }
-                  return { isPuzzle: false, tileX: 0, tileZ: 0 };
-                };
 
                 // Asignar bloques existentes a posiciones ocupadas
                 for (let i = 0; i < occupiedYs.length; i++) {
@@ -2040,9 +2091,8 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   block.z - halfSize + 0.5,
                 ]}
                 material={ghostMaterial}
-              >
-                <boxGeometry args={[1, 1, 1]} />
-              </mesh>
+                geometry={SHARED_BOX_GEOMETRY}
+              />
             );
           })}
 

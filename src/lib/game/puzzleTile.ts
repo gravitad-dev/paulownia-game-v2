@@ -309,8 +309,8 @@ export function validateGridOrientation(
   const isValid = invalidTiles.length === 0;
   const validTiles = totalTiles - invalidTiles.length;
 
-  // Log de warning si hay tiles inválidos
-  if (!isValid) {
+  // Log de warning si hay tiles inválidos (solo en desarrollo)
+  if (!isValid && process.env.NODE_ENV === "development") {
     console.error(
       `⚠️ VALIDACIÓN DE ORIENTACIÓN FALLIDA: ${invalidTiles.length}/${totalTiles} tiles tienen orientación incorrecta`
     );

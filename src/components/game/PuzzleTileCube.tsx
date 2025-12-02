@@ -2,6 +2,13 @@ import { useLoader } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 
+// ============================================================================
+// OPTIMIZACIÓN: Geometrías compartidas
+// Evita crear nuevas geometrías para cada cubo de puzzle
+// ============================================================================
+const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+const SHARED_PLANE_GEOMETRY = new THREE.PlaneGeometry(1, 1);
+
 interface PuzzleTileCubeProps {
   position: [number, number, number];
   imageUrl: string;
@@ -114,14 +121,11 @@ export function PuzzleTileCube({
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, 0.501, 0]}
         material={topMaterial}
-      >
-        <planeGeometry args={[1, 1]} />
-      </mesh>
+        geometry={SHARED_PLANE_GEOMETRY}
+      />
       
       {/* Cuerpo del cubo */}
-      <mesh material={bodyMaterial}>
-        <boxGeometry args={[1, 1, 1]} />
-      </mesh>
+      <mesh material={bodyMaterial} geometry={SHARED_BOX_GEOMETRY} />
     </group>
   );
 }

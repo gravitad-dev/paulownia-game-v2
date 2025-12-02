@@ -282,10 +282,12 @@ function assignTilesToPieces(
 function validatePieceConnectivity(pieces: PuzzlePiece[]): boolean {
   for (const piece of pieces) {
     if (!areTilesConnected(piece.tiles)) {
-      console.warn(
-        `Pieza ${piece.id} tiene tiles no conectados:`,
-        piece.tiles.map((t) => t.id)
-      );
+      if (process.env.NODE_ENV === "development") {
+        console.warn(
+          `Pieza ${piece.id} tiene tiles no conectados:`,
+          piece.tiles.map((t) => t.id)
+        );
+      }
       return false;
     }
   }
@@ -307,23 +309,25 @@ function validatePieceTilesOrientation(pieces: PuzzlePiece[]): boolean {
     // Verificar que todos los tiles de esta pieza tengan orientación base
     if (!validateTilesHaveSameBaseOrientation(piece.tiles)) {
       allValid = false;
-      console.error(
-        `⚠️ PIEZA ${piece.id} (${piece.type}): Tiles con orientación incorrecta`
-      );
+      if (process.env.NODE_ENV === "development") {
+        console.error(
+          `⚠️ PIEZA ${piece.id} (${piece.type}): Tiles con orientación incorrecta`
+        );
 
-      // Mostrar detalles de cada tile
-      piece.tiles.forEach((tile) => {
-        const isValid = isBaseOrientation(tile.orientation);
-        if (!isValid) {
-          console.error(
-            `  - Tile ${tile.id}: [${tile.orientation.join(",")}] ≠ [1,2,3,4]`
-          );
-        }
-      });
+        // Mostrar detalles de cada tile
+        piece.tiles.forEach((tile) => {
+          const isValid = isBaseOrientation(tile.orientation);
+          if (!isValid) {
+            console.error(
+              `  - Tile ${tile.id}: [${tile.orientation.join(",")}] ≠ [1,2,3,4]`
+            );
+          }
+        });
+      }
     }
   }
 
-  if (allValid) {
+  if (allValid && process.env.NODE_ENV === "development") {
     console.log(
       `✅ Validación de orientación: ${pieces.length} piezas, todos los tiles tienen orientación [1,2,3,4]`
     );
@@ -368,7 +372,9 @@ export function generatePuzzlePattern(
   gridSize: number,
   seed: number
 ): PuzzleGenerationResult {
-  console.log(`🧩 Generando puzzle ${gridSize}x${gridSize} con seed ${seed}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`🧩 Generando puzzle ${gridSize}x${gridSize} con seed ${seed}`);
+  }
 
   // Paso 1: Crear grid de tiles
   const tileGrid = createTileGrid(gridSize);
@@ -376,11 +382,13 @@ export function generatePuzzlePattern(
   // Paso 2: VALIDACIÓN CRUCIAL - Verificar que TODOS los tiles tengan orientación [1,2,3,4]
   const gridOrientationValidation = validateGridOrientation(tileGrid);
   if (!gridOrientationValidation.isValid) {
-    console.error(
-      `❌ FALLO CRÍTICO: ${gridOrientationValidation.invalidTiles.length} tiles tienen orientación incorrecta`
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        `❌ FALLO CRÍTICO: ${gridOrientationValidation.invalidTiles.length} tiles tienen orientación incorrecta`
+      );
+    }
     // En producción, esto nunca debería pasar ya que createTileGrid siempre asigna [1,2,3,4]
-  } else {
+  } else if (process.env.NODE_ENV === "development") {
     console.log(
       `✅ Grid de tiles: ${gridOrientationValidation.totalTiles} tiles con orientación [1,2,3,4]`
     );
@@ -394,13 +402,13 @@ export function generatePuzzlePattern(
 
   // Paso 5: Validar conectividad
   const isConnected = validatePieceConnectivity(pieces);
-  if (!isConnected) {
+  if (!isConnected && process.env.NODE_ENV === "development") {
     console.warn("⚠️ Algunas piezas tienen tiles no conectados");
   }
 
   // Paso 6: VALIDACIÓN CRUCIAL - Verificar orientación de tiles en cada pieza
   const tilesOrientationValid = validatePieceTilesOrientation(pieces);
-  if (!tilesOrientationValid) {
+  if (!tilesOrientationValid && process.env.NODE_ENV === "development") {
     console.error(
       "❌ FALLO CRÍTICO: Algunas piezas tienen tiles con orientación incorrecta"
     );
@@ -408,9 +416,11 @@ export function generatePuzzlePattern(
 
   // Verificar completitud del grid
   const isComplete = isGridComplete(occupancyGrid);
-  console.log(
-    `📊 Resultado: ${pieces.length} piezas, grid ${isComplete ? "completo" : "incompleto"}`
-  );
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      `📊 Resultado: ${pieces.length} piezas, grid ${isComplete ? "completo" : "incompleto"}`
+    );
+  }
 
   return {
     tileGrid,
