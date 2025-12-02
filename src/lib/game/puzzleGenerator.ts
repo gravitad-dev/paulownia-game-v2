@@ -3,8 +3,20 @@ import {
   TETROMINO_SHAPES,
   rotateShapeHorizontal,
 } from "./three/tetrominoes";
+import {
+  Tile,
+  createTileGrid,
+  getTileByGridPosition,
+  areTilesConnected,
+  validateGridOrientation,
+  validateTilesHaveSameBaseOrientation,
+  isBaseOrientation,
+} from "./puzzleTile";
 
-// Generador aleatorio con seed (Simple LCG)
+/**
+ * Generador aleatorio con seed (Simple LCG)
+ * Permite reproducir el mismo patrón con la misma seed
+ */
 class SeededRandom {
   private seed: number;
 
@@ -22,14 +34,36 @@ class SeededRandom {
   }
 }
 
+/**
+ * Representa una pieza de puzzle con sus tiles asignados
+ */
 export interface PuzzlePiece {
+  /** ID único de la pieza, formato: "puzzle-{n}" */
   id: string;
+  /** Tipo de tetromino (I, O, T, S, Z, J, L, I3, I2, O2, L2) */
   type: TetrominoType;
+  /** Rotación del patrón (0-3, pasos de 90°) */
   rotation: number;
+  /** Posición de origen de la pieza en el grid */
   position: { x: number; z: number };
+  /** Celdas que ocupa la pieza en el grid */
   cells: { x: number; z: number }[];
-  tileIndices: number[]; // Índices de las tiles de la imagen asignadas
-  placed: boolean; // Si ya fue colocada correctamente
+  /** Tiles de la imagen asignados a esta pieza */
+  tiles: Tile[];
+  /** Si la pieza ya fue colocada correctamente */
+  placed: boolean;
+}
+
+/**
+ * Resultado de la generación del puzzle
+ */
+export interface PuzzleGenerationResult {
+  /** Grid de tiles (imagen cortada) */
+  tileGrid: Tile[][];
+  /** Piezas de tetris con sus tiles asignados */
+  pieces: PuzzlePiece[];
+  /** Indica si el grid está 100% cubierto */
+  isComplete: boolean;
 }
 
 interface GridCell {
@@ -40,17 +74,38 @@ interface GridCell {
 }
 
 /**
- * Genera un patrón de puzzle llenando el grid con piezas de Tetris
+ * Tipos de piezas disponibles para rellenar el puzzle
  */
-export function generatePuzzlePattern(
+const PIECE_TYPES: TetrominoType[] = [
+  "I",
+  "O",
+  "T",
+  "S",
+  "Z",
+  "J",
+  "L",
+  "I3",
+  "I2",
+  "O2",
+  "L2",
+];
+
+/**
+ * Rellena el grid con piezas de tetris basado en una seed
+ *
+ * @param gridSize - Tamaño del grid
+ * @param seed - Seed para el generador aleatorio
+ * @returns Array de piezas (sin tiles asignados aún)
+ */
+function fillGridWithTetrominos(
   gridSize: number,
   seed: number
-): PuzzlePiece[] {
+): { pieces: PuzzlePiece[]; occupancyGrid: GridCell[][] } {
   const random = new SeededRandom(seed);
   const pieces: PuzzlePiece[] = [];
   const grid: GridCell[][] = [];
 
-  // Inicializar grid
+  // Inicializar grid de ocupación
   for (let x = 0; x < gridSize; x++) {
     grid[x] = [];
     for (let z = 0; z < gridSize; z++) {
@@ -58,30 +113,15 @@ export function generatePuzzlePattern(
     }
   }
 
-  // Tipos de piezas disponibles (priorizando piezas pequeñas para rellenar huecos)
-  const pieceTypes: TetrominoType[] = [
-    "I",
-    "O",
-    "T",
-    "S",
-    "Z",
-    "J",
-    "L",
-    "I3",
-    "I2",
-    "O2",
-    "L2",
-  ];
-
   let pieceId = 0;
-  const maxAttempts = gridSize * gridSize * 10; // Límite de intentos
+  const maxAttempts = gridSize * gridSize * 10;
   let attempts = 0;
 
-  // Intentar llenar el grid
+  // Intentar llenar el grid completamente
   while (attempts < maxAttempts) {
     attempts++;
 
-    // Encontrar una celda vacía
+    // Encontrar celdas vacías
     const emptyCells: { x: number; z: number }[] = [];
     for (let x = 0; x < gridSize; x++) {
       for (let z = 0; z < gridSize; z++) {
@@ -95,12 +135,11 @@ export function generatePuzzlePattern(
       break; // Grid lleno
     }
 
-    // Seleccionar una celda vacía aleatoria
-    const startCell =
-      emptyCells[random.nextInt(0, emptyCells.length - 1)];
+    // Seleccionar celda vacía aleatoria
+    const startCell = emptyCells[random.nextInt(0, emptyCells.length - 1)];
 
-    // Intentar colocar diferentes tipos de piezas
-    const shuffledTypes = [...pieceTypes].sort(() => random.next() - 0.5);
+    // Intentar colocar piezas en orden aleatorio
+    const shuffledTypes = [...PIECE_TYPES].sort(() => random.next() - 0.5);
     let placed = false;
 
     for (const type of shuffledTypes) {
@@ -110,7 +149,7 @@ export function generatePuzzlePattern(
       for (let rotation = 0; rotation < 4; rotation++) {
         const rotatedShape = rotateShapeHorizontal(shape, rotation);
 
-        // Verificar si la pieza cabe en esta posición
+        // Verificar si la pieza cabe
         const cells: { x: number; z: number }[] = [];
         let fits = true;
 
@@ -133,14 +172,13 @@ export function generatePuzzlePattern(
         }
 
         if (fits) {
-          // Colocar la pieza
           const piece: PuzzlePiece = {
             id: `puzzle-${pieceId++}`,
             type,
             rotation,
             position: { x: startCell.x, z: startCell.z },
             cells,
-            tileIndices: [],
+            tiles: [], // Se asignarán después
             placed: false,
           };
 
@@ -159,16 +197,16 @@ export function generatePuzzlePattern(
       if (placed) break;
     }
 
-    // Si no se pudo colocar ninguna pieza, intentar rellenar con I2
+    // Fallback: intentar rellenar con piezas pequeñas (I2)
     if (!placed && emptyCells.length > 0) {
       const cell = emptyCells[0];
-      // Intentar colocar I2 horizontal o vertical
       const i2Shapes = [
         TETROMINO_SHAPES["I2"],
         rotateShapeHorizontal(TETROMINO_SHAPES["I2"], 1),
       ];
 
-      for (const shape of i2Shapes) {
+      for (let shapeIdx = 0; shapeIdx < i2Shapes.length; shapeIdx++) {
+        const shape = i2Shapes[shapeIdx];
         const cells: { x: number; z: number }[] = [];
         let fits = true;
 
@@ -194,10 +232,10 @@ export function generatePuzzlePattern(
           const piece: PuzzlePiece = {
             id: `puzzle-${pieceId++}`,
             type: "I2",
-            rotation: shape === i2Shapes[1] ? 1 : 0,
+            rotation: shapeIdx === 1 ? 1 : 0,
             position: { x: cell.x, z: cell.z },
             cells,
-            tileIndices: [],
+            tiles: [],
             placed: false,
           };
 
@@ -213,15 +251,181 @@ export function generatePuzzlePattern(
     }
   }
 
-  // Asignar índices de tiles a cada pieza
-  // Cada celda del grid corresponde a un tile de la imagen (gridSize x gridSize tiles)
-  for (const piece of pieces) {
-    piece.tileIndices = piece.cells.map((cell) => {
-      // Convertir coordenadas (x, z) a índice lineal
-      return cell.z * gridSize + cell.x;
-    });
-  }
+  return { pieces, occupancyGrid: grid };
+}
 
+/**
+ * Asigna tiles a cada pieza basándose en las celdas que ocupa
+ *
+ * @param pieces - Piezas sin tiles
+ * @param tileGrid - Grid de tiles
+ * @returns Piezas con tiles asignados
+ */
+function assignTilesToPieces(
+  pieces: PuzzlePiece[],
+  tileGrid: Tile[][]
+): PuzzlePiece[] {
+  for (const piece of pieces) {
+    piece.tiles = piece.cells
+      .map((cell) => getTileByGridPosition(tileGrid, cell.x, cell.z))
+      .filter((tile): tile is Tile => tile !== undefined);
+  }
   return pieces;
 }
 
+/**
+ * Valida que cada pieza tenga tiles conectados (vecinos entre sí)
+ *
+ * @param pieces - Piezas con tiles asignados
+ * @returns true si todas las piezas tienen tiles conectados
+ */
+function validatePieceConnectivity(pieces: PuzzlePiece[]): boolean {
+  for (const piece of pieces) {
+    if (!areTilesConnected(piece.tiles)) {
+      console.warn(
+        `Pieza ${piece.id} tiene tiles no conectados:`,
+        piece.tiles.map((t) => t.id)
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Valida que TODOS los tiles de TODAS las piezas tengan orientación base [1,2,3,4]
+ *
+ * ESTO ES CRUCIAL: Si algún tile tiene orientación diferente, la imagen no se verá correctamente
+ *
+ * @param pieces - Piezas con tiles asignados
+ * @returns true si todos los tiles de todas las piezas tienen orientación [1,2,3,4]
+ */
+function validatePieceTilesOrientation(pieces: PuzzlePiece[]): boolean {
+  let allValid = true;
+
+  for (const piece of pieces) {
+    // Verificar que todos los tiles de esta pieza tengan orientación base
+    if (!validateTilesHaveSameBaseOrientation(piece.tiles)) {
+      allValid = false;
+      console.error(
+        `⚠️ PIEZA ${piece.id} (${piece.type}): Tiles con orientación incorrecta`
+      );
+
+      // Mostrar detalles de cada tile
+      piece.tiles.forEach((tile) => {
+        const isValid = isBaseOrientation(tile.orientation);
+        if (!isValid) {
+          console.error(
+            `  - Tile ${tile.id}: [${tile.orientation.join(",")}] ≠ [1,2,3,4]`
+          );
+        }
+      });
+    }
+  }
+
+  if (allValid) {
+    console.log(
+      `✅ Validación de orientación: ${pieces.length} piezas, todos los tiles tienen orientación [1,2,3,4]`
+    );
+  }
+
+  return allValid;
+}
+
+/**
+ * Verifica si el grid está completamente cubierto
+ *
+ * @param occupancyGrid - Grid de ocupación
+ * @returns true si no hay celdas vacías
+ */
+function isGridComplete(occupancyGrid: GridCell[][]): boolean {
+  for (const row of occupancyGrid) {
+    for (const cell of row) {
+      if (!cell.occupied) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Genera un patrón de puzzle completo con tiles y piezas de tetris
+ *
+ * Flujo:
+ * 1. Crea el grid de tiles con orientación base y neighbors
+ * 2. Valida que TODOS los tiles tengan orientación [1,2,3,4] (CRUCIAL)
+ * 3. Rellena el grid con piezas de tetris (basado en seed)
+ * 4. Asigna tiles a cada pieza según las celdas que ocupa
+ * 5. Valida conectividad de tiles en cada pieza
+ * 6. Valida orientación de tiles en cada pieza
+ *
+ * @param gridSize - Tamaño del grid (6, 8, o 10)
+ * @param seed - Seed para generar patrón reproducible
+ * @returns Resultado con tileGrid, piezas y estado de completitud
+ */
+export function generatePuzzlePattern(
+  gridSize: number,
+  seed: number
+): PuzzleGenerationResult {
+  console.log(`🧩 Generando puzzle ${gridSize}x${gridSize} con seed ${seed}`);
+
+  // Paso 1: Crear grid de tiles
+  const tileGrid = createTileGrid(gridSize);
+
+  // Paso 2: VALIDACIÓN CRUCIAL - Verificar que TODOS los tiles tengan orientación [1,2,3,4]
+  const gridOrientationValidation = validateGridOrientation(tileGrid);
+  if (!gridOrientationValidation.isValid) {
+    console.error(
+      `❌ FALLO CRÍTICO: ${gridOrientationValidation.invalidTiles.length} tiles tienen orientación incorrecta`
+    );
+    // En producción, esto nunca debería pasar ya que createTileGrid siempre asigna [1,2,3,4]
+  } else {
+    console.log(
+      `✅ Grid de tiles: ${gridOrientationValidation.totalTiles} tiles con orientación [1,2,3,4]`
+    );
+  }
+
+  // Paso 3: Rellenar con piezas de tetris
+  const { pieces, occupancyGrid } = fillGridWithTetrominos(gridSize, seed);
+
+  // Paso 4: Asignar tiles a piezas
+  assignTilesToPieces(pieces, tileGrid);
+
+  // Paso 5: Validar conectividad
+  const isConnected = validatePieceConnectivity(pieces);
+  if (!isConnected) {
+    console.warn("⚠️ Algunas piezas tienen tiles no conectados");
+  }
+
+  // Paso 6: VALIDACIÓN CRUCIAL - Verificar orientación de tiles en cada pieza
+  const tilesOrientationValid = validatePieceTilesOrientation(pieces);
+  if (!tilesOrientationValid) {
+    console.error(
+      "❌ FALLO CRÍTICO: Algunas piezas tienen tiles con orientación incorrecta"
+    );
+  }
+
+  // Verificar completitud del grid
+  const isComplete = isGridComplete(occupancyGrid);
+  console.log(
+    `📊 Resultado: ${pieces.length} piezas, grid ${isComplete ? "completo" : "incompleto"}`
+  );
+
+  return {
+    tileGrid,
+    pieces,
+    isComplete,
+  };
+}
+
+/**
+ * Obtiene las piezas del puzzle (para compatibilidad con código existente)
+ * @deprecated Usar generatePuzzlePattern().pieces en su lugar
+ */
+export function generatePuzzlePieces(
+  gridSize: number,
+  seed: number
+): PuzzlePiece[] {
+  return generatePuzzlePattern(gridSize, seed).pieces;
+}

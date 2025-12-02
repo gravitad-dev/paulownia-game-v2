@@ -54,10 +54,15 @@ export function PuzzleTileCube({
         void main() {
           float tileSize = 1.0 / u_gridSize;
           
-          // UV directo - igual que el suelo, solo recorta la porción
+          // Invertir tileZ para corregir orientación de imagen
+          // En OpenGL/Three.js: V=0 es ABAJO, V=1 es ARRIBA
+          // Pero tileZ=0 es la fila SUPERIOR de la imagen
+          // Por eso invertimos: invertedZ = gridSize - 1 - tileZ
+          float invertedZ = u_gridSize - 1.0 - u_tileZ;
+          
           vec2 uv = vec2(
             u_tileX * tileSize + vUv.x * tileSize,
-            u_tileZ * tileSize + vUv.y * tileSize
+            invertedZ * tileSize + vUv.y * tileSize
           );
           
           vec4 texColor = texture2D(u_texture, uv);
