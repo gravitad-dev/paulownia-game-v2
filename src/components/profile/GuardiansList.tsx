@@ -102,7 +102,7 @@ const GuardiansListComponent = function GuardiansList({
   if (!fields || fields.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-4">
-        Haz clic en &quot;Añadir&quot; para agregar un guardián.
+        Haz clic en &quot;Añadir&quot; para registrar a un responsable.
       </p>
     );
   }
@@ -256,7 +256,7 @@ const GuardianFormItem = memo(
                   <p className="text-sm font-medium truncate">
                     {hasBasicInfo
                       ? `${name} ${lastName}`
-                      : `Padre/Tutor #${index + 1}`}
+                      : `Responsable #${index + 1}`}
                   </p>
                   {DNI && (
                     <p className="text-xs text-muted-foreground truncate">
@@ -418,7 +418,7 @@ const GuardianFormItem = memo(
                   {/* Dirección completa con el nuevo AddressForm */}
                   <div className="pt-2 border-t border-border/30">
                     <p className="text-xs text-muted-foreground mb-3">
-                      Dirección del tutor
+                      Dirección del responsable
                     </p>
                     <AddressForm
                       value={addressData}

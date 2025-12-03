@@ -76,7 +76,7 @@ export default function DailyRewardsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Recompensas Diarias" />
 
-      <div className="flex-1 p-4 space-y-4">
+      <div className="flex-1 p-4 pt-2 space-y-4">
         {/* Info de estado y countdown arriba del grid */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-sm text-muted-foreground">{subtitle}</p>

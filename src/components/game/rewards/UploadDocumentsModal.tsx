@@ -339,11 +339,11 @@ export function UploadDocumentsModal({
                 {guardians.length > 0 ? (
                   <span className="flex items-center gap-1">
                     <UserCheck className="h-3 w-3" />
-                    Tienes {guardians.length} guardián(es) registrado(s).
-                    Selecciona uno o crea uno nuevo.
+                    Hay {guardians.length} responsables registrados. Puedes
+                    elegir uno o agregar otro.
                   </span>
                 ) : (
-                  "Deberás registrar los datos de tu guardián para autorizar este reclamo."
+                  "Debes registrar datos de una persona responsable para autorizar el reclamo."
                 )}
               </p>
             </div>
@@ -407,7 +407,8 @@ export function UploadDocumentsModal({
             />
             {isMinor && (
               <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                Eres menor de edad. Se requiere autorización de un guardián.
+                Eres menor de edad. Se requiere autorización de una persona
+                responsable.
               </p>
             )}
           </div>
@@ -454,7 +455,7 @@ export function UploadDocumentsModal({
           {/* Sección de Guardián (solo si es menor) */}
           {isMinor && (
             <div className="border-t pt-4 space-y-4">
-              <h3 className="font-medium">Información del Guardián</h3>
+              <h3 className="font-medium">Datos del responsable</h3>
 
               {guardians.length > 0 && (
                 <div className="flex gap-2">
@@ -464,7 +465,7 @@ export function UploadDocumentsModal({
                     onClick={() => setUseExistingGuardian(true)}
                     size="sm"
                   >
-                    Usar Guardián Existente
+                    Usar responsable registrado
                   </Button>
                   <Button
                     type="button"
@@ -472,14 +473,14 @@ export function UploadDocumentsModal({
                     onClick={() => setUseExistingGuardian(false)}
                     size="sm"
                   >
-                    Crear Nuevo Guardián
+                    Agregar nuevo responsable
                   </Button>
                 </div>
               )}
 
               {useExistingGuardian && guardians.length > 0 ? (
                 <div>
-                  <Label htmlFor="guardianId">Seleccionar Guardián *</Label>
+                  <Label htmlFor="guardianId">Seleccionar responsable *</Label>
                   <Select
                     value={formData.guardianId}
                     onValueChange={(value) =>
@@ -487,7 +488,7 @@ export function UploadDocumentsModal({
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un guardián" />
+                      <SelectValue placeholder="Elegí responsable" />
                     </SelectTrigger>
                     <SelectContent>
                       {guardians.map((guardian) => (
@@ -539,7 +540,9 @@ export function UploadDocumentsModal({
                       />
                     </div>
                     <div>
-                      <Label htmlFor="guardianDNI">DNI del Guardián *</Label>
+                      <Label htmlFor="guardianDNI">
+                        Documento de identidad del responsable *
+                      </Label>
                       <Input
                         id="guardianDNI"
                         name="DNI"
@@ -552,7 +555,7 @@ export function UploadDocumentsModal({
                 </div>
               )}
 
-              {/* Documentos del Guardián */}
+              {/* Documentos del responsable */}
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

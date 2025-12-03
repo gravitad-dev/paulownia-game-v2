@@ -16,6 +16,7 @@ export function UserRewardsFilters({
     { label: "Todos", value: "all" },
     { label: "Disponibles", value: "available" },
     { label: "En trámite", value: "in_claim" },
+    { label: "Pendientes", value: "pending" },
     { label: "Entregados", value: "claimed" },
   ];
 
