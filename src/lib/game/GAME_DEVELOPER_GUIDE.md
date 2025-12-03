@@ -292,13 +292,19 @@ function validatePuzzlePlacement(
    - Retorna bloques a eliminar (excluyendo bloqueados)
 
 2. applyLineClearToGrid(grid, level, lockedPositions)
-   - Elimina bloques de líneas completas
-   - Baja bloques superiores (excepto bloqueados)
+   - Fase 1: Detectar TODAS las líneas completas (Z y X) SIN modificar el grid
+   - Fase 2: Recopilar columnas a desplazar en un Set<string> (evita duplicados)
+   - Fase 3: Aplicar shiftColumnDown a todas las columnas en bloque
+   - El while loop repite hasta que no haya más líneas (cascadas)
 
 3. processLineClearsIteratively(grid, lockedPositions)
-   - Repite el proceso hasta no encontrar más líneas
+   - Repite el proceso en todos los niveles Y (0 a MAX_STACK_HEIGHT)
    - Retorna grid final y bloques eliminados
 ```
+
+**IMPORTANTE**: La detección de líneas X y Z se hace **antes** de modificar el grid.
+Esto garantiza que cuando se completan líneas en ambas direcciones (cruz o L),
+se eliminan todas simultáneamente en lugar de solo una.
 
 ### 6.3 Cálculo de lockedPositions
 
@@ -617,6 +623,46 @@ useEffect(() => {
 ```
 
 Ver sección 12 para más optimizaciones de rendimiento.
+
+### Error: "Bloques fantasma invisibles que aparecen al colocar otra pieza"
+
+**Causa**: Desincronización entre el grid lógico y `visualBlocks`. Cuando un bloque se mueve hacia abajo después de eliminar una línea, solo se marca la posición ANTIGUA en `processedPositions`, causando que se cree un bloque duplicado en la posición NUEVA.
+
+**Solución**: En `setVisualBlocks`, después de procesar un bloque que se mueve, marcar **ambas posiciones** (antigua y nueva):
+
+```typescript
+// Paso 2: Procesar bloques que deben moverse
+blocksToMove.forEach((m) => {
+  // ... crear bloque movido ...
+  processedPositions.add(oldPosKey);
+  // FIX: Marcar también la posición NUEVA para evitar duplicados
+  const newPosKey = `${m.x},${newY},${m.z}`;
+  processedPositions.add(newPosKey);
+});
+```
+
+### Error: "Solo se elimina una dirección de líneas (horizontal O vertical)"
+
+**Causa**: En `applyLineClearToGrid`, se ejecutaba `shiftColumnDown()` inmediatamente después de detectar cada línea, modificando el grid antes de verificar las otras líneas.
+
+**Solución**: Detectar TODAS las líneas completas (X y Z) ANTES de modificar el grid, usando un `Set` para recopilar columnas:
+
+```typescript
+// Set para recopilar columnas (evita duplicados en intersecciones)
+const columnsToShift = new Set<string>();
+
+// Fase 1: Detectar líneas Z completas
+for (let x = 0; x < size; x++) { /* ... */ columnsToShift.add(`${x},${z}`); }
+
+// Fase 2: Detectar líneas X completas
+for (let z = 0; z < size; z++) { /* ... */ columnsToShift.add(`${x},${z}`); }
+
+// Fase 3: Aplicar shifts DESPUÉS de detectar todas las líneas
+columnsToShift.forEach((key) => {
+  const [x, z] = key.split(",").map(Number);
+  shiftColumnDown(x, z, level);
+});
+```
 
 ---
 

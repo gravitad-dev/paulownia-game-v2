@@ -906,6 +906,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       while (changed) {
         changed = false;
 
+        // Set para recopilar columnas que necesitan shift (evita duplicados)
+        const columnsToShift = new Set<string>();
+
+        // Detectar líneas Z completas (para cada X fijo) - SIN modificar el grid
         for (let x = 0; x < size; x++) {
           let zLineFull = true;
           for (let z = 0; z < size; z++) {
@@ -916,22 +920,17 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
           if (zLineFull) {
-            let didMove = false;
             for (let z = 0; z < size; z++) {
               // En Y=0: solo mover columnas no bloqueadas
               // En Y>0: mover todas las columnas (la protección solo aplica a Y=0)
               if (level > 0 || !lockedPositions.has(`${x},${z}`)) {
-                shiftColumnDown(x, z, level);
-                didMove = true;
+                columnsToShift.add(`${x},${z}`);
               }
-            }
-            // Solo marcar changed si realmente se movió algo
-            if (didMove) {
-              changed = true;
             }
           }
         }
 
+        // Detectar líneas X completas (para cada Z fijo) - SIN modificar el grid
         for (let z = 0; z < size; z++) {
           let xLineFull = true;
           for (let x = 0; x < size; x++) {
@@ -942,20 +941,23 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
           if (xLineFull) {
-            let didMove = false;
             for (let x = 0; x < size; x++) {
               // En Y=0: solo mover columnas no bloqueadas
               // En Y>0: mover todas las columnas (la protección solo aplica a Y=0)
               if (level > 0 || !lockedPositions.has(`${x},${z}`)) {
-                shiftColumnDown(x, z, level);
-                didMove = true;
+                columnsToShift.add(`${x},${z}`);
               }
             }
-            // Solo marcar changed si realmente se movió algo
-            if (didMove) {
-              changed = true;
-            }
           }
+        }
+
+        // Aplicar shifts a todas las columnas detectadas (después de detectar TODAS las líneas)
+        if (columnsToShift.size > 0) {
+          columnsToShift.forEach((key) => {
+            const [x, z] = key.split(",").map(Number);
+            shiftColumnDown(x, z, level);
+          });
+          changed = true;
         }
       }
 
@@ -1750,6 +1752,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                       : undefined,
                 });
                 processedPositions.add(oldPosKey);
+                // FIX: Marcar también la posición NUEVA para evitar crear bloques duplicados
+                const newPosKey = `${m.x},${newY},${m.z}`;
+                processedPositions.add(newPosKey);
               }
             });
 
@@ -1820,6 +1825,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 }
               }
             }
+
+            // DEBUG: Detectar bloques duplicados en la misma posición
+            const positionCounts = new Map<string, number>();
+            resultBlocks.forEach((b) => {
+              const key = `${b.targetX},${b.targetY},${b.targetZ}`;
+              positionCounts.set(key, (positionCounts.get(key) || 0) + 1);
+            });
+            positionCounts.forEach((count, key) => {
+              if (count > 1) {
+                console.warn(`[DUPLICATE BLOCK] ${count} bloques en posición ${key}`);
+              }
+            });
 
             return [...destroyingBlocks, ...resultBlocks];
           });
