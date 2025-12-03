@@ -1143,46 +1143,38 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     temp3: new THREE.Vector3(),
   });
 
-  // Sincronizar refs con estado (sin causar re-renders)
+  // OPTIMIZACIÓN: Sincronizar refs con estado en un solo useEffect consolidado
+  // Esto evita race conditions donde los refs podrían estar desactualizados
+  // si se actualizan en useEffects separados con timing diferente
   useEffect(() => {
     activePositionRef.current = activePosition;
-  }, [activePosition]);
-  useEffect(() => {
     activeShapeRef.current = activeShape;
-  }, [activeShape]);
-  useEffect(() => {
     activeWorldBlocksRef.current = activeWorldBlocks;
-  }, [activeWorldBlocks]);
-  useEffect(() => {
     activeRotationRef.current = activeRotation;
-  }, [activeRotation]);
-  useEffect(() => {
     gridRef.current = grid;
-  }, [grid]);
-  useEffect(() => {
     lockedPiecesRef.current = lockedPieces;
-  }, [lockedPieces]);
-  useEffect(() => {
     isFastForwardRef.current = isFastForward;
-  }, [isFastForward]);
-  useEffect(() => {
     currentPuzzlePieceRef.current = currentPuzzlePiece;
-  }, [currentPuzzlePiece]);
-  useEffect(() => {
     patternRef.current = pattern;
-  }, [pattern]);
-  useEffect(() => {
     placedPiecesRef.current = placedPieces;
-  }, [placedPieces]);
-  useEffect(() => {
     remainingPiecesRef.current = remainingPieces;
-  }, [remainingPieces]);
-  useEffect(() => {
     pieceCounterRef.current = pieceCounter;
-  }, [pieceCounter]);
-  useEffect(() => {
     testModeRef.current = testMode;
-  }, [testMode]);
+  }, [
+    activePosition,
+    activeShape,
+    activeWorldBlocks,
+    activeRotation,
+    grid,
+    lockedPieces,
+    isFastForward,
+    currentPuzzlePiece,
+    pattern,
+    placedPieces,
+    remainingPieces,
+    pieceCounter,
+    testMode,
+  ]);
 
   // OPTIMIZACIÓN: Pre-calcular placedPuzzleCellsMap cuando cambia placedPieces
   const placedPuzzleCellsMap = useMemo(() => {
@@ -1613,10 +1605,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           // Procesar todas las líneas de forma iterativa
           // Ahora pasamos lockedPositions directamente (celdas x,z protegidas)
-          const { blocksToRemove, finalGrid } = !reachedLimit
+          const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
             ? processLineClearsIteratively(tempGrid, lockedPositions)
             : {
                 blocksToRemove: [] as { x: number; y: number; z: number }[],
+                blocksToMove: [] as { x: number; y: number; z: number; newY: number }[],
                 finalGrid: tempGrid,
               };
 
@@ -1660,32 +1653,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           console.log("[DEBUG] Checkpoint 6: Starting setVisualBlocks");
 
           // Actualizar bloques visuales con animaciones
+          // REFACTORIZADO: Usar Map por posición exacta para mantener identidad de bloques
           setVisualBlocks((prev) => {
-            const newBlocks: VisualBlock[] = [];
-            const destroyingBlocks = prev.filter((vb) => vb.destroying);
-
-            // Crear un set de posiciones que deben eliminarse
-            const positionsToRemove = new Set<string>();
-            blocksToRemove.forEach((r) => {
-              positionsToRemove.add(`${r.x},${r.y},${r.z}`);
-            });
-
-            // Agrupar bloques existentes por columna (x, z) y ordenar por Y descendente
-            const blocksByColumn = new Map<string, VisualBlock[]>();
+            // Crear Map de bloques existentes por posición exacta (x,y,z)
+            const blocksByPosition = new Map<string, VisualBlock>();
             prev.forEach((vb) => {
               if (!vb.destroying) {
-                const key = `${vb.targetX},${vb.targetZ}`;
-                if (!blocksByColumn.has(key)) {
-                  blocksByColumn.set(key, []);
-                }
-                blocksByColumn.get(key)!.push(vb);
+                const key = `${vb.targetX},${vb.targetY},${vb.targetZ}`;
+                blocksByPosition.set(key, vb);
               }
             });
 
-            // Ordenar bloques en cada columna por Y descendente
-            blocksByColumn.forEach((blocks) => {
-              blocks.sort((a, b) => b.targetY - a.targetY);
-            });
+            // Mantener bloques que ya están en animación de destrucción
+            const destroyingBlocks = prev.filter((vb) => vb.destroying);
 
             // Función optimizada para obtener info de tile puzzle
             const getPuzzleTileInfo = (
@@ -1703,7 +1683,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 };
               }
               // Luego verificar Map de piezas ya colocadas (O(1) lookup)
-              // Usar el Map capturado del scope externo
               const placedCell = currentPlacedPuzzleCellsMap.get(key);
               if (placedCell) {
                 return {
@@ -1715,117 +1694,134 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               return { isPuzzle: false, tileX: 0, tileZ: 0 };
             };
 
-            // Regenerar bloques desde finalGrid, asignando bloques existentes por columna
+            const resultBlocks: VisualBlock[] = [];
+            const processedPositions = new Set<string>();
+
+            // Paso 1: Procesar bloques a eliminar (marcar como destroying)
+            blocksToRemove.forEach((r) => {
+              const posKey = `${r.x},${r.y},${r.z}`;
+              const existing = blocksByPosition.get(posKey);
+              if (existing) {
+                resultBlocks.push({
+                  ...existing,
+                  targetScale: 0,
+                  destroying: true,
+                });
+                processedPositions.add(posKey);
+              }
+            });
+
+            // Paso 2: Procesar bloques que deben moverse (actualizar targetY)
+            blocksToMove.forEach((m) => {
+              const oldPosKey = `${m.x},${m.y},${m.z}`;
+              const existing = blocksByPosition.get(oldPosKey);
+              if (existing && !processedPositions.has(oldPosKey)) {
+                const newY = m.newY;
+                const puzzleInfo =
+                  newY === 0
+                    ? getPuzzleTileInfo(m.x, m.z)
+                    : { isPuzzle: false, tileX: 0, tileZ: 0 };
+
+                resultBlocks.push({
+                  ...existing,
+                  // Mantener posición visual actual para animación suave
+                  x: existing.x,
+                  y: existing.y,
+                  z: existing.z,
+                  // Actualizar posición destino
+                  targetX: m.x,
+                  targetY: newY,
+                  targetZ: m.z,
+                  targetScale: 1,
+                  destroying: false,
+                  variantParams: getBlockVariantParams(newY),
+                  // Actualizar info de puzzle según nueva posición
+                  isPuzzleBlock:
+                    newY === 0 && (existing.isPuzzleBlock || puzzleInfo.isPuzzle),
+                  puzzleTileX:
+                    newY === 0
+                      ? existing.puzzleTileX ??
+                        (puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined)
+                      : undefined,
+                  puzzleTileZ:
+                    newY === 0
+                      ? existing.puzzleTileZ ??
+                        (puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined)
+                      : undefined,
+                });
+                processedPositions.add(oldPosKey);
+              }
+            });
+
+            // Paso 3: Regenerar bloques desde finalGrid
+            // Solo crear/actualizar bloques para celdas ocupadas
             for (let x = 0; x < size; x++) {
-              for (let z = 0; z < size; z++) {
-                const columnKey = `${x},${z}`;
-                const columnBlocks = blocksByColumn.get(columnKey) || [];
+              for (let y = 0; y < MAX_STACK_HEIGHT; y++) {
+                for (let z = 0; z < size; z++) {
+                  if (finalGrid[x][y][z] !== "filled") continue;
 
-                // Obtener posiciones Y ocupadas en esta columna (de arriba hacia abajo)
-                const occupiedYs: number[] = [];
-                for (let y = MAX_STACK_HEIGHT - 1; y >= 0; y--) {
-                  if (finalGrid[x][y][z] === "filled") {
-                    occupiedYs.push(y);
-                  }
-                }
+                  const posKey = `${x},${y},${z}`;
+                  
+                  // Si ya fue procesado (eliminado o movido), saltar
+                  if (processedPositions.has(posKey)) continue;
 
-                // Asignar bloques existentes a posiciones ocupadas
-                for (let i = 0; i < occupiedYs.length; i++) {
-                  const targetY = occupiedYs[i];
-                  const positionKey = `${x},${targetY},${z}`;
-                  const shouldRemove = positionsToRemove.has(positionKey);
-                  // CORRECCIÓN BUG: Solo asignar isPuzzleBlock si el bloque está en Y=0 (nivel del suelo)
-                  // Bloques apilados (Y > 0) NUNCA deben ser puzzle blocks, incluso si están en la misma columna X,Z
+                  // Verificar si hay un bloque existente en esta posición
+                  const existing = blocksByPosition.get(posKey);
                   const puzzleInfo =
-                    targetY === 0
+                    y === 0
                       ? getPuzzleTileInfo(x, z)
                       : { isPuzzle: false, tileX: 0, tileZ: 0 };
 
-                  if (shouldRemove) {
-                    // Marcar para eliminación
-                    if (i < columnBlocks.length) {
-                      const existing = columnBlocks[i];
-                      newBlocks.push({
-                        ...existing,
-                        x,
-                        y: targetY,
-                        z,
-                        targetX: x,
-                        targetY: targetY,
-                        targetZ: z,
-                        targetScale: 0,
-                        destroying: true,
-                      });
-                    }
+                  if (existing) {
+                    // Bloque existente que permanece en su posición
+                    resultBlocks.push({
+                      ...existing,
+                      targetX: x,
+                      targetY: y,
+                      targetZ: z,
+                      targetScale: 1,
+                      destroying: false,
+                      variantParams: getBlockVariantParams(y),
+                      isPuzzleBlock:
+                        y === 0 && (existing.isPuzzleBlock || puzzleInfo.isPuzzle),
+                      puzzleTileX:
+                        y === 0
+                          ? existing.puzzleTileX ??
+                            (puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined)
+                          : undefined,
+                      puzzleTileZ:
+                        y === 0
+                          ? existing.puzzleTileZ ??
+                            (puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined)
+                          : undefined,
+                    });
                   } else {
-                    // Bloque que permanece
-                    if (i < columnBlocks.length) {
-                      // Reutilizar bloque existente, mantener info de puzzle si ya la tenía
-                      const existing = columnBlocks[i];
-                      newBlocks.push({
-                        ...existing,
-                        x,
-                        y: targetY,
-                        z,
-                        targetX: x,
-                        targetY: targetY,
-                        targetZ: z,
-                        scale: existing.scale,
-                        targetScale: 1,
-                        destroying: false,
-                        variantParams: getBlockVariantParams(targetY),
-                        // CORRECCIÓN: Solo mantener isPuzzleBlock si targetY === 0
-                        // Si un bloque se mueve a Y > 0, pierde su estatus de puzzle
-                        isPuzzleBlock:
-                          targetY === 0 &&
-                          (existing.isPuzzleBlock || puzzleInfo.isPuzzle),
-                        puzzleTileX:
-                          targetY === 0
-                            ? existing.puzzleTileX ??
-                              (puzzleInfo.isPuzzle
-                                ? puzzleInfo.tileX
-                                : undefined)
-                            : undefined,
-                        puzzleTileZ:
-                          targetY === 0
-                            ? existing.puzzleTileZ ??
-                              (puzzleInfo.isPuzzle
-                                ? puzzleInfo.tileZ
-                                : undefined)
-                            : undefined,
-                      });
-                    } else {
-                      // Crear nuevo bloque
-                      newBlocks.push({
-                        id: generateBlockId(),
-                        x,
-                        y: targetY,
-                        z,
-                        targetX: x,
-                        targetY: targetY,
-                        targetZ: z,
-                        scale: 1,
-                        targetScale: 1,
-                        destroying: false,
-                        variantParams: getBlockVariantParams(targetY),
-                        // Solo asignar isPuzzleBlock si targetY === 0
-                        isPuzzleBlock: targetY === 0 && puzzleInfo.isPuzzle,
-                        puzzleTileX:
-                          targetY === 0 && puzzleInfo.isPuzzle
-                            ? puzzleInfo.tileX
-                            : undefined,
-                        puzzleTileZ:
-                          targetY === 0 && puzzleInfo.isPuzzle
-                            ? puzzleInfo.tileZ
-                            : undefined,
-                      });
-                    }
+                    // Crear nuevo bloque con animación de entrada (scale: 0 -> 1)
+                    resultBlocks.push({
+                      id: generateBlockId(),
+                      x,
+                      y,
+                      z,
+                      targetX: x,
+                      targetY: y,
+                      targetZ: z,
+                      scale: 0, // CORRECCIÓN: Empezar con scale 0 para animación de entrada
+                      targetScale: 1,
+                      destroying: false,
+                      variantParams: getBlockVariantParams(y),
+                      isPuzzleBlock: y === 0 && puzzleInfo.isPuzzle,
+                      puzzleTileX:
+                        y === 0 && puzzleInfo.isPuzzle ? puzzleInfo.tileX : undefined,
+                      puzzleTileZ:
+                        y === 0 && puzzleInfo.isPuzzle ? puzzleInfo.tileZ : undefined,
+                    });
                   }
+                  processedPositions.add(posKey);
                 }
               }
             }
 
-            return [...destroyingBlocks, ...newBlocks];
+            return [...destroyingBlocks, ...resultBlocks];
           });
 
           console.log("[DEBUG] Checkpoint 7: setVisualBlocks done");

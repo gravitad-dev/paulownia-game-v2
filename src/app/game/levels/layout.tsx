@@ -31,6 +31,16 @@ export default function LevelsLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Detectar si estamos en una ruta de [levelId]
+  // Las rutas de levelId tienen el formato /game/levels/[uuid]
+  const isLevelIdRoute = pathname.match(/^\/game\/levels\/[^/]+$/);
+
+  // Si estamos en una ruta de levelId, retornar solo los children sin TabLayout
+  if (isLevelIdRoute) {
+    return <>{children}</>;
+  }
+
   const currentTab = getCurrentTab(pathname);
 
   const handleTabChange = (value: string) => {

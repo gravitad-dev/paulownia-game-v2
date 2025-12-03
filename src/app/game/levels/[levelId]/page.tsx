@@ -129,10 +129,8 @@ export default function LevelDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <CardHeaderSticky title="Niveles" />
-
-      <div className="flex-1 px-4 pb-4 pt-2 flex flex-col gap-4">
-        <div>
+      <div className="flex-1 flex flex-col gap-4 ">
+        <div className="hidden">
           <Button
             variant="ghost"
             className="bg-white/80 backdrop-blur-md border-border"
@@ -143,13 +141,13 @@ export default function LevelDetailPage() {
           </Button>
         </div>
 
-        <div className="w-full h-full bg-white/80 backdrop-blur-md border-border p-2 flex items-center justify-center rounded-lg">
-          <div id="game-container" className="w-full h-[700px] bg-gray-700">
+        <div className="w-full h-full bg-white/80 backdrop-blur-md  flex items-center justify-center rounded-lg">
+          <div id="game-container" className=" w-full h-full bg-gray-700">
             <Game difficulty={gameDifficulty} puzzleImageUrl={puzzleImageUrl} />
           </div>
         </div>
 
-        <div>
+        <div className="hidden">
           <Collapsible open={isCardExpanded} onOpenChange={setIsCardExpanded}>
             <Card>
               <CardHeader>
