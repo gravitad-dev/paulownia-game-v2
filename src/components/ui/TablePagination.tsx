@@ -38,7 +38,7 @@ export function TablePagination({
 
   return (
     <div
-      className={`flex flex-row items-center justify-between gap-3 mt-4 ${
+      className={`flex flex-row items-center justify-between gap-3 ${
         isBlocked ? "opacity-50 cursor-not-allowed" : ""
       }`}
     >
@@ -71,5 +71,3 @@ export function TablePagination({
     </div>
   );
 }
-
-
