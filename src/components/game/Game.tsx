@@ -27,6 +27,7 @@ import { useGameLogStore } from "@/store/useGameLogStore";
 import { useAudioStore, audioActions } from "@/store/useAudioStore";
 import { useCameraShake, CameraShakeController } from "@/hooks/useCameraShake";
 import { NextPiecePreview } from "./NextPiecePreview";
+import MobileControls from "./MobileControls";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
@@ -2069,6 +2070,149 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     getBlockVariantParams,
   ]);
 
+  // Función reutilizable para mover la pieza
+  const tryMove = useCallback(
+    (dx: number, dy: number, dz: number) => {
+      const nextPosition = {
+        x: activePosition.x + dx,
+        y: activePosition.y + dy,
+        z: activePosition.z + dz,
+      };
+
+      const nextBlocks = activeShape.map((cell) => ({
+        x: nextPosition.x + cell.x,
+        y: nextPosition.y + cell.y,
+        z: nextPosition.z + cell.z,
+      }));
+
+      if (!checkCollision(nextBlocks)) {
+        setActivePosition(nextPosition);
+        // Sonido sutil de movimiento
+        audioActions.playMove();
+      } else {
+        // Colisión con muro - sonido y shake
+        audioActions.playWallHit();
+        shake("wallHit");
+      }
+    },
+    [activePosition, activeShape, checkCollision, shake]
+  );
+
+  // Función reutilizable para rotar la pieza
+  const tryRotate = useCallback(
+    (delta: number) => {
+      // Las piezas puzzle ahora pueden rotar
+      // Si la orientación es incorrecta, se mostrarán como pieza normal (feedback visual)
+
+      const nextRotation = (activeRotation + delta + 4) % 4;
+      const baseShape = TETROMINO_SHAPES[activeType];
+      const nextShape = rotateShapeHorizontal(baseShape, nextRotation);
+
+      // Calcular posiciones mundo actuales de los bloques
+      const currentWorldBlocks = activeShape.map((cell) => ({
+        x: activePosition.x + cell.x,
+        y: activePosition.y + cell.y,
+        z: activePosition.z + cell.z,
+      }));
+
+      // Usar el bloque del medio como pivot (mismo enfoque que el repo original)
+      const pivotIndex = Math.floor(currentWorldBlocks.length / 2);
+      const pivot = currentWorldBlocks[pivotIndex];
+
+      // Rotar cada bloque alrededor del pivot en el plano XZ
+      const rotatedWorldBlocks = currentWorldBlocks.map((block) => {
+        const relX = block.x - pivot.x;
+        const relZ = block.z - pivot.z;
+
+        return {
+          x: pivot.x - relZ,
+          y: block.y,
+          z: pivot.z + relX,
+        };
+      });
+
+      const applyRotation = (worldBlocks: typeof rotatedWorldBlocks) => {
+        const pivotWorld = worldBlocks[pivotIndex];
+        const pivotCell = nextShape[pivotIndex];
+
+        setActiveRotation(nextRotation);
+        setActivePosition({
+          x: pivotWorld.x - pivotCell.x,
+          y: activePosition.y,
+          z: pivotWorld.z - pivotCell.z,
+        });
+
+        // Log rotación si es pieza puzzle
+        if (currentPuzzlePiece) {
+          const patternPiece = pattern.find(
+            (p) => p.id === currentPuzzlePiece.id
+          );
+          const isCorrect = patternPiece
+            ? nextRotation === patternPiece.rotation
+            : false;
+          useGameLogStore.getState().addLog({
+            type: "rotate",
+            pieceId: currentPuzzlePiece.id,
+            pieceType: currentPuzzlePiece.type,
+            rotation: nextRotation,
+            patternRotation: patternPiece?.rotation,
+            isCorrectOrientation: isCorrect,
+            details: isCorrect
+              ? "Orientación correcta"
+              : "Orientación incorrecta (se verá como pieza normal)",
+          });
+        }
+      };
+
+      if (!checkCollision(rotatedWorldBlocks)) {
+        applyRotation(rotatedWorldBlocks);
+        return;
+      }
+
+      // Si hay colisión, intentar wall-kicks con offsets
+      const attemptWithOffset = (dx: number, dz: number) => {
+        const offsetBlocks = rotatedWorldBlocks.map((block) => ({
+          x: block.x + dx,
+          y: block.y,
+          z: block.z + dz,
+        }));
+
+        if (!checkCollision(offsetBlocks)) {
+          applyRotation(offsetBlocks);
+          return true;
+        }
+        return false;
+      };
+
+      // Generar lista completa de wall-kicks ordenados por distancia
+      const maxOffset = 3;
+      const kicks: Array<{ dx: number; dz: number; distance: number }> = [];
+
+      for (let dx = -maxOffset; dx <= maxOffset; dx++) {
+        for (let dz = -maxOffset; dz <= maxOffset; dz++) {
+          if (dx === 0 && dz === 0) continue;
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          kicks.push({ dx, dz, distance });
+        }
+      }
+
+      kicks.sort((a, b) => a.distance - b.distance);
+
+      for (const { dx, dz } of kicks) {
+        if (attemptWithOffset(dx, dz)) return;
+      }
+    },
+    [
+      activeRotation,
+      activeType,
+      activeShape,
+      activePosition,
+      checkCollision,
+      currentPuzzlePiece,
+      pattern,
+    ]
+  );
+
   // Controles de movimiento y rotación
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2077,127 +2221,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         return;
       }
       const { key } = event;
-
-      const tryMove = (dx: number, dy: number, dz: number) => {
-        const nextPosition = {
-          x: activePosition.x + dx,
-          y: activePosition.y + dy,
-          z: activePosition.z + dz,
-        };
-
-        const nextBlocks = activeShape.map((cell) => ({
-          x: nextPosition.x + cell.x,
-          y: nextPosition.y + cell.y,
-          z: nextPosition.z + cell.z,
-        }));
-
-        if (!checkCollision(nextBlocks)) {
-          setActivePosition(nextPosition);
-          // Sonido sutil de movimiento
-          audioActions.playMove();
-        } else {
-          // Colisión con muro - sonido y shake
-          audioActions.playWallHit();
-          shake("wallHit");
-        }
-      };
-
-      const tryRotate = (delta: number) => {
-        // Las piezas puzzle ahora pueden rotar
-        // Si la orientación es incorrecta, se mostrarán como pieza normal (feedback visual)
-
-        const nextRotation = (activeRotation + delta + 4) % 4;
-        const baseShape = TETROMINO_SHAPES[activeType];
-        const nextShape = rotateShapeHorizontal(baseShape, nextRotation);
-
-        // Calcular posiciones mundo actuales de los bloques
-        const currentWorldBlocks = activeShape.map((cell) => ({
-          x: activePosition.x + cell.x,
-          y: activePosition.y + cell.y,
-          z: activePosition.z + cell.z,
-        }));
-
-        // Usar el bloque del medio como pivot (mismo enfoque que el repo original)
-        const pivotIndex = Math.floor(currentWorldBlocks.length / 2);
-        const pivot = currentWorldBlocks[pivotIndex];
-
-        // Rotar cada bloque alrededor del pivot en el plano XZ
-        const rotatedWorldBlocks = currentWorldBlocks.map((block) => {
-          const relX = block.x - pivot.x;
-          const relZ = block.z - pivot.z;
-
-          return {
-            x: pivot.x - relZ,
-            y: block.y,
-            z: pivot.z + relX,
-          };
-        });
-
-        const applyRotation = (worldBlocks: typeof rotatedWorldBlocks) => {
-          const pivotWorld = worldBlocks[pivotIndex];
-          const pivotCell = nextShape[pivotIndex];
-
-          setActiveRotation(nextRotation);
-          setActivePosition({
-            x: pivotWorld.x - pivotCell.x,
-            y: activePosition.y,
-            z: pivotWorld.z - pivotCell.z,
-          });
-
-          // Log rotación si es pieza puzzle
-          if (currentPuzzlePiece) {
-            const patternPiece = pattern.find((p) => p.id === currentPuzzlePiece.id);
-            const isCorrect = patternPiece ? nextRotation === patternPiece.rotation : false;
-            useGameLogStore.getState().addLog({
-              type: "rotate",
-              pieceId: currentPuzzlePiece.id,
-              pieceType: currentPuzzlePiece.type,
-              rotation: nextRotation,
-              patternRotation: patternPiece?.rotation,
-              isCorrectOrientation: isCorrect,
-              details: isCorrect ? "Orientación correcta" : "Orientación incorrecta (se verá como pieza normal)",
-            });
-          }
-        };
-
-        if (!checkCollision(rotatedWorldBlocks)) {
-          applyRotation(rotatedWorldBlocks);
-          return;
-        }
-
-        // Si hay colisión, intentar wall-kicks con offsets
-        const attemptWithOffset = (dx: number, dz: number) => {
-          const offsetBlocks = rotatedWorldBlocks.map((block) => ({
-            x: block.x + dx,
-            y: block.y,
-            z: block.z + dz,
-          }));
-
-          if (!checkCollision(offsetBlocks)) {
-            applyRotation(offsetBlocks);
-            return true;
-          }
-          return false;
-        };
-
-        // Generar lista completa de wall-kicks ordenados por distancia
-        const maxOffset = 3;
-        const kicks: Array<{ dx: number; dz: number; distance: number }> = [];
-
-        for (let dx = -maxOffset; dx <= maxOffset; dx++) {
-          for (let dz = -maxOffset; dz <= maxOffset; dz++) {
-            if (dx === 0 && dz === 0) continue;
-            const distance = Math.sqrt(dx * dx + dz * dz);
-            kicks.push({ dx, dz, distance });
-          }
-        }
-
-        kicks.sort((a, b) => a.distance - b.distance);
-
-        for (const { dx, dz } of kicks) {
-          if (attemptWithOffset(dx, dz)) return;
-        }
-      };
 
       let action: string | null = null;
 
@@ -2301,18 +2324,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    activePosition,
-    activeRotation,
-    activeShape,
-    activeType,
-    grid,
-    size,
-    checkCollision,
+    tryMove,
+    tryRotate,
     rotateCameraView,
     cameraCorrection,
     isGameOver,
     gameState,
-    currentPuzzlePiece,
     clearAboveFloor,
   ]);
 
@@ -2327,6 +2344,51 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     window.addEventListener("keyup", handleKeyUp);
     return () => window.removeEventListener("keyup", handleKeyUp);
   }, []);
+
+  // Handlers para controles móviles
+  const handleMobileMove = useCallback(
+    (direction: "left" | "right" | "up" | "down") => {
+      switch (direction) {
+        case "left":
+          tryMove(-1, 0, 0);
+          break;
+        case "right":
+          tryMove(1, 0, 0);
+          break;
+        case "up":
+          tryMove(0, 0, -1);
+          break;
+        case "down":
+          tryMove(0, 0, 1);
+          break;
+      }
+    },
+    [tryMove]
+  );
+
+  const handleMobileRotate = useCallback(() => {
+    tryRotate(1);
+  }, [tryRotate]);
+
+  const handleFastForwardStart = useCallback(() => {
+    setIsFastForward(true);
+  }, []);
+
+  const handleFastForwardEnd = useCallback(() => {
+    setIsFastForward(false);
+  }, []);
+
+  const handleRotateCameraLeft = useCallback(() => {
+    rotateCameraView("left");
+  }, [rotateCameraView]);
+
+  const handleRotateCameraRight = useCallback(() => {
+    rotateCameraView("right");
+  }, [rotateCameraView]);
+
+  const handleClearLayers = useCallback(() => {
+    clearAboveFloor();
+  }, [clearAboveFloor]);
 
   // Actualizar cámara cuando cambie la configuración
   useEffect(() => {
@@ -2676,6 +2738,19 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           })}
         </group>
       </Canvas>
+
+      {/* Controles móviles */}
+      <MobileControls
+        onMove={handleMobileMove}
+        onRotate={handleMobileRotate}
+        onFastForwardStart={handleFastForwardStart}
+        onFastForwardEnd={handleFastForwardEnd}
+        onRotateCameraLeft={handleRotateCameraLeft}
+        onRotateCameraRight={handleRotateCameraRight}
+        onClearLayers={handleClearLayers}
+        cameraViewIndex={cameraViewIndex}
+        disabled={gameState !== "playing"}
+      />
     </div>
   );
 }
