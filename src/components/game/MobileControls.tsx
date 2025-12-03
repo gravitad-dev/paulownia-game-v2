@@ -221,7 +221,7 @@ const MobileControls = memo(function MobileControls({
   );
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-between items-end px-4 sm:px-8 pointer-events-none">
+    <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-between items-end px-4 sm:px-8 pointer-events-none md:hidden">
       {/* Lado Izquierdo - Acciones */}
       <div className="flex flex-col gap-3 pointer-events-auto">
         {/* Fila Superior - Botón Rotar Pieza (centrado) */}

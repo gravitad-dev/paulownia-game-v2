@@ -2,7 +2,8 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import * as THREE from "three";
-import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX } from "react-icons/fi";
+import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX, FiArrowLeft } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 import {
   createEmptyGrid,
   Grid3D,
@@ -481,6 +482,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const size = getGridSizeByDifficulty(difficulty);
   const cameraConfig = useCameraConfigStore((state) => state.config);
   const cycleTime = useGameSpeedStore((state) => state.cycleTime);
+  const router = useRouter();
   const cameraRef = useRef<THREE.Camera | null>(null);
   const [cameraViewIndex, setCameraViewIndex] = useState<0 | 1 | 2 | 3>(0);
   const targetPositionRef = useRef<THREE.Vector3 | null>(null);
@@ -2417,6 +2419,15 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
       {/* Botones flotantes de control */}
       <div className="fixed top-4 left-4 z-50 flex gap-2">
+        {/* Botón de volver a selección de niveles */}
+        <button
+          onClick={() => router.push("/game/levels")}
+          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+          title="Volver a selección de niveles"
+        >
+          <FiArrowLeft className="w-5 h-5" />
+        </button>
+
         {/* Botón de pantalla completa */}
         <button
           onClick={toggleFullscreen}
