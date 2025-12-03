@@ -90,15 +90,8 @@ export default function LevelDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
-        <CardHeaderSticky title="Niveles" />
-        <div className="flex-1 px-4 py-8">
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex w-full h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -130,17 +123,6 @@ export default function LevelDetailPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 flex flex-col gap-4 ">
-        <div className="hidden">
-          <Button
-            variant="ghost"
-            className="bg-white/80 backdrop-blur-md border-border"
-            onClick={() => router.push("/game/levels")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a niveles
-          </Button>
-        </div>
-
         <div className="w-full h-full flex items-center justify-center">
           <div id="game-container" className=" w-full h-full bg-gray-700">
             <Game difficulty={gameDifficulty} puzzleImageUrl={puzzleImageUrl} />

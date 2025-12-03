@@ -2,7 +2,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import * as THREE from "three";
-import { FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX } from "react-icons/fi";
 import {
   createEmptyGrid,
   Grid3D,
@@ -24,6 +24,9 @@ import { PuzzleTileCube } from "./PuzzleTileCube";
 import { generatePuzzlePattern } from "@/lib/game/puzzleGenerator";
 import { validatePuzzlePlacement } from "@/lib/game/puzzleValidation";
 import { useGameLogStore } from "@/store/useGameLogStore";
+import { useAudioStore, audioActions } from "@/store/useAudioStore";
+import { useCameraShake, CameraShakeController } from "@/hooks/useCameraShake";
+import { NextPiecePreview } from "./NextPiecePreview";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
@@ -483,6 +486,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const [grid, setGrid] = useState<Grid3D>(() => createEmptyGrid(size));
   const [activeType, setActiveType] = useState<TetrominoType>("I");
   const [activeRotation, setActiveRotation] = useState(0);
+  const [nextPiece, setNextPiece] = useState<{
+    type: TetrominoType;
+    rotation: number;
+    isPuzzle: boolean;
+    puzzleCells?: Array<{ x: number; z: number }>;
+  } | null>(null);
   const [isGameOver, setIsGameOver] = useState(false);
   const [activePosition, setActivePosition] = useState<{
     x: number;
@@ -519,6 +528,13 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const gameContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Sistema de audio y camera shake
+  const initializeAudio = useAudioStore((state) => state.initialize);
+  const isMuted = useAudioStore((state) => state.isMuted);
+  const toggleMute = useAudioStore((state) => state.toggleMute);
+  const { shake, shakeStateRef, offsetRef } = useCameraShake();
+  const cameraBasePositionRef = useRef<THREE.Vector3 | null>(null);
+
   // Toggle pantalla completa
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -546,6 +562,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
+
+  // Inicializar sistema de audio
+  useEffect(() => {
+    initializeAudio();
+  }, [initializeAudio]);
 
   // Callback cuando un bloque termina de destruirse
   const handleBlockDestroyed = useCallback((id: number) => {
@@ -720,6 +741,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         });
       }
     }
+    // Inicializar preview de siguiente pieza
+    // La siguiente pieza será normal (no puzzle) para el inicio
+    const previewTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+    const nextPreviewType = previewTypes[Math.floor(Math.random() * previewTypes.length)] ?? "I";
+    setNextPiece({ type: nextPreviewType, rotation: 0, isPuzzle: false });
+
     setGameState("playing");
     lastTickTimeRef.current = performance.now();
   }, [puzzleImageUrl, remainingPieces, currentPuzzlePiece, size, lockedPieces, puzzleActions]);
@@ -737,6 +764,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     setIsGameOver(false);
     setVisualBlocks([]);
     setIsFastForward(false);
+    setNextPiece(null);
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
@@ -1136,6 +1164,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const remainingPiecesRef = useRef(remainingPieces);
   const pieceCounterRef = useRef(pieceCounter);
   const testModeRef = useRef(testMode);
+  const nextPieceRef = useRef(nextPiece);
 
   // OPTIMIZACIÓN: Pool de objetos reutilizables para evitar GC
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1162,6 +1191,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     remainingPiecesRef.current = remainingPieces;
     pieceCounterRef.current = pieceCounter;
     testModeRef.current = testMode;
+    nextPieceRef.current = nextPiece;
   }, [
     activePosition,
     activeShape,
@@ -1176,6 +1206,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     remainingPieces,
     pieceCounter,
     testMode,
+    nextPiece,
   ]);
 
   // OPTIMIZACIÓN: Pre-calcular placedPuzzleCellsMap cuando cambia placedPieces
@@ -1496,6 +1527,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   new Set(prev).add(currentPuzzlePiece.id)
                 );
 
+                // Sonido y shake de pieza colocada correctamente
+                audioActions.playPieceLock();
+                shake("pieceLock");
+
                 // Verificar condición de victoria: TODAS las piezas del patrón colocadas correctamente
                 // Usamos pattern.length porque es el número total de piezas requeridas
                 const totalPieces = currentPattern.length;
@@ -1524,6 +1559,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                     details: "Todas las piezas colocadas correctamente",
                   });
                   setGameState("victory");
+                  audioActions.playVictory();
                 }
               } else {
                 // Pieza puzzle fallida - se degrada a pieza normal
@@ -1616,6 +1652,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               };
 
           console.log("[DEBUG] Checkpoint 4: processLineClearsIteratively done", { blocksToRemove: blocksToRemove.length });
+
+          // Sonido de destrucción de líneas (si hay bloques a eliminar)
+          if (blocksToRemove.length > 0) {
+            audioActions.playLineClear();
+          }
 
           // Crear mapa de celdas puzzle recién colocadas (si aplica)
           // Esto captura la info ANTES de setVisualBlocks para evitar problemas de timing
@@ -1858,133 +1899,130 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             });
             setIsGameOver(true);
             setGameState("gameover");
+            audioActions.playGameOver();
             return;
           }
 
           console.log("[DEBUG] Checkpoint 9: Starting new piece generation");
 
-          // Generar nueva pieza
+          // SISTEMA DE COLA: La pieza actual viene de nextPiece (la que estaba en preview)
           puzzleActions.incrementPieceCounter();
 
-          // CORRECCIÓN BUG: Filtrar piezas puzzle disponibles con múltiples verificaciones
-          // 1. Excluir piezas ya bloqueadas (lockedPieces)
-          // 2. Excluir la pieza actual (currentPuzzlePiece) para evitar duplicación
-          // 3. Excluir piezas ya en placedPieces para mayor seguridad
-          // OPTIMIZACIÓN: Usar refs para obtener valores actualizados
+          // Obtener estado actualizado
           const updatedPlacedPieces = usePuzzleStore.getState().placedPieces;
           const updatedRemainingPieces = usePuzzleStore.getState().remainingPieces;
           const updatedPieceCounter = usePuzzleStore.getState().pieceCounter;
           const updatedTestMode = usePuzzleStore.getState().testMode;
-          const updatedCurrentPuzzlePiece = usePuzzleStore.getState().currentPuzzlePiece;
 
           const placedPieceIds = new Set(updatedPlacedPieces.map((p) => p.id));
           const availablePuzzlePieces = updatedRemainingPieces.filter(
-            (p) =>
-              !currentLockedPieces.has(p.id) &&
-              p.id !== updatedCurrentPuzzlePiece?.id &&
-              !placedPieceIds.has(p.id)
+            (p) => !currentLockedPieces.has(p.id) && !placedPieceIds.has(p.id)
           );
 
-          // Log de diagnóstico antes del spawn
-          console.log("[GAME DEBUG] Pre-spawn state:", {
-            remainingPieces: updatedRemainingPieces.length,
-            availablePuzzlePieces: availablePuzzlePieces.length,
-            placedPieces: updatedPlacedPieces.length,
-            totalPattern: currentPattern.length,
-            testMode: updatedTestMode,
-            pieceCounter: updatedPieceCounter,
-            remainingIds: updatedRemainingPieces.map((p) => p.id),
-            availableIds: availablePuzzlePieces.map((p) => p.id),
+          const spawnPosition = {
+            x: Math.floor(size / 2) - 1,
+            y: size - 1,
+            z: Math.floor(size / 2) - 1,
+          };
+
+          // Leer la pieza que estaba en el preview (nextPiece del ref)
+          const queuedPiece = nextPieceRef.current;
+
+          console.log("[GAME DEBUG] Cola de piezas:", {
+            queuedPiece: queuedPiece,
+            availablePuzzle: availablePuzzlePieces.length,
           });
 
-          // Determinar si la siguiente pieza es puzzle:
-          // - testMode=true: SIEMPRE puzzle si hay disponibles (para testing)
-          // - testMode=false: alternar 1 puzzle + 1 normal (par=puzzle, impar=normal)
-          const shouldBePuzzlePiece = updatedTestMode
-            ? availablePuzzlePieces.length > 0 // Test mode: siempre puzzle
-            : updatedPieceCounter % 2 === 0 && availablePuzzlePieces.length > 0; // Normal: alternar
+          // USAR la pieza de la cola como pieza actual
+          if (queuedPiece) {
+            // La pieza viene de la cola (preview)
+            if (queuedPiece.isPuzzle && queuedPiece.puzzleCells) {
+              // Buscar la pieza puzzle correspondiente en availablePuzzlePieces
+              const matchingPuzzle = availablePuzzlePieces.find(
+                (p) => p.type === queuedPiece.type && p.rotation === queuedPiece.rotation
+              );
+              
+              if (matchingPuzzle) {
+                puzzleActions.setCurrentPuzzlePiece(matchingPuzzle);
+                setActiveType(queuedPiece.type);
+                setActiveRotation(queuedPiece.rotation);
+                setActivePosition(spawnPosition);
 
-          const isPuzzlePiece = puzzleImageUrl && shouldBePuzzlePiece;
-
-          if (isPuzzlePiece && availablePuzzlePieces.length > 0) {
-            // Seleccionar una pieza puzzle aleatoria de las disponibles
-            const randomIndex = Math.floor(
-              Math.random() * availablePuzzlePieces.length
-            );
-            const puzzlePiece = availablePuzzlePieces[randomIndex];
-
-            // Protección contra undefined
-            if (!puzzlePiece) {
-              console.error("[GAME ERROR] puzzlePiece is undefined!", {
-                availablePuzzlePieces,
-                randomIndex,
-                updatedRemainingPieces,
-              });
-              // Fallback: generar pieza normal
-              puzzleActions.setCurrentPuzzlePiece(null);
-              const fallbackTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
-              const fallbackType = fallbackTypes[Math.floor(Math.random() * fallbackTypes.length)];
-              setActiveType(fallbackType);
-              setActiveRotation(0);
-              setActivePosition({
-                x: Math.floor(size / 2) - 1,
-                y: size - 1,
-                z: Math.floor(size / 2) - 1,
-              });
+                useGameLogStore.getState().addLog({
+                  type: "spawn",
+                  pieceId: matchingPuzzle.id,
+                  pieceType: matchingPuzzle.type,
+                  position: spawnPosition,
+                  rotation: matchingPuzzle.rotation,
+                  patternRotation: matchingPuzzle.rotation,
+                  remainingPieces: updatedRemainingPieces.length,
+                  totalPieces: currentPattern.length,
+                  details: "Spawn pieza puzzle (desde cola)",
+                });
+              } else {
+                // Puzzle no encontrado, usar como pieza normal
+                puzzleActions.setCurrentPuzzlePiece(null);
+                setActiveType(queuedPiece.type);
+                setActiveRotation(queuedPiece.rotation);
+                setActivePosition(spawnPosition);
+              }
             } else {
-              puzzleActions.setCurrentPuzzlePiece(puzzlePiece);
-
-              const spawnPosition = {
-                x: Math.floor(size / 2) - 1,
-                y: size - 1,
-                z: Math.floor(size / 2) - 1,
-              };
-
-              setActiveType(puzzlePiece.type);
-              setActiveRotation(puzzlePiece.rotation);
+              // Pieza normal de la cola
+              puzzleActions.setCurrentPuzzlePiece(null);
+              setActiveType(queuedPiece.type);
+              setActiveRotation(queuedPiece.rotation);
               setActivePosition(spawnPosition);
-
-              // Log spawn de pieza puzzle
-              useGameLogStore.getState().addLog({
-                type: "spawn",
-                pieceId: puzzlePiece.id,
-                pieceType: puzzlePiece.type,
-                position: spawnPosition,
-                rotation: puzzlePiece.rotation,
-                patternRotation: puzzlePiece.rotation,
-                remainingPieces: updatedRemainingPieces.length,
-                totalPieces: currentPattern.length,
-                details: "Spawn pieza puzzle",
-              });
             }
           } else {
-            // Pieza normal (solo cuando testMode=false o no hay más puzzle pieces)
-            puzzleActions.setCurrentPuzzlePiece(null);
-            const types: TetrominoType[] = [
-              "I",
-              "O",
-              "T",
-              "S",
-              "Z",
-              "J",
-              "L",
-              "I3",
-              "I2",
-              "O2",
-              "L2",
-            ];
-            const randomType =
-              types[Math.floor(Math.random() * types.length)] ?? "I";
+            // No hay pieza en cola (primera vez) - generar una
+            const shouldBePuzzle = updatedTestMode
+              ? availablePuzzlePieces.length > 0
+              : updatedPieceCounter % 2 === 0 && availablePuzzlePieces.length > 0;
 
-            const spawnPosition = {
-              x: Math.floor(size / 2) - 1,
-              y: size - 1,
-              z: Math.floor(size / 2) - 1,
-            };
+            if (puzzleImageUrl && shouldBePuzzle && availablePuzzlePieces.length > 0) {
+              const puzzlePiece = availablePuzzlePieces[Math.floor(Math.random() * availablePuzzlePieces.length)];
+              if (puzzlePiece) {
+                puzzleActions.setCurrentPuzzlePiece(puzzlePiece);
+                setActiveType(puzzlePiece.type);
+                setActiveRotation(puzzlePiece.rotation);
+                setActivePosition(spawnPosition);
+              }
+            } else {
+              puzzleActions.setCurrentPuzzlePiece(null);
+              const types: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+              setActiveType(types[Math.floor(Math.random() * types.length)] ?? "I");
+              setActiveRotation(0);
+              setActivePosition(spawnPosition);
+            }
+          }
 
-            setActiveType(randomType);
-            setActiveRotation(0);
-            setActivePosition(spawnPosition);
+          // GENERAR nueva nextPiece para el preview
+          const nextCounter = updatedPieceCounter + 1;
+          const nextShouldBePuzzle = updatedTestMode
+            ? availablePuzzlePieces.length > 0
+            : nextCounter % 2 === 0 && availablePuzzlePieces.length > 0;
+
+          // Excluir la pieza que acabamos de usar
+          const availableForNext = queuedPiece?.isPuzzle
+            ? availablePuzzlePieces.filter((p) => p.type !== queuedPiece.type || p.rotation !== queuedPiece.rotation)
+            : availablePuzzlePieces;
+
+          if (puzzleImageUrl && nextShouldBePuzzle && availableForNext.length > 0) {
+            const nextPuzzle = availableForNext[Math.floor(Math.random() * availableForNext.length)];
+            if (nextPuzzle) {
+              setNextPiece({
+                type: nextPuzzle.type,
+                rotation: nextPuzzle.rotation,
+                isPuzzle: true,
+                puzzleCells: nextPuzzle.cells,
+              });
+            } else {
+              const normalTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+              setNextPiece({ type: normalTypes[Math.floor(Math.random() * normalTypes.length)] ?? "I", rotation: 0, isPuzzle: false });
+            }
+          } else {
+            const normalTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+            setNextPiece({ type: normalTypes[Math.floor(Math.random() * normalTypes.length)] ?? "I", rotation: 0, isPuzzle: false });
           }
 
           // Programar siguiente tick antes de salir (necesario porque el return evita llegar al requestAnimationFrame del final)
@@ -2055,6 +2093,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
         if (!checkCollision(nextBlocks)) {
           setActivePosition(nextPosition);
+          // Sonido sutil de movimiento
+          audioActions.playMove();
+        } else {
+          // Colisión con muro - sonido y shake
+          audioActions.playWallHit();
+          shake("wallHit");
         }
       };
 
@@ -2309,18 +2353,48 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       <CameraConfigPanel />
       <FpsCounter />
 
-      {/* Botón flotante de pantalla completa */}
-      <button
-        onClick={toggleFullscreen}
-        className="fixed top-4 left-4 z-50 p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
-        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-      >
-        {isFullscreen ? (
-          <FiMinimize2 className="w-5 h-5" />
-        ) : (
-          <FiMaximize2 className="w-5 h-5" />
-        )}
-      </button>
+      {/* Botones flotantes de control */}
+      <div className="fixed top-4 left-4 z-50 flex gap-2">
+        {/* Botón de pantalla completa */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        >
+          {isFullscreen ? (
+            <FiMinimize2 className="w-5 h-5" />
+          ) : (
+            <FiMaximize2 className="w-5 h-5" />
+          )}
+        </button>
+
+        {/* Botón de mute/unmute */}
+        <button
+          onClick={toggleMute}
+          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+          title={isMuted ? "Activar sonido" : "Silenciar"}
+        >
+          {isMuted ? (
+            <FiVolumeX className="w-5 h-5" />
+          ) : (
+            <FiVolume2 className="w-5 h-5" />
+          )}
+        </button>
+      </div>
+
+      {/* Previsualizador de siguiente pieza - centrado arriba */}
+      {gameState === "playing" && nextPiece && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40">
+          <NextPiecePreview
+            pieceType={nextPiece.type}
+            rotation={nextPiece.rotation}
+            isPuzzlePiece={nextPiece.isPuzzle}
+            puzzleImageUrl={puzzleImageUrl}
+            gridSize={size}
+            puzzleCells={nextPiece.puzzleCells}
+          />
+        </div>
+      )}
 
       {/* Pantalla de inicio - Botón "Iniciar Nivel" */}
       {gameState === "waiting" && (
@@ -2396,12 +2470,22 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         }}
         onCreated={({ camera }) => {
           cameraRef.current = camera;
+          // Guardar posición base para el shake
+          cameraBasePositionRef.current = cameraPositions[0].clone();
           // Posicionar cámara en la vista inicial (0)
           camera.position.copy(cameraPositions[0]);
           // lookAt al origen (0,0,0) donde está centrado el grid
           camera.lookAt(new THREE.Vector3(0, 0, 0));
         }}
       >
+        {/* Controlador de Camera Shake */}
+        <CameraShakeController
+          shakeStateRef={shakeStateRef}
+          offsetRef={offsetRef}
+          cameraRef={cameraRef}
+          basePositionRef={cameraBasePositionRef}
+        />
+
         {/* Iluminación inspirada en el proyecto original */}
         <LightingRig />
 
