@@ -9,60 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { PlayerStatsSummary } from "@/types/player-stats";
 import {
-  Trophy,
-  Target,
   Flame,
-  Clock,
-  Medal,
-  TrendingUp,
   Calendar,
   Coins,
   Ticket,
   Crown,
   Zap,
-  Gift,
   Star,
   LucideIcon,
-  Swords,
-  Hash,
-  Sparkles,
-  CircleDollarSign,
-  ShoppingCart,
   CheckCircle,
-  BarChart3,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
-
-// Componente para mostrar una estadística individual
-function StatItem({
-  icon: Icon,
-  label,
-  value,
-  subValue,
-  iconColor = "text-muted-foreground",
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string | number;
-  subValue?: string;
-  iconColor?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className={`p-2 rounded-lg bg-muted/50 ${iconColor}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-muted-foreground truncate">{label}</p>
-        <p className="text-lg font-bold">{value}</p>
-        {subValue && (
-          <p className="text-xs text-muted-foreground">{subValue}</p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // Componente para barra de progreso con etiqueta
 function ProgressSection({
@@ -188,13 +146,86 @@ export default function ProfilePage() {
       {/* Header del perfil */}
       <Card className="overflow-hidden">
         <div className="relative h-24 sm:h-32">
-          <Image
-            src="/images/profile-banner.jpg"
-            alt="Banner"
-            fill
-            className="object-cover"
-            priority
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+              @keyframes bannerTwinkle {
+                0%, 100% { opacity: 0.25; }
+                50% { opacity: 0.55; }
+              }
+            `,
+            }}
           />
+          <div className="absolute inset-0 bg-linear-to-br from-[#0a1028] via-[#111b3a] to-[#030617]" />
+          <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_10%_20%,rgba(124,58,237,0.18)_0%,transparent_60%),radial-gradient(80%_60%_at_85%_40%,rgba(34,197,94,0.12)_0%,transparent_55%)]" />
+          <div className="absolute inset-0">
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "18%",
+                left: "12%",
+                width: "3px",
+                height: "3px",
+                animation: "bannerTwinkle 5s infinite ease-in-out",
+                opacity: 0.6,
+              }}
+            />
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "36%",
+                left: "28%",
+                width: "2px",
+                height: "2px",
+                animation: "bannerTwinkle 4.5s infinite ease-in-out",
+                opacity: 0.5,
+              }}
+            />
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "22%",
+                left: "72%",
+                width: "3px",
+                height: "3px",
+                animation: "bannerTwinkle 5.5s infinite ease-in-out",
+                opacity: 0.55,
+              }}
+            />
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "58%",
+                left: "65%",
+                width: "2px",
+                height: "2px",
+                animation: "bannerTwinkle 4.2s infinite ease-in-out",
+                opacity: 0.5,
+              }}
+            />
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "54%",
+                left: "18%",
+                width: "2px",
+                height: "2px",
+                animation: "bannerTwinkle 4.8s infinite ease-in-out",
+                opacity: 0.45,
+              }}
+            />
+            <div
+              className="absolute rounded-full bg-white"
+              style={{
+                top: "42%",
+                left: "88%",
+                width: "3px",
+                height: "3px",
+                animation: "bannerTwinkle 6s infinite ease-in-out",
+                opacity: 0.6,
+              }}
+            />
+          </div>
           <div className="absolute inset-0 bg-linear-to-r from-background/60 via-background/30 to-transparent" />
         </div>
         <CardContent className="relative px-6 pb-6">
@@ -307,7 +338,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Racha actual */}
             <Card className="bg-linear-to-br from-orange-500/10 to-transparent border-orange-500/20">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -315,10 +345,9 @@ export default function ProfilePage() {
                     <Flame className="h-6 w-6 text-orange-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Racha</p>
+                    <p className="text-sm text-muted-foreground">Victorias</p>
                     <p className="text-2xl font-bold">
-                      {stats.streak.currentStreak}{" "}
-                      {stats.streak.currentStreak === 1 ? "día" : "días"}
+                      {stats.gameStats.gamesWon.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -427,193 +456,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Estadísticas de Juego */}
-          <Card className="bg-linear-to-br from-slate-500/5 to-transparent">
-            <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-base sm:text-lg">
-                Estadísticas de Juego
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-                <StatItem
-                  icon={Swords}
-                  label="Partidas"
-                  value={stats.gameStats.totalGamesPlayed.toLocaleString()}
-                  iconColor="text-blue-500"
-                />
-                <StatItem
-                  icon={Trophy}
-                  label="Ganadas"
-                  value={stats.gameStats.gamesWon.toLocaleString()}
-                  subValue={`${stats.gameStats.winRate}% victorias`}
-                  iconColor="text-green-500"
-                />
-                <StatItem
-                  icon={Crown}
-                  label="Mejor Puntaje"
-                  value={stats.gameStats.highestScore.toLocaleString()}
-                  iconColor="text-amber-500"
-                />
-                <StatItem
-                  icon={BarChart3}
-                  label="Total"
-                  value={stats.gameStats.totalScore.toLocaleString()}
-                  iconColor="text-purple-500"
-                />
-                <StatItem
-                  icon={Target}
-                  label="Promedio"
-                  value={stats.gameStats.averageScore.toLocaleString()}
-                  subValue="por partida"
-                  iconColor="text-cyan-500"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tiempo y Actividad */}
-          <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
-            {/* Tiempo de Juego */}
-            <Card className="bg-linear-to-br from-indigo-500/5 to-transparent">
-              <CardHeader className="pb-2 sm:pb-4">
-                <CardTitle className="text-base sm:text-lg">
-                  Tiempo de Juego
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <StatItem
-                    icon={Clock}
-                    label="Tiempo Total"
-                    value={stats.time.totalPlayTimeFormatted}
-                    subValue={`Promedio ${stats.time.averageSessionTimeFormatted}`}
-                    iconColor="text-indigo-500"
-                  />
-                  <StatItem
-                    icon={Hash}
-                    label="Sesiones"
-                    value={stats.time.totalSessions.toLocaleString()}
-                    subValue={`Acumulado ${stats.time.totalSessionTimeFormatted}`}
-                    iconColor="text-slate-500"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Rachas */}
-            <Card className="bg-linear-to-br from-orange-500/5 to-transparent">
-              <CardHeader className="pb-2 sm:pb-4">
-                <CardTitle className="text-base sm:text-lg">
-                  Rachas y Actividad
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <StatItem
-                    icon={Flame}
-                    label="Racha Actual"
-                    value={`${stats.streak.currentStreak} ${
-                      stats.streak.currentStreak === 1 ? "día" : "días"
-                    }`}
-                    iconColor="text-orange-500"
-                  />
-                  <StatItem
-                    icon={Medal}
-                    label="Mejor Racha"
-                    value={`${stats.streak.longestStreak} ${
-                      stats.streak.longestStreak === 1 ? "día" : "días"
-                    }`}
-                    iconColor="text-amber-500"
-                  />
-                </div>
-                <div className="pt-2 border-t">
-                  <StatItem
-                    icon={Calendar}
-                    label="Recompensas Diarias"
-                    value={stats.streak.dailyRewardsClaimed}
-                    subValue="reclamadas"
-                    iconColor="text-green-500"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recompensas Ganadas */}
-          <Card className="bg-linear-to-br from-purple-500/5 to-transparent">
-            <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-base sm:text-lg">
-                Recompensas de la Ruleta
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-                <StatItem
-                  icon={Gift}
-                  label="Total"
-                  value={stats.rewards.totalRewardsWon.toLocaleString()}
-                  iconColor="text-purple-500"
-                />
-                <StatItem
-                  icon={CircleDollarSign}
-                  label="Monedas/Tickets"
-                  value={stats.rewards.currencyRewardsWon.toLocaleString()}
-                  iconColor="text-amber-500"
-                />
-                <StatItem
-                  icon={Zap}
-                  label="Consumibles"
-                  value={stats.rewards.consumablesWon.toLocaleString()}
-                  iconColor="text-blue-500"
-                />
-                <StatItem
-                  icon={Sparkles}
-                  label="Cosméticos"
-                  value={stats.rewards.cosmeticRewardsWon.toLocaleString()}
-                  iconColor="text-pink-500"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Economía */}
-          <Card className="bg-linear-to-br from-emerald-500/5 to-transparent">
-            <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-base sm:text-lg">
-                Historial de Economía
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-                <StatItem
-                  icon={TrendingUp}
-                  label="Monedas +"
-                  value={stats.basicStats.coinsEarned.toLocaleString()}
-                  iconColor="text-green-500"
-                />
-                <StatItem
-                  icon={ShoppingCart}
-                  label="Monedas -"
-                  value={stats.basicStats.coinsSpent.toLocaleString()}
-                  iconColor="text-red-500"
-                />
-                <StatItem
-                  icon={TrendingUp}
-                  label="Tickets +"
-                  value={stats.basicStats.ticketsEarned.toLocaleString()}
-                  iconColor="text-green-500"
-                />
-                <StatItem
-                  icon={ShoppingCart}
-                  label="Tickets -"
-                  value={stats.basicStats.ticketsSpent.toLocaleString()}
-                  iconColor="text-red-500"
-                />
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>

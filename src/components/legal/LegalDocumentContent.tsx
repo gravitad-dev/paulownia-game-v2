@@ -24,9 +24,9 @@ export const getLegalDocumentMeta = (type: LegalDocumentType) =>
 
 function TermsContent() {
   return (
-    <div className="space-y-6 text-sm text-muted-foreground leading-relaxed">
+    <div className="space-y-4 text-sm text-muted-foreground leading-snug">
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           1. Introducción
         </h3>
         <p>
@@ -38,7 +38,7 @@ function TermsContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           2. Uso del Servicio
         </h3>
         <p>
@@ -58,7 +58,7 @@ function TermsContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           3. Propiedad Intelectual
         </h3>
         <p>
@@ -70,7 +70,7 @@ function TermsContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           4. Cuentas de Usuario
         </h3>
         <p>
@@ -82,7 +82,7 @@ function TermsContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           5. Limitación de Responsabilidad
         </h3>
         <p>
@@ -95,7 +95,7 @@ function TermsContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           6. Cambios en los Términos
         </h3>
         <p>
@@ -106,7 +106,7 @@ function TermsContent() {
         </p>
       </section>
 
-      <section className="space-y-3 pt-4 border-t border-border/50">
+      <section className="space-y-2 pt-3 border-t border-border/50">
         <p>
           Si tienes alguna pregunta sobre estos Términos, por favor contáctanos
           a través de nuestro soporte.
@@ -118,9 +118,9 @@ function TermsContent() {
 
 function PrivacyContent() {
   return (
-    <div className="space-y-6 text-sm text-muted-foreground leading-relaxed">
+    <div className="space-y-4 text-sm text-muted-foreground leading-snug">
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           1. Recopilación de Información
         </h3>
         <p>
@@ -132,7 +132,7 @@ function PrivacyContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           2. Uso de la Información
         </h3>
         <p>Utilizamos la información que recopilamos para:</p>
@@ -148,7 +148,7 @@ function PrivacyContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           3. Protección de Datos
         </h3>
         <p>
@@ -160,7 +160,7 @@ function PrivacyContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           4. Cookies y Tecnologías Similares
         </h3>
         <p>
@@ -172,7 +172,7 @@ function PrivacyContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           5. Compartir Información
         </h3>
         <p>
@@ -184,7 +184,7 @@ function PrivacyContent() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground">
           6. Tus Derechos
         </h3>
         <p>
@@ -194,7 +194,7 @@ function PrivacyContent() {
         </p>
       </section>
 
-      <section className="space-y-3 pt-4 border-t border-border/50">
+      <section className="space-y-2 pt-3 border-t border-border/50">
         <p>
           Si tienes alguna pregunta sobre esta Política de Privacidad, por favor
           contáctanos a través de nuestro soporte.

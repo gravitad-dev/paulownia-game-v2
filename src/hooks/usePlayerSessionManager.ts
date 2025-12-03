@@ -4,7 +4,7 @@ import { PlayerSessionService } from "@/services/player-session.service";
 import type { PlayerSessionType } from "@/types/player-stats";
 import { usePlayerSessionStore } from "@/store/usePlayerSessionStore";
 
-const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_INTERVAL_MS = 60_000;
 
 export const usePlayerSessionManager = (
   enabled: boolean,
