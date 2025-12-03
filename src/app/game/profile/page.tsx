@@ -243,7 +243,9 @@ export default function ProfilePage() {
                       {stats.ranking.globalRank}°
                     </span>
                   </div>
-                  <Crown className="absolute -top-1.5 -right-0.5 sm:-top-2 sm:-right-1 h-4 w-4 sm:h-5 sm:w-5 text-amber-600 drop-shadow-md" />
+                  {stats.ranking.globalRank <= 1 && (
+                    <Crown className="absolute -top-1.5 -right-0.5 sm:-top-2 sm:-right-1 h-4 w-4 sm:h-5 sm:w-5 text-amber-600 drop-shadow-md" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] sm:text-xs uppercase tracking-wider text-amber-600 font-semibold">
@@ -315,7 +317,8 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Racha</p>
                     <p className="text-2xl font-bold">
-                      {stats.streak.currentStreak} días
+                      {stats.streak.currentStreak}{" "}
+                      {stats.streak.currentStreak === 1 ? "día" : "días"}
                     </p>
                   </div>
                 </div>
@@ -511,13 +514,17 @@ export default function ProfilePage() {
                   <StatItem
                     icon={Flame}
                     label="Racha Actual"
-                    value={`${stats.streak.currentStreak} días`}
+                    value={`${stats.streak.currentStreak} ${
+                      stats.streak.currentStreak === 1 ? "día" : "días"
+                    }`}
                     iconColor="text-orange-500"
                   />
                   <StatItem
                     icon={Medal}
                     label="Mejor Racha"
-                    value={`${stats.streak.longestStreak} días`}
+                    value={`${stats.streak.longestStreak} ${
+                      stats.streak.longestStreak === 1 ? "día" : "días"
+                    }`}
                     iconColor="text-amber-500"
                   />
                 </div>

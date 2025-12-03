@@ -176,7 +176,7 @@ export function ClaimStatusView({ claimCode, onCancel }: ClaimStatusViewProps) {
           {/* Menor de Edad - Info del Guardián */}
           {claim.isMinor && claim.guardian && (
             <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg space-y-2">
-              <p className="text-sm font-medium">Información del Guardián</p>
+              <p className="text-sm font-medium">Datos del responsable</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Nombre:</span>{" "}

@@ -1,6 +1,8 @@
 "use client";
 
 import { AddressAutocomplete } from "@/components/address/AddressAutocomplete";
+import { LegalDocumentDialog } from "@/components/legal/LegalDocumentDialog";
+import type { LegalDocumentType } from "@/components/legal/LegalDocumentContent";
 import { CountrySelect } from "@/components/profile/CountrySelect";
 import { PhoneInput } from "@/components/profile/PhoneInput";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,9 @@ export function ClaimRewardModal({
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dataProcessingAccepted, setDataProcessingAccepted] = useState(false);
+  const [openLegalDoc, setOpenLegalDoc] = useState<LegalDocumentType | null>(
+    null,
+  );
 
   // Estado de dirección
   const [country, setCountry] = useState("");
@@ -176,6 +181,7 @@ export function ClaimRewardModal({
     setCity("");
     setZipcode("");
     setIsAddressValidated(false);
+    setOpenLegalDoc(null);
 
     onClose();
   };
@@ -184,249 +190,259 @@ export function ClaimRewardModal({
   void isAddressValidated;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader className="pb-2">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Gift className="h-5 w-5 text-primary" />
+    <>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Gift className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">Reclamar Premio</DialogTitle>
+                <DialogDescription className="text-sm">
+                  {userReward.reward.name}
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-lg">Reclamar Premio</DialogTitle>
-              <DialogDescription className="text-sm">
-                {userReward.reward.name}
-              </DialogDescription>
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex gap-1">
+                {/* Barra de progreso eliminada al ser un solo paso */}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex gap-1">
-              {/* Barra de progreso eliminada al ser un solo paso */}
-            </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 min-h-[300px]">
-          {/* PASO 1: Información de Envío */}
-          <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="fullName" className="text-xs">
-                  Nombre Completo <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  readOnly
-                  className="h-9 bg-muted cursor-not-allowed"
-                />
+          <form onSubmit={handleSubmit} className="space-y-4 min-h-[300px]">
+            {/* PASO 1: Información de Envío */}
+            <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="fullName" className="text-xs">
+                    Nombre Completo <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="fullName"
+                    value={fullName}
+                    readOnly
+                    className="h-9 bg-muted cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="email" className="text-xs">
+                    Email <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    readOnly
+                    className="h-9 bg-muted cursor-not-allowed"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="email" className="text-xs">
-                  Email <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  readOnly
-                  className="h-9 bg-muted cursor-not-allowed"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  País <span className="text-destructive">*</span>
-                </Label>
-                <CountrySelect
-                  value={country}
-                  onChange={setCountry}
-                  disabled={isSubmitting}
-                  compact
-                  small
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Teléfono <span className="text-destructive">*</span>
-                </Label>
-                <PhoneInput
-                  id="claim-phone"
-                  name="phone"
-                  value={phone}
-                  onChange={setPhone}
-                  onCountryChange={(countryCode) => {
-                    const countryName = getCountryName(countryCode);
-                    if (countryName) {
-                      setCountry(countryName);
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    País <span className="text-destructive">*</span>
+                  </Label>
+                  <CountrySelect
+                    value={country}
+                    onChange={setCountry}
+                    disabled={isSubmitting}
+                    compact
+                    small
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    Teléfono <span className="text-destructive">*</span>
+                  </Label>
+                  <PhoneInput
+                    id="claim-phone"
+                    name="phone"
+                    value={phone}
+                    onChange={setPhone}
+                    onCountryChange={(countryCode) => {
+                      const countryName = getCountryName(countryCode);
+                      if (countryName) {
+                        setCountry(countryName);
+                      }
+                    }}
+                    disabled={isSubmitting}
+                    defaultCountry={
+                      (country
+                        ? (getCountryCode(country) as CountryCode | undefined)
+                        : undefined) || "ES"
                     }
+                    compact
+                    small
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Dirección <span className="text-destructive">*</span>
+                </Label>
+                <AddressAutocomplete
+                  value={address}
+                  onChange={(value) => {
+                    setAddress(value);
+                    setIsAddressValidated(false);
                   }}
-                  disabled={isSubmitting}
-                  defaultCountry={
-                    (country
-                      ? (getCountryCode(country) as CountryCode | undefined)
-                      : undefined) || "ES"
+                  onSuggestionSelect={handleAddressSelect}
+                  countryCode={country ? getCountryCode(country) : undefined}
+                  disabled={isSubmitting || !country}
+                  placeholder={
+                    country
+                      ? "Escribe tu dirección..."
+                      : "Selecciona un país primero"
                   }
-                  compact
-                  small
+                  label=""
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="city" className="text-xs">
+                    Ciudad <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    required
+                    placeholder="Ciudad"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="zipcode" className="text-xs">
+                    Código Postal
+                  </Label>
+                  <Input
+                    id="zipcode"
+                    value={zipcode}
+                    onChange={(e) => setZipcode(e.target.value)}
+                    placeholder="12345"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="additionalNotes" className="text-xs">
+                  Notas (Opcional)
+                </Label>
+                <textarea
+                  id="additionalNotes"
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                  placeholder="Piso, departamento, instrucciones de entrega, horarios, etc."
+                  rows={3}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                />
+              </div>
+
+              {/* Términos y Condiciones (Movido aquí) */}
+              <div className="space-y-3 pt-2 border-t mt-2">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="termsAccepted"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) =>
+                      setTermsAccepted(checked as boolean)
+                    }
+                    className="mt-0.5"
+                  />
+                  <label
+                    htmlFor="termsAccepted"
+                    className="text-xs cursor-pointer leading-tight"
+                  >
+                    Acepto los{" "}
+                    <button
+                      type="button"
+                      className="text-blue-600 underline hover:text-blue-800"
+                      onClick={() => setOpenLegalDoc("terms")}
+                    >
+                      términos y condiciones
+                    </button>{" "}
+                    del servicio y las reglas del sorteo.
+                    <span className="text-destructive ml-0.5">*</span>
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="dataProcessingAccepted"
+                    checked={dataProcessingAccepted}
+                    onCheckedChange={(checked) =>
+                      setDataProcessingAccepted(checked as boolean)
+                    }
+                    className="mt-0.5"
+                  />
+                  <label
+                    htmlFor="dataProcessingAccepted"
+                    className="text-xs cursor-pointer leading-tight"
+                  >
+                    Doy mi consentimiento para el procesamiento de mis datos
+                    personales según la{" "}
+                    <button
+                      type="button"
+                      className="text-blue-600 underline hover:text-blue-800"
+                      onClick={() => setOpenLegalDoc("privacy")}
+                    >
+                      política de privacidad
+                    </button>
+                    .<span className="text-destructive ml-0.5">*</span>
+                  </label>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">
-                Dirección <span className="text-destructive">*</span>
-              </Label>
-              <AddressAutocomplete
-                value={address}
-                onChange={(value) => {
-                  setAddress(value);
-                  setIsAddressValidated(false);
-                }}
-                onSuggestionSelect={handleAddressSelect}
-                countryCode={country ? getCountryCode(country) : undefined}
-                disabled={isSubmitting || !country}
-                placeholder={
-                  country
-                    ? "Escribe tu dirección..."
-                    : "Selecciona un país primero"
+            {/* Botones de Navegación */}
+            <div className="flex gap-3 pt-4 border-t mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting || !termsAccepted || !dataProcessingAccepted
                 }
-                label=""
-              />
+                className="flex-1"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  "Confirmar Reclamo"
+                )}
+              </Button>
             </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="city" className="text-xs">
-                  Ciudad <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  required
-                  placeholder="Ciudad"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="zipcode" className="text-xs">
-                  Código Postal
-                </Label>
-                <Input
-                  id="zipcode"
-                  value={zipcode}
-                  onChange={(e) => setZipcode(e.target.value)}
-                  placeholder="12345"
-                  className="h-9"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="additionalNotes" className="text-xs">
-                Notas (Opcional)
-              </Label>
-              <textarea
-                id="additionalNotes"
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                placeholder="Piso, departamento, instrucciones de entrega, horarios, etc."
-                rows={3}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              />
-            </div>
-
-            {/* Términos y Condiciones (Movido aquí) */}
-            <div className="space-y-3 pt-2 border-t mt-2">
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="termsAccepted"
-                  checked={termsAccepted}
-                  onCheckedChange={(checked) =>
-                    setTermsAccepted(checked as boolean)
-                  }
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="termsAccepted"
-                  className="text-xs cursor-pointer leading-tight"
-                >
-                  Acepto los{" "}
-                  <a
-                    href="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline hover:text-blue-800"
-                  >
-                    términos y condiciones
-                  </a>{" "}
-                  del servicio y las reglas del sorteo.
-                  <span className="text-destructive ml-0.5">*</span>
-                </label>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <Checkbox
-                  id="dataProcessingAccepted"
-                  checked={dataProcessingAccepted}
-                  onCheckedChange={(checked) =>
-                    setDataProcessingAccepted(checked as boolean)
-                  }
-                  className="mt-0.5"
-                />
-                <label
-                  htmlFor="dataProcessingAccepted"
-                  className="text-xs cursor-pointer leading-tight"
-                >
-                  Doy mi consentimiento para el procesamiento de mis datos
-                  personales según la{" "}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline hover:text-blue-800"
-                  >
-                    política de privacidad
-                  </a>
-                  .<span className="text-destructive ml-0.5">*</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Botones de Navegación */}
-          <div className="flex gap-3 pt-4 border-t mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={
-                isSubmitting || !termsAccepted || !dataProcessingAccepted
-              }
-              className="flex-1"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Procesando...
-                </>
-              ) : (
-                "Confirmar Reclamo"
-              )}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <LegalDocumentDialog
+        type={openLegalDoc}
+        open={openLegalDoc !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpenLegalDoc(null);
+          }
+        }}
+      />
+    </>
   );
 }

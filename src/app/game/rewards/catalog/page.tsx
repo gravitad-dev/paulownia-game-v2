@@ -16,7 +16,7 @@ const PAGE_SIZE = 8;
  */
 function filterBySubtype(
   rewards: CatalogReward[],
-  filter: string
+  filter: string,
 ): CatalogReward[] {
   if (filter === "coins") {
     return rewards.filter((r) => r.name.toLowerCase().includes("coin"));
@@ -89,7 +89,7 @@ export default function CatalogPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title={title} />
 
-      <div className="flex-1 p-4 space-y-4">
+      <div className="flex-1 p-4 space-y-2">
         {/* Filtros arriba del grid */}
         <div className="flex justify-start">
           <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
@@ -102,7 +102,7 @@ export default function CatalogPage() {
 
         {/* Paginación - siempre al fondo */}
         {pagination && pagination.total > 0 && (
-          <div className="pt-4">
+          <div className="pt-3">
             <TablePagination
               page={pagination.page}
               pageCount={pagination.pageCount}
