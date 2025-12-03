@@ -544,13 +544,13 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       gameContainerRef.current?.requestFullscreen().then(() => {
         setIsFullscreen(true);
       }).catch((err) => {
-        console.error("Error al activar pantalla completa:", err);
+        useGameLogStore.getState().addError("Error al activar pantalla completa", err, "toggleFullscreen");
       });
     } else {
       document.exitFullscreen().then(() => {
         setIsFullscreen(false);
       }).catch((err) => {
-        console.error("Error al salir de pantalla completa:", err);
+        useGameLogStore.getState().addError("Error al salir de pantalla completa", err, "toggleFullscreen");
       });
     }
   }, []);
@@ -706,6 +706,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
   // Función para iniciar el juego
   const startGame = useCallback(() => {
+    const startDetails = `Inicio de juego - Dificultad: ${difficulty}, Tamaño del grid: ${size}x${size}, Modo: ${puzzleImageUrl ? "Puzzle" : "Normal"}`;
+    
+    // Log de inicio del juego
+    useGameLogStore.getState().addLog({
+      type: "game_start",
+      details: startDetails,
+    });
+    
+    // Mostrar log de inicio en consola (deshabilitado, pero latente para debugging)
+    // const timeStr = new Date().toLocaleTimeString();
+    // console.log(`[GAME ${timeStr}] 🎮 ${startDetails}`);
+    
     // CORRECCIÓN BUG: Si hay puzzle y no hay pieza ya en progreso,
     // la primera pieza debe ser de puzzle (no una "I" normal)
     // Verificamos que no haya currentPuzzlePiece para evitar duplicación
@@ -771,6 +783,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
+    
+    // Limpiar logs y errores al reiniciar
+    useGameLogStore.getState().clearAll();
 
     if (puzzleImageUrl) {
       const seed = Math.floor(Math.random() * 1000000);
@@ -783,6 +798,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size, puzzleImageUrl]);
+
+  // Función para imprimir resumen final del juego
+  const printFinalGameSummary = useCallback(() => {
+    useGameLogStore.getState().printGameSummary();
+  }, []);
 
   const halfSize = size / 2;
 
@@ -1120,7 +1140,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           finalGrid: workingGrid,
         };
       } catch (error) {
-        console.error("[GAME ERROR] Error in processLineClearsIteratively:", error);
+        useGameLogStore.getState().addError("Error in processLineClearsIteratively", error, "processLineClearsIteratively");
         // Retornar valores seguros para no crashear el juego
         return {
           blocksToRemove: [],
@@ -1563,6 +1583,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   });
                   setGameState("victory");
                   audioActions.playVictory();
+                  // Imprimir resumen del juego al finalizar
+                  setTimeout(() => {
+                    printFinalGameSummary();
+                  }, 100);
                 }
               } else {
                 // Pieza puzzle fallida - se degrada a pieza normal
@@ -1596,8 +1620,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
 
-          console.log("[DEBUG] Checkpoint 1: Starting tempGrid creation");
-
           // Primero, crear el grid temporal para detectar líneas
           const tempGrid: Grid3D = currentGrid.map((plane) =>
             plane.map((row) => [...row])
@@ -1607,8 +1629,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               tempGrid[block.x][block.y][block.z] = "filled";
             }
           });
-
-          console.log("[DEBUG] Checkpoint 2: tempGrid created, blocks added");
 
           // CORRECCIÓN BUG: Calcular lockedPositions con TODAS las celdas protegidas
           // Esto incluye piezas ya colocadas + la pieza recién colocada
@@ -1642,8 +1662,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             });
           }
 
-          console.log("[DEBUG] Checkpoint 3: lockedPositions calculated", { size: lockedPositions.size });
-
           // Procesar todas las líneas de forma iterativa
           // Ahora pasamos lockedPositions directamente (celdas x,z protegidas)
           const { blocksToRemove, blocksToMove, finalGrid } = !reachedLimit
@@ -1653,8 +1671,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 blocksToMove: [] as { x: number; y: number; z: number; newY: number }[],
                 finalGrid: tempGrid,
               };
-
-          console.log("[DEBUG] Checkpoint 4: processLineClearsIteratively done", { blocksToRemove: blocksToRemove.length });
 
           // Sonido de destrucción de líneas (si hay bloques a eliminar)
           if (blocksToRemove.length > 0) {
@@ -1681,8 +1697,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
 
-          console.log("[DEBUG] Checkpoint 5: newPuzzleCells map created");
-
           // OPTIMIZACIÓN: Capturar el Map actualizado antes de setVisualBlocks
           // Obtener el estado actualizado de Zustand para placedPieces
           const currentPlacedPuzzleCellsMap = new Map<string, { tileX: number; tileZ: number }>();
@@ -1695,8 +1709,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               });
             });
           });
-
-          console.log("[DEBUG] Checkpoint 6: Starting setVisualBlocks");
 
           // Actualizar bloques visuales con animaciones
           // REFACTORIZADO: Usar Map por posición exacta para mantener identidad de bloques
@@ -1870,27 +1882,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               }
             }
 
-            // DEBUG: Detectar bloques duplicados en la misma posición
-            const positionCounts = new Map<string, number>();
-            resultBlocks.forEach((b) => {
-              const key = `${b.targetX},${b.targetY},${b.targetZ}`;
-              positionCounts.set(key, (positionCounts.get(key) || 0) + 1);
-            });
-            positionCounts.forEach((count, key) => {
-              if (count > 1) {
-                console.warn(`[DUPLICATE BLOCK] ${count} bloques en posición ${key}`);
-              }
-            });
 
             return [...destroyingBlocks, ...resultBlocks];
           });
 
-          console.log("[DEBUG] Checkpoint 7: setVisualBlocks done");
-
           // Actualizar grid lógico final
           setGrid(finalGrid);
-
-          console.log("[DEBUG] Checkpoint 8: setGrid done");
 
           if (reachedLimit) {
             // Log gameover
@@ -1903,10 +1900,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             setIsGameOver(true);
             setGameState("gameover");
             audioActions.playGameOver();
+            // Imprimir resumen del juego al finalizar
+            setTimeout(() => {
+              printFinalGameSummary();
+            }, 100);
             return;
           }
-
-          console.log("[DEBUG] Checkpoint 9: Starting new piece generation");
 
           // SISTEMA DE COLA: La pieza actual viene de nextPiece (la que estaba en preview)
           puzzleActions.incrementPieceCounter();
@@ -1930,11 +1929,6 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           // Leer la pieza que estaba en el preview (nextPiece del ref)
           const queuedPiece = nextPieceRef.current;
-
-          console.log("[GAME DEBUG] Cola de piezas:", {
-            queuedPiece: queuedPiece,
-            availablePuzzle: availablePuzzlePieces.length,
-          });
 
           // USAR la pieza de la cola como pieza actual
           if (queuedPiece) {
@@ -2033,7 +2027,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           return;
           } catch (error) {
             // Capturar y loggear cualquier error en el proceso de colocación
-            console.error("[GAME ERROR] Error en proceso de colocación:", error);
+            useGameLogStore.getState().addError("Error en proceso de colocación", error, "piecePlacement");
             useGameLogStore.getState().addLog({
               type: "gameover",
               details: `Error interno: ${error instanceof Error ? error.message : String(error)}`,
