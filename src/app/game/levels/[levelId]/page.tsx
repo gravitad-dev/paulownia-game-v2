@@ -141,7 +141,7 @@ export default function LevelDetailPage() {
           </Button>
         </div>
 
-        <div className="w-full h-full bg-white/80 backdrop-blur-md  flex items-center justify-center rounded-lg">
+        <div className="w-full h-full flex items-center justify-center">
           <div id="game-container" className=" w-full h-full bg-gray-700">
             <Game difficulty={gameDifficulty} puzzleImageUrl={puzzleImageUrl} />
           </div>
