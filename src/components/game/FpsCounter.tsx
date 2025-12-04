@@ -34,7 +34,7 @@ export function FpsCounter() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 px-3 py-1.5 bg-black/70 backdrop-blur-sm border border-border/50 rounded-md text-sm font-mono text-white">
+    <div className="fixed top-4 right-20 z-50 px-3 py-1.5 bg-black/70 backdrop-blur-sm border border-border/50 rounded-md text-sm font-mono text-white">
       <span className="text-muted-foreground">FPS: </span>
       <span className={fps >= 55 ? "text-green-400" : fps >= 30 ? "text-yellow-400" : "text-red-400"}>
         {fps}
