@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import * as THREE from "three";
 import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX, FiArrowLeft } from "react-icons/fi";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   createEmptyGrid,
   Grid3D,
@@ -775,7 +776,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
     setGameState("playing");
     lastTickTimeRef.current = performance.now();
-  }, [puzzleImageUrl, remainingPieces, currentPuzzlePiece, size, lockedPieces, puzzleActions]);
+  }, [puzzleImageUrl, remainingPieces, currentPuzzlePiece, size, lockedPieces, puzzleActions, difficulty, pattern]);
 
   // Función para reiniciar el juego
   const restartGame = useCallback(() => {
@@ -2571,10 +2572,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       {gameState === "victory" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border">
-            <img
+            <Image
               src="/game/levels/trofeo.svg"
               alt="Trofeo"
-              className="w-32 h-32 object-contain"
+              width={128}
+              height={128}
+              className="object-contain"
             />
             <h2 className="text-3xl font-bold text-card-foreground tracking-wide">
               ¡Puzzle Completado!

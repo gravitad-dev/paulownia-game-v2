@@ -90,7 +90,8 @@ export const useGameLogStore = create<GameLogState>((set, get) => ({
   },
 
   printGameSummary: () => {
-    const { logs, errors } = get();
+    // Variables deshabilitadas temporalmente para debugging futuro
+    // const { logs, errors } = get();
 
     // Buscar log de inicio (deshabilitado, pero latente para debugging)
     // const gameStartLog = logs.find((log) => log.type === "game_start");
