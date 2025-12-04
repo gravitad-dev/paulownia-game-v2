@@ -115,7 +115,11 @@ export default function LevelDetailPage() {
       <div className="flex-1 flex flex-col gap-4 ">
         <div className="w-full h-full flex items-center justify-center">
           <div id="game-container" className=" w-full h-full bg-gray-700">
-            <Game levelDifficulty={difficulty} puzzleImageUrl={puzzleImageUrl} />
+            <Game 
+              levelDifficulty={difficulty} 
+              puzzleImageUrl={puzzleImageUrl} 
+              levelUuid={levelId}
+            />
           </div>
         </div>
 

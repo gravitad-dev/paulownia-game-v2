@@ -1,14 +1,19 @@
 "use client";
 
-import { Level } from "@/types/level";
+import { UserLevel } from "@/types/user-level";
 import { LevelCard } from "./LevelCard";
 
 interface LevelsGridProps {
-  levels: Level[];
+  userLevels: UserLevel[];
   isLoading?: boolean;
+  onUnlockSuccess?: () => void;
 }
 
-export function LevelsGrid({ levels, isLoading }: LevelsGridProps) {
+export function LevelsGrid({
+  userLevels,
+  isLoading,
+  onUnlockSuccess,
+}: LevelsGridProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -22,7 +27,7 @@ export function LevelsGrid({ levels, isLoading }: LevelsGridProps) {
     );
   }
 
-  if (levels.length === 0) {
+  if (userLevels.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">
@@ -34,8 +39,12 @@ export function LevelsGrid({ levels, isLoading }: LevelsGridProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {levels.map((level) => (
-        <LevelCard key={level.uuid} level={level} />
+      {userLevels.map((userLevel) => (
+        <LevelCard
+          key={userLevel.uuid}
+          userLevel={userLevel}
+          onUnlockSuccess={onUnlockSuccess}
+        />
       ))}
     </div>
   );

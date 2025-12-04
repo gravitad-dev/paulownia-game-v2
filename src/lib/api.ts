@@ -17,6 +17,22 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug: Log temporal para verificar token en peticiones a /api/game
+    if (config.url?.includes("/api/game")) {
+      console.log("[API Interceptor] Request a /api/game:", {
+        url: config.url,
+        method: config.method,
+        hasToken: !!token,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : "N/A",
+        headers: {
+          Authorization: config.headers.Authorization ? "Bearer ***" : "No token",
+          "Content-Type": config.headers["Content-Type"],
+        },
+        data: config.data,
+      });
+    }
+    
     return config;
   },
   (error) => {

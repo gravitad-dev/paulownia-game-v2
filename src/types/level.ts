@@ -17,6 +17,7 @@ export interface Level {
   cover?: Media;
   puzzleImage?: Media[];
   difficulty?: LevelDifficulty;
+  password?: string;
   user_game_histories?: unknown[];
   createdAt?: string;
   updatedAt?: string;

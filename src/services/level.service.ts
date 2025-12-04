@@ -1,5 +1,6 @@
 import { withBasePath } from "./base.service";
 import { Level } from "@/types/level";
+import { UnlockLevelResponse, UserLevelsResponse } from "@/types/user-level";
 
 const levelsApi = withBasePath("/api/levels");
 
@@ -72,5 +73,45 @@ export const LevelService = {
     const url = `/uuid/${uuid}${qs ? `?${qs}` : ""}`;
     const res = await levelsApi.get<LevelResponse>(url);
     return res.data.data;
+  },
+
+  /**
+   * Obtiene los niveles del usuario autenticado con sus estados.
+   * GET /api/levels/my-levels?pagination[page]=1&pagination[pageSize]=12
+   */
+  async getMyLevels(
+    params: LevelPaginationParams = {}
+  ): Promise<UserLevelsResponse> {
+    const query = new URLSearchParams();
+
+    if (params.page) {
+      query.set("pagination[page]", String(params.page));
+    }
+
+    if (params.pageSize) {
+      query.set("pagination[pageSize]", String(params.pageSize));
+    }
+
+    if (params.sort) {
+      query.set("sort", params.sort);
+    }
+
+    const qs = query.toString();
+    const url = `/my-levels${qs ? `?${qs}` : ""}`;
+    const res = await levelsApi.get<UserLevelsResponse>(url);
+    return res.data;
+  },
+
+  /**
+   * Desbloquea un nivel con contraseña.
+   * POST /api/levels/uuid/:uuid/unlock
+   */
+  async unlock(
+    levelUuid: string,
+    password: string
+  ): Promise<UnlockLevelResponse> {
+    const url = `/uuid/${levelUuid}/unlock`;
+    const res = await levelsApi.post<UnlockLevelResponse>(url, { password });
+    return res.data;
   },
 };
