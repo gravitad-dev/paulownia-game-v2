@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { LevelDifficulty } from "@/types/level";
+import { DIFFICULTY_CONFIGS } from "@/lib/game/difficultyConfig";
 
 interface DifficultySelectionModalProps {
   open: boolean;
@@ -19,14 +20,13 @@ interface DifficultySelectionModalProps {
   levelName: string;
 }
 
-const DIFFICULTIES: { value: LevelDifficulty; label: string }[] = [
-  { value: "easy", label: "Fácil" },
-  { value: "easy2", label: "Fácil 2" },
-  { value: "medium", label: "Medio" },
-  { value: "medium2", label: "Medio 2" },
-  { value: "hard", label: "Difícil" },
-  { value: "hard2", label: "Difícil 2" },
-];
+// Generar lista de dificultades desde la configuración centralizada
+const DIFFICULTIES: { value: LevelDifficulty; label: string }[] = (
+  Object.entries(DIFFICULTY_CONFIGS) as [LevelDifficulty, typeof DIFFICULTY_CONFIGS[LevelDifficulty]][]
+).map(([value, config]) => ({
+  value,
+  label: config.label,
+}));
 
 export function DifficultySelectionModal({
   open,

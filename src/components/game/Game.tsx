@@ -2,20 +2,29 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import * as THREE from "three";
-import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX, FiArrowLeft } from "react-icons/fi";
+import { FiMaximize2, FiMinimize2, FiVolume2, FiVolumeX, FiArrowLeft, FiClock } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   createEmptyGrid,
   Grid3D,
-  GameDifficulty,
-  getGridSizeByDifficulty,
+  getGridSizeByLevelDifficulty,
 } from "@/lib/game/three/grid3d";
 import {
   TetrominoType,
   TETROMINO_SHAPES,
   rotateShapeHorizontal,
 } from "@/lib/game/three/tetrominoes";
+import { LevelDifficulty } from "@/types/level";
+import {
+  getDifficultyConfig,
+  getDifficultyLabel,
+  getNormalPiecesCount,
+  getPuzzlePiecesCount,
+  calculateScore,
+  formatTime,
+  GameScore,
+} from "@/lib/game/difficultyConfig";
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
 import { useGameSpeedStore } from "@/store/useGameSpeedStore";
 import { usePuzzleStore } from "@/store/usePuzzleStore";
@@ -33,7 +42,6 @@ import MobileControls from "./MobileControls";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
-const MAX_CLEAR_USES = 3;
 
 // Tipos para el sistema de bloques visuales con animación
 interface BlockColors {
@@ -385,7 +393,7 @@ const AnimatedPuzzleCube = memo(function AnimatedPuzzleCube({
 });
 
 interface GameProps {
-  difficulty: GameDifficulty;
+  levelDifficulty: LevelDifficulty;
   puzzleImageUrl?: string;
 }
 
@@ -480,8 +488,11 @@ const LightingRig = () => (
 // Tipo de estado del juego
 type GameState = "waiting" | "playing" | "gameover" | "victory";
 
-export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
-  const size = getGridSizeByDifficulty(difficulty);
+export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
+  // Obtener configuración de dificultad
+  const difficultyConfig = useMemo(() => getDifficultyConfig(levelDifficulty), [levelDifficulty]);
+  const size = getGridSizeByLevelDifficulty(levelDifficulty);
+  
   const cameraConfig = useCameraConfigStore((state) => state.config);
   const cycleTime = useGameSpeedStore((state) => state.cycleTime);
   const router = useRouter();
@@ -517,7 +528,35 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const [visualBlocks, setVisualBlocks] = useState<VisualBlock[]>([]);
   const [isFastForward, setIsFastForward] = useState(false);
   const lastTickTimeRef = useRef<number>(0);
-  const [clearUsesRemaining, setClearUsesRemaining] = useState(MAX_CLEAR_USES);
+  const [clearUsesRemaining, setClearUsesRemaining] = useState(difficultyConfig.clearCharges);
+  
+  // Sistema de tiempo - cuenta atrás
+  const [timeRemaining, setTimeRemaining] = useState(difficultyConfig.timeLimitSeconds);
+  const gameStartTimeRef = useRef<number>(0);
+  
+  // Sistema de puntuación
+  const [totalLinesCleared, setTotalLinesCleared] = useState(0);
+  const [finalScore, setFinalScore] = useState<GameScore | null>(null);
+  
+  // Sistema de ciclo puzzle/normal - contador simple de posición
+  // El ciclo se repite: primero N piezas puzzle, luego M piezas normales
+  const [cyclePosition, setCyclePosition] = useState(0);
+  
+  // Para dificultades con rango aleatorio de normales, guardamos el target del ciclo actual
+  const [currentNormalTarget, setCurrentNormalTarget] = useState(() => getNormalPiecesCount(levelDifficulty));
+  
+  // Función para determinar si una posición en el ciclo debe ser pieza puzzle
+  const shouldPositionBePuzzle = useCallback((pos: number, normalTarget: number): boolean => {
+    const puzzleCount = getPuzzlePiecesCount(levelDifficulty);
+    const cycleLength = puzzleCount + normalTarget;
+    const posInCycle = pos % cycleLength;
+    return posInCycle < puzzleCount;
+  }, [levelDifficulty]);
+  
+  // Contador de piezas normales consecutivas (para pieza de ayuda 1x1)
+  // Cada 5 piezas normales consecutivas, se genera una pieza O1 (1x1) para ayudar
+  const [consecutiveNormalCount, setConsecutiveNormalCount] = useState(0);
+  const NORMAL_PIECES_FOR_HELPER = 5; // Cada N piezas normales, dar pieza de ayuda
 
   // Sistema puzzle - OPTIMIZACIÓN: Selectores específicos en lugar de suscribirse a todo el store
   const currentPuzzlePiece = usePuzzleStore((state) => state.currentPuzzlePiece);
@@ -689,6 +728,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
   // Reiniciar grid y pieza al cambiar el tamaño (dificultad) o imagen de puzzle
   useEffect(() => {
+    const config = getDifficultyConfig(levelDifficulty);
     setGrid(createEmptyGrid(size));
     setActiveType("I");
     setActiveRotation(0);
@@ -703,7 +743,13 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
-    setClearUsesRemaining(MAX_CLEAR_USES);
+    setClearUsesRemaining(config.clearCharges);
+    setTimeRemaining(config.timeLimitSeconds);
+    setTotalLinesCleared(0);
+    setFinalScore(null);
+    setCyclePosition(0);
+    setCurrentNormalTarget(getNormalPiecesCount(levelDifficulty));
+    setConsecutiveNormalCount(0);
     // Resetear estado del juego según si hay imagen de puzzle
     setGameState(puzzleImageUrl ? "waiting" : "playing");
     if (puzzleImageUrl) {
@@ -714,11 +760,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       puzzleActions.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size, puzzleImageUrl]);
+  }, [size, puzzleImageUrl, levelDifficulty]);
 
   // Función para iniciar el juego
   const startGame = useCallback(() => {
-    const startDetails = `Inicio de juego - Dificultad: ${difficulty}, Tamaño del grid: ${size}x${size}, Modo: ${puzzleImageUrl ? "Puzzle" : "Normal"}`;
+    const diffLabel = getDifficultyLabel(levelDifficulty);
+    const startDetails = `Inicio de juego - Dificultad: ${diffLabel}, Tamaño del grid: ${size}x${size}, Modo: ${puzzleImageUrl ? "Puzzle" : "Normal"}`;
     
     // Log de inicio del juego
     useGameLogStore.getState().addLog({
@@ -726,60 +773,74 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       details: startDetails,
     });
     
-    // Mostrar log de inicio en consola (deshabilitado, pero latente para debugging)
-    // const timeStr = new Date().toLocaleTimeString();
-    // console.log(`[GAME ${timeStr}] 🎮 ${startDetails}`);
+    // Guardar tiempo de inicio para calcular duración
+    gameStartTimeRef.current = Date.now();
     
-    // CORRECCIÓN BUG: Si hay puzzle y no hay pieza ya en progreso,
-    // la primera pieza debe ser de puzzle (no una "I" normal)
-    // Verificamos que no haya currentPuzzlePiece para evitar duplicación
-    if (
-      puzzleImageUrl &&
-      remainingPieces.length > 0 &&
-      !currentPuzzlePiece
-    ) {
-      // Filtrar para excluir piezas ya bloqueadas
-      const availablePieces = remainingPieces.filter(
-        (p) => !lockedPieces.has(p.id)
-      );
-      if (availablePieces.length > 0) {
-        const firstPuzzlePiece = availablePieces[0];
-        puzzleActions.setCurrentPuzzlePiece(firstPuzzlePiece);
-        setActiveType(firstPuzzlePiece.type);
-        setActiveRotation(firstPuzzlePiece.rotation);
-        const spawnPos = {
-          x: Math.floor(size / 2) - 1,
-          y: size - 1,
-          z: Math.floor(size / 2) - 1,
-        };
-        setActivePosition(spawnPos);
+    // Obtener el target de normales para este ciclo
+    const normalTarget = getNormalPiecesCount(levelDifficulty);
+    setCurrentNormalTarget(normalTarget);
+    
+    // Posición 0 del ciclo - determinar si debe ser puzzle
+    const firstShouldBePuzzle = shouldPositionBePuzzle(0, normalTarget);
+    
+    // Filtrar piezas puzzle disponibles
+    const availablePieces = remainingPieces.filter(
+      (p) => !lockedPieces.has(p.id)
+    );
+    
+    // Spawnear primera pieza
+    if (puzzleImageUrl && firstShouldBePuzzle && availablePieces.length > 0 && !currentPuzzlePiece) {
+      const firstPuzzlePiece = availablePieces[0];
+      puzzleActions.setCurrentPuzzlePiece(firstPuzzlePiece);
+      setActiveType(firstPuzzlePiece.type);
+      setActiveRotation(firstPuzzlePiece.rotation);
+      const spawnPos = {
+        x: Math.floor(size / 2) - 1,
+        y: size - 1,
+        z: Math.floor(size / 2) - 1,
+      };
+      setActivePosition(spawnPos);
 
-        // Log spawn de primera pieza puzzle
-        useGameLogStore.getState().addLog({
-          type: "spawn",
-          pieceId: firstPuzzlePiece.id,
-          pieceType: firstPuzzlePiece.type,
-          position: spawnPos,
-          rotation: firstPuzzlePiece.rotation,
-          patternRotation: firstPuzzlePiece.rotation,
-          remainingPieces: remainingPieces.length,
-          totalPieces: pattern.length,
-          details: "Primera pieza puzzle (startGame)",
-        });
-      }
+      // Log spawn de primera pieza puzzle
+      useGameLogStore.getState().addLog({
+        type: "spawn",
+        pieceId: firstPuzzlePiece.id,
+        pieceType: firstPuzzlePiece.type,
+        position: spawnPos,
+        rotation: firstPuzzlePiece.rotation,
+        patternRotation: firstPuzzlePiece.rotation,
+        remainingPieces: remainingPieces.length,
+        totalPieces: pattern.length,
+        details: "Primera pieza puzzle (startGame, cyclePos=0)",
+      });
     }
-    // Inicializar preview de siguiente pieza
-    // La siguiente pieza será normal (no puzzle) para el inicio
-    const previewTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
-    const nextPreviewType = previewTypes[Math.floor(Math.random() * previewTypes.length)] ?? "I";
-    setNextPiece({ type: nextPreviewType, rotation: 0, isPuzzle: false });
+    
+    // Inicializar preview de siguiente pieza basado en el ciclo (posición 1)
+    const nextShouldBePuzzle = shouldPositionBePuzzle(1, normalTarget);
+    
+    if (puzzleImageUrl && nextShouldBePuzzle && availablePieces.length > 1) {
+      // La siguiente debe ser puzzle
+      const nextPuzzle = availablePieces[1];
+      setNextPiece({
+        type: nextPuzzle.type,
+        rotation: nextPuzzle.rotation,
+        isPuzzle: true,
+        puzzleCells: nextPuzzle.cells,
+      });
+    } else {
+      // La siguiente debe ser normal
+      const previewTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+      const nextPreviewType = previewTypes[Math.floor(Math.random() * previewTypes.length)] ?? "I";
+      setNextPiece({ type: nextPreviewType, rotation: 0, isPuzzle: false });
+    }
 
     setGameState("playing");
     lastTickTimeRef.current = performance.now();
-  }, [puzzleImageUrl, remainingPieces, currentPuzzlePiece, size, lockedPieces, puzzleActions, difficulty, pattern]);
+  }, [puzzleImageUrl, remainingPieces, currentPuzzlePiece, size, lockedPieces, puzzleActions, levelDifficulty, pattern, shouldPositionBePuzzle]);
 
   // Función para reiniciar el juego
   const restartGame = useCallback(() => {
+    const config = getDifficultyConfig(levelDifficulty);
     setGrid(createEmptyGrid(size));
     setActiveType("I");
     setActiveRotation(0);
@@ -795,7 +856,13 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
-    setClearUsesRemaining(MAX_CLEAR_USES);
+    setClearUsesRemaining(config.clearCharges);
+    setTimeRemaining(config.timeLimitSeconds);
+    setTotalLinesCleared(0);
+    setFinalScore(null);
+    setCyclePosition(0);
+    setCurrentNormalTarget(getNormalPiecesCount(levelDifficulty));
+    setConsecutiveNormalCount(0);
     
     // Limpiar logs y errores al reiniciar
     useGameLogStore.getState().clearAll();
@@ -810,7 +877,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       setGameState("playing");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size, puzzleImageUrl]);
+  }, [size, puzzleImageUrl, levelDifficulty]);
 
   // Función para imprimir resumen final del juego
   const printFinalGameSummary = useCallback(() => {
@@ -1201,6 +1268,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const pieceCounterRef = useRef(pieceCounter);
   const testModeRef = useRef(testMode);
   const nextPieceRef = useRef(nextPiece);
+  const cyclePositionRef = useRef(cyclePosition);
+  const currentNormalTargetRef = useRef(currentNormalTarget);
+  const consecutiveNormalCountRef = useRef(consecutiveNormalCount);
+  const totalLinesClearedRef = useRef(totalLinesCleared);
+  const timeRemainingRef = useRef(timeRemaining);
 
   // OPTIMIZACIÓN: Pool de objetos reutilizables para evitar GC
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1228,6 +1300,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     pieceCounterRef.current = pieceCounter;
     testModeRef.current = testMode;
     nextPieceRef.current = nextPiece;
+    cyclePositionRef.current = cyclePosition;
+    currentNormalTargetRef.current = currentNormalTarget;
+    consecutiveNormalCountRef.current = consecutiveNormalCount;
+    totalLinesClearedRef.current = totalLinesCleared;
+    timeRemainingRef.current = timeRemaining;
   }, [
     activePosition,
     activeShape,
@@ -1243,7 +1320,52 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     pieceCounter,
     testMode,
     nextPiece,
+    cyclePosition,
+    currentNormalTarget,
+    consecutiveNormalCount,
+    totalLinesCleared,
+    timeRemaining,
   ]);
+  
+  // Sistema de timer - cuenta atrás
+  useEffect(() => {
+    // Solo ejecutar timer cuando el juego está en estado "playing"
+    if (gameState !== "playing") {
+      return;
+    }
+    
+    const timerInterval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          // Tiempo agotado - Game Over
+          clearInterval(timerInterval);
+          setIsGameOver(true);
+          setGameState("gameover");
+          audioActions.playGameOver();
+          
+          // Log timeout
+          useGameLogStore.getState().addLog({
+            type: "gameover",
+            placedPieces: usePuzzleStore.getState().placedPieces.length,
+            totalPieces: patternRef.current.length,
+            details: "Tiempo agotado",
+          });
+          
+          // Imprimir resumen del juego
+          setTimeout(() => {
+            useGameLogStore.getState().printGameSummary();
+          }, 100);
+          
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => {
+      clearInterval(timerInterval);
+    };
+  }, [gameState]);
 
   // OPTIMIZACIÓN: Pre-calcular placedPuzzleCellsMap cuando cambia placedPieces
   const placedPuzzleCellsMap = useMemo(() => {
@@ -1588,11 +1710,25 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
                 if (placedCount === totalPieces) {
                   // TODAS las piezas colocadas correctamente - VICTORIA
+                  
+                  // Calcular tiempo usado (usando ref para valor actualizado)
+                  const currentTimeRemaining = timeRemainingRef.current;
+                  const timeUsed = difficultyConfig.timeLimitSeconds - currentTimeRemaining;
+                  
+                  // Calcular puntuación final
+                  const score = calculateScore(
+                    levelDifficulty,
+                    totalLinesClearedRef.current,
+                    timeUsed,
+                    difficultyConfig.timeLimitSeconds
+                  );
+                  setFinalScore(score);
+                  
                   useGameLogStore.getState().addLog({
                     type: "victory",
                     placedPieces: placedCount,
                     totalPieces: totalPieces,
-                    details: "Todas las piezas colocadas correctamente",
+                    details: `Todas las piezas colocadas correctamente. Score: ${score.totalScore}`,
                   });
                   setGameState("victory");
                   audioActions.playVictory();
@@ -1685,9 +1821,13 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                 finalGrid: tempGrid,
               };
 
-          // Sonido de destrucción de líneas (si hay bloques a eliminar)
+          // Sonido de destrucción de líneas y actualizar contador
           if (blocksToRemove.length > 0) {
             audioActions.playLineClear();
+            // Incrementar contador de líneas eliminadas
+            // Estimamos líneas como bloques/size (una línea completa tiene 'size' bloques)
+            const linesCount = Math.ceil(blocksToRemove.length / size);
+            setTotalLinesCleared(prev => prev + linesCount);
           }
 
           // Crear mapa de celdas puzzle recién colocadas (si aplica)
@@ -1926,8 +2066,10 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
           // Obtener estado actualizado
           const updatedPlacedPieces = usePuzzleStore.getState().placedPieces;
           const updatedRemainingPieces = usePuzzleStore.getState().remainingPieces;
-          const updatedPieceCounter = usePuzzleStore.getState().pieceCounter;
           const updatedTestMode = usePuzzleStore.getState().testMode;
+          // Obtener posición actual del ciclo y target de normales
+          const currentCyclePos = cyclePositionRef.current;
+          const normalTarget = currentNormalTargetRef.current;
 
           const placedPieceIds = new Set(updatedPlacedPieces.map((p) => p.id));
           const availablePuzzlePieces = updatedRemainingPieces.filter(
@@ -1967,7 +2109,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
                   patternRotation: matchingPuzzle.rotation,
                   remainingPieces: updatedRemainingPieces.length,
                   totalPieces: currentPattern.length,
-                  details: "Spawn pieza puzzle (desde cola)",
+                  details: `Spawn pieza puzzle (desde cola, cyclePos=${currentCyclePos})`,
                 });
               } else {
                 // Puzzle no encontrado, usar como pieza normal
@@ -1984,12 +2126,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
               setActivePosition(spawnPosition);
             }
           } else {
-            // No hay pieza en cola (primera vez) - generar una
-            const shouldBePuzzle = updatedTestMode
+            // No hay pieza en cola (primera vez) - usar sistema de ciclos
+            const currentShouldBePuzzle = updatedTestMode
               ? availablePuzzlePieces.length > 0
-              : updatedPieceCounter % 2 === 0 && availablePuzzlePieces.length > 0;
+              : shouldPositionBePuzzle(currentCyclePos, normalTarget) && availablePuzzlePieces.length > 0;
 
-            if (puzzleImageUrl && shouldBePuzzle && availablePuzzlePieces.length > 0) {
+            if (puzzleImageUrl && currentShouldBePuzzle && availablePuzzlePieces.length > 0) {
               const puzzlePiece = availablePuzzlePieces[Math.floor(Math.random() * availablePuzzlePieces.length)];
               if (puzzlePiece) {
                 puzzleActions.setCurrentPuzzlePiece(puzzlePiece);
@@ -2006,33 +2148,74 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
             }
           }
 
-          // GENERAR nueva nextPiece para el preview
-          const nextCounter = updatedPieceCounter + 1;
-          const nextShouldBePuzzle = updatedTestMode
-            ? availablePuzzlePieces.length > 0
-            : nextCounter % 2 === 0 && availablePuzzlePieces.length > 0;
+          // INCREMENTAR posición del ciclo
+          const nextCyclePos = currentCyclePos + 1;
+          
+          // Calcular longitud del ciclo para detectar reinicio
+          const puzzleCount = getPuzzlePiecesCount(levelDifficulty);
+          const cycleLength = puzzleCount + normalTarget;
+          
+          // Si completamos un ciclo, generar nuevo target aleatorio para las normales
+          let nextNormalTarget = normalTarget;
+          if (nextCyclePos % cycleLength === 0) {
+            nextNormalTarget = getNormalPiecesCount(levelDifficulty);
+            setCurrentNormalTarget(nextNormalTarget);
+          }
+          
+          setCyclePosition(nextCyclePos);
+          
+          // SISTEMA DE PIEZA DE AYUDA 1x1
+          // Actualizar contador de piezas normales consecutivas
+          const currentConsecutiveCount = consecutiveNormalCountRef.current;
+          const currentPieceWasPuzzle = queuedPiece?.isPuzzle ?? false;
+          
+          let newConsecutiveCount: number;
+          if (currentPieceWasPuzzle) {
+            // La pieza actual fue puzzle, resetear contador
+            newConsecutiveCount = 0;
+          } else {
+            // La pieza actual fue normal, incrementar contador
+            newConsecutiveCount = currentConsecutiveCount + 1;
+          }
+          
+          // Verificar si la siguiente pieza debe ser de ayuda (O1)
+          const shouldNextBeHelper = newConsecutiveCount >= NORMAL_PIECES_FOR_HELPER;
+          
+          if (shouldNextBeHelper) {
+            // Generar pieza de ayuda O1 (1x1)
+            setNextPiece({ type: "O1", rotation: 0, isPuzzle: false });
+            setConsecutiveNormalCount(0); // Resetear contador
+          } else {
+            // Lógica normal de generación de pieza
+            setConsecutiveNormalCount(newConsecutiveCount);
+            
+            // Determinar si la siguiente pieza (para el preview) debe ser puzzle
+            const nextShouldBePuzzle = updatedTestMode
+              ? availablePuzzlePieces.length > 0
+              : shouldPositionBePuzzle(nextCyclePos, nextNormalTarget) && availablePuzzlePieces.length > 0;
 
-          // Excluir la pieza que acabamos de usar
-          const availableForNext = queuedPiece?.isPuzzle
-            ? availablePuzzlePieces.filter((p) => p.type !== queuedPiece.type || p.rotation !== queuedPiece.rotation)
-            : availablePuzzlePieces;
+            // Excluir la pieza que acabamos de usar
+            const availableForNext = queuedPiece?.isPuzzle
+              ? availablePuzzlePieces.filter((p) => p.type !== queuedPiece.type || p.rotation !== queuedPiece.rotation)
+              : availablePuzzlePieces;
 
-          if (puzzleImageUrl && nextShouldBePuzzle && availableForNext.length > 0) {
-            const nextPuzzle = availableForNext[Math.floor(Math.random() * availableForNext.length)];
-            if (nextPuzzle) {
-              setNextPiece({
-                type: nextPuzzle.type,
-                rotation: nextPuzzle.rotation,
-                isPuzzle: true,
-                puzzleCells: nextPuzzle.cells,
-              });
+            if (puzzleImageUrl && nextShouldBePuzzle && availableForNext.length > 0) {
+              const nextPuzzle = availableForNext[Math.floor(Math.random() * availableForNext.length)];
+              if (nextPuzzle) {
+                setNextPiece({
+                  type: nextPuzzle.type,
+                  rotation: nextPuzzle.rotation,
+                  isPuzzle: true,
+                  puzzleCells: nextPuzzle.cells,
+                });
+              } else {
+                const normalTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
+                setNextPiece({ type: normalTypes[Math.floor(Math.random() * normalTypes.length)] ?? "I", rotation: 0, isPuzzle: false });
+              }
             } else {
               const normalTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
               setNextPiece({ type: normalTypes[Math.floor(Math.random() * normalTypes.length)] ?? "I", rotation: 0, isPuzzle: false });
             }
-          } else {
-            const normalTypes: TetrominoType[] = ["I", "O", "T", "S", "Z", "J", "L"];
-            setNextPiece({ type: normalTypes[Math.floor(Math.random() * normalTypes.length)] ?? "I", rotation: 0, isPuzzle: false });
           }
 
           // Programar siguiente tick antes de salir (necesario porque el return evita llegar al requestAnimationFrame del final)
@@ -2463,12 +2646,22 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       <CameraConfigPanel />
       <FpsCounter />
 
+      {/* Timer - esquina superior derecha */}
+      {gameState === "playing" && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg flex items-center gap-2">
+          <FiClock className={`w-5 h-5 ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`} />
+          <span className={`font-mono text-lg font-bold ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`}>
+            {formatTime(timeRemaining)}
+          </span>
+        </div>
+      )}
+
       {/* Contador de limpiezas - lado izquierdo, mitad altura */}
       {gameState === "playing" && (
         <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 px-3 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md text-sm font-mono text-white">
           <div className="text-muted-foreground">Limpiezas:</div>
           <div className={clearUsesRemaining > 0 ? "text-green-400" : "text-red-400"}>
-            {clearUsesRemaining}/{MAX_CLEAR_USES}
+            {clearUsesRemaining}/{difficultyConfig.clearCharges}
           </div>
         </div>
       )}
@@ -2571,20 +2764,42 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       {/* Pantalla de Victoria - Puzzle completado */}
       {gameState === "victory" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border min-w-[320px]">
             <Image
               src="/game/levels/trofeo.svg"
               alt="Trofeo"
-              width={128}
-              height={128}
+              width={96}
+              height={96}
               className="object-contain"
             />
             <h2 className="text-3xl font-bold text-card-foreground tracking-wide">
               ¡Puzzle Completado!
             </h2>
-            <p className="text-muted-foreground text-sm max-w-xs text-center">
-              Has reconstruido la imagen correctamente
-            </p>
+            
+            {/* Desglose de puntuación */}
+            {finalScore && (
+              <div className="w-full space-y-2 bg-muted/50 rounded-lg p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Puntuación Base ({getDifficultyLabel(levelDifficulty)}):</span>
+                  <span className="font-mono font-semibold">{finalScore.baseScore}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Líneas Eliminadas ({totalLinesCleared}):</span>
+                  <span className="font-mono font-semibold">+{finalScore.linesClearedScore}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Bonus de Tiempo:</span>
+                  <span className="font-mono font-semibold text-green-500">+{finalScore.timeBonus}</span>
+                </div>
+                <div className="border-t border-border pt-2 mt-2">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total:</span>
+                    <span className="text-primary font-mono">{finalScore.totalScore}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex gap-4">
               <button
                 onClick={restartGame}
@@ -2651,7 +2866,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
 
           {/* Indicador de posición destino para piezas puzzle */}
           {/* Muestra dónde debe colocarse la pieza puzzle actual */}
-          {currentPuzzlePiece &&
+          {/* Se oculta en dificultad Leyenda (showTargetIndicator: false) */}
+          {difficultyConfig.showTargetIndicator &&
+            currentPuzzlePiece &&
             puzzleImageUrl &&
             (() => {
               const patternPiece = pattern.find(

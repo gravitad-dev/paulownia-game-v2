@@ -16,26 +16,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import Game from "@/components/game/Game";
-import { mapLevelDifficultyToGameDifficulty } from "@/lib/game/three/grid3d";
+import { DIFFICULTY_CONFIGS } from "@/lib/game/difficultyConfig";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
-const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = {
-  easy: "Fácil",
-  easy2: "Fácil 2",
-  medium: "Medio",
-  medium2: "Medio 2",
-  hard: "Difícil",
-  hard2: "Difícil 2",
-};
+// Obtener labels y colores desde la configuración centralizada
+const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = Object.fromEntries(
+  Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => [key, config.label])
+) as Record<LevelDifficulty, string>;
 
-const DIFFICULTY_COLORS: Record<LevelDifficulty, string> = {
-  easy: "bg-green-500/10 text-green-600 border-green-500/40",
-  easy2: "bg-green-600/10 text-green-700 border-green-600/40",
-  medium: "bg-yellow-500/10 text-yellow-600 border-yellow-500/40",
-  medium2: "bg-orange-500/10 text-orange-600 border-orange-500/40",
-  hard: "bg-red-500/10 text-red-600 border-red-500/40",
-  hard2: "bg-red-700/10 text-red-700 border-red-700/40",
-};
+const DIFFICULTY_COLORS: Record<LevelDifficulty, string> = Object.fromEntries(
+  Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => [key, config.badgeColor])
+) as Record<LevelDifficulty, string>;
 
 export default function LevelDetailPage() {
   const params = useParams();
@@ -74,8 +65,7 @@ export default function LevelDetailPage() {
   }, [levelId]);
 
   const coverUrl = getStrapiImageUrl(level?.cover?.url);
-  const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty;
-  const gameDifficulty = mapLevelDifficultyToGameDifficulty(difficulty);
+  const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty || "easy";
   const puzzleImages = level?.puzzleImage || [];
   const puzzleImageUrl =
     puzzleImages.length > 0
@@ -125,7 +115,7 @@ export default function LevelDetailPage() {
       <div className="flex-1 flex flex-col gap-4 ">
         <div className="w-full h-full flex items-center justify-center">
           <div id="game-container" className=" w-full h-full bg-gray-700">
-            <Game difficulty={gameDifficulty} puzzleImageUrl={puzzleImageUrl} />
+            <Game levelDifficulty={difficulty} puzzleImageUrl={puzzleImageUrl} />
           </div>
         </div>
 
