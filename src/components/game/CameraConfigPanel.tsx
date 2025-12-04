@@ -24,8 +24,9 @@ export function CameraConfigPanel() {
     }
   };
 
-  if (!isOpen) {
-    return (
+  return (
+    <>
+      {/* Botón siempre visible */}
       <Button
         variant="ghost"
         size="icon"
@@ -35,11 +36,10 @@ export function CameraConfigPanel() {
       >
         <Settings className="h-5 w-5" />
       </Button>
-    );
-  }
 
-  return (
-    <div className="fixed top-16 left-4 z-50 w-80 bg-card border border-border rounded-lg shadow-lg p-4 space-y-4">
+      {/* Panel expandido - solo cuando isOpen es true */}
+      {isOpen && (
+        <div className="fixed top-24 left-4 z-50 w-80 bg-card border border-border rounded-lg shadow-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Configuración</h3>
         <Button
@@ -178,6 +178,8 @@ export function CameraConfigPanel() {
         </Button>
       </div>
     </div>
+      )}
+    </>
   );
 }
 

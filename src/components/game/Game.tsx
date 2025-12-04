@@ -2719,16 +2719,6 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
         )}
       </div>
 
-      {/* Puntuación - esquina superior derecha */}
-      {gameState === "playing" && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg text-right">
-          <div className="text-xs text-muted-foreground uppercase tracking-wider">Puntos</div>
-          <div className="font-mono text-2xl font-bold text-white">
-            {totalLinesCleared * 100}
-          </div>
-        </div>
-      )}
-
       {/* Contador de poder NOVA - lado izquierdo, mitad altura */}
       {gameState === "playing" && (
         <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 px-3 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md text-center">
@@ -2740,17 +2730,28 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
         </div>
       )}
 
-      {/* Previsualizador de siguiente pieza - centrado arriba */}
-      {gameState === "playing" && nextPiece && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40">
-          <NextPiecePreview
-            pieceType={nextPiece.type}
-            rotation={nextPiece.rotation}
-            isPuzzlePiece={nextPiece.isPuzzle}
-            puzzleImageUrl={puzzleImageUrl}
-            gridSize={size}
-            puzzleCells={nextPiece.puzzleCells}
-          />
+      {/* Preview y Puntos - esquina superior derecha, apilados */}
+      {gameState === "playing" && (
+        <div className="fixed top-4 right-4 z-40 flex flex-col gap-3">
+          {/* Previsualizador de siguiente pieza */}
+          {nextPiece && (
+            <NextPiecePreview
+              pieceType={nextPiece.type}
+              rotation={nextPiece.rotation}
+              isPuzzlePiece={nextPiece.isPuzzle}
+              puzzleImageUrl={puzzleImageUrl}
+              gridSize={size}
+              puzzleCells={nextPiece.puzzleCells}
+            />
+          )}
+
+          {/* Puntuación */}
+          <div className="px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Puntos</div>
+            <div className="font-mono text-2xl font-bold text-white">
+              {totalLinesCleared * 100}
+            </div>
+          </div>
         </div>
       )}
 
@@ -2876,8 +2877,8 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
         {/* Iluminación inspirada en el proyecto original */}
         <LightingRig />
 
-        {/* Ejes de referencia X (rojo), Y (verde), Z (azul) */}
-        <axesHelper args={[size * 1.2]} />
+        {/* Ejes de referencia X (rojo), Y (verde), Z (azul) - Ocultos */}
+        {/* <axesHelper args={[size * 1.2]} /> */}
 
         {/* Paredes que se muestran/ocultan según la vista de cámara (como en el repo original) */}
         <group>
