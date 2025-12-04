@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "flag-icons/css/flag-icons.min.css";
 import { ToastContainer } from "@/components/notifications/ToastContainer";
 import { ConnectionModal } from "@/components/ui/ConnectionModal";
 import { SessionExpiredModal } from "@/components/ui/SessionExpiredModal";

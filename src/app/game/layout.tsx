@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RetroBackground } from "@/components/ui/RetroBackground";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useDailyRewardsStore } from "@/store/useDailyRewardsStore";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
-import { RetroBackground } from "@/components/ui/RetroBackground";
 import { Header } from "@/components/layout/Header";
 import { usePlayerSessionManager } from "@/hooks/usePlayerSessionManager";
 

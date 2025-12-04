@@ -1,8 +1,6 @@
 "use client";
 
 import { AddressAutocomplete } from "@/components/address/AddressAutocomplete";
-import { LegalDocumentDialog } from "@/components/legal/LegalDocumentDialog";
-import type { LegalDocumentType } from "@/components/legal/LegalDocumentContent";
 import { CountrySelect } from "@/components/profile/CountrySelect";
 import { PhoneInput } from "@/components/profile/PhoneInput";
 import { Button } from "@/components/ui/button";
@@ -25,6 +23,7 @@ import type { UserRewardDetailed } from "@/types/reward";
 import type { CreateClaimData } from "@/types/reward-claim";
 import { CountryCode } from "libphonenumber-js";
 import { Gift, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface ClaimRewardModalProps {
@@ -71,9 +70,6 @@ export function ClaimRewardModal({
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [dataProcessingAccepted, setDataProcessingAccepted] = useState(false);
-  const [openLegalDoc, setOpenLegalDoc] = useState<LegalDocumentType | null>(
-    null,
-  );
 
   // Estado de dirección
   const [country, setCountry] = useState("");
@@ -181,7 +177,6 @@ export function ClaimRewardModal({
     setCity("");
     setZipcode("");
     setIsAddressValidated(false);
-    setOpenLegalDoc(null);
 
     onClose();
   };
@@ -361,13 +356,13 @@ export function ClaimRewardModal({
                     className="text-xs cursor-pointer leading-tight"
                   >
                     Acepto los{" "}
-                    <button
-                      type="button"
+                    <Link
+                      href="/terms"
+                      target="_blank"
                       className="text-blue-600 underline hover:text-blue-800"
-                      onClick={() => setOpenLegalDoc("terms")}
                     >
                       términos y condiciones
-                    </button>{" "}
+                    </Link>{" "}
                     del servicio y las reglas del sorteo.
                     <span className="text-destructive ml-0.5">*</span>
                   </label>
@@ -388,13 +383,13 @@ export function ClaimRewardModal({
                   >
                     Doy mi consentimiento para el procesamiento de mis datos
                     personales según la{" "}
-                    <button
-                      type="button"
+                    <Link
+                      href="/privacy"
+                      target="_blank"
                       className="text-blue-600 underline hover:text-blue-800"
-                      onClick={() => setOpenLegalDoc("privacy")}
                     >
                       política de privacidad
-                    </button>
+                    </Link>
                     .<span className="text-destructive ml-0.5">*</span>
                   </label>
                 </div>
@@ -433,16 +428,6 @@ export function ClaimRewardModal({
           </form>
         </DialogContent>
       </Dialog>
-
-      <LegalDocumentDialog
-        type={openLegalDoc}
-        open={openLegalDoc !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOpenLegalDoc(null);
-          }
-        }}
-      />
     </>
   );
 }
