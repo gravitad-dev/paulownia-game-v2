@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import { useAuthStore } from "@/store/useAuthStore";
-import { UserService } from "@/services/user.service";
-import { PlayerStatsService } from "@/services/player-stats.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { PlayerStatsService } from "@/services/player-stats.service";
+import { UserService } from "@/services/user.service";
+import { useAuthStore } from "@/store/useAuthStore";
 import type { PlayerStatsSummary } from "@/types/player-stats";
 import {
-  Flame,
   Calendar,
-  Coins,
-  Ticket,
-  Crown,
-  Zap,
-  Star,
-  LucideIcon,
   CheckCircle,
+  Coins,
+  Crown,
+  LucideIcon,
+  Star,
+  Swords,
+  Ticket,
+  Zap,
 } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
 
@@ -342,7 +342,7 @@ export default function ProfilePage() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-full bg-orange-500/20">
-                    <Flame className="h-6 w-6 text-orange-500" />
+                    <Swords className="h-6 w-6 text-orange-500" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Victorias</p>
