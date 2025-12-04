@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { useCameraConfigStore } from "@/store/useCameraConfigStore";
 import { useGameSpeedStore } from "@/store/useGameSpeedStore";
+import { usePuzzleStore } from "@/store/usePuzzleStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Settings, X, RotateCcw } from "lucide-react";
 
 export function CameraConfigPanel() {
   const { config, updateConfig, resetConfig } = useCameraConfigStore();
   const { cycleTime, setCycleTime, resetCycleTime } = useGameSpeedStore();
+  const { testMode, setTestMode } = usePuzzleStore();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleChange = (key: keyof typeof config, value: string) => {
@@ -137,6 +140,22 @@ export function CameraConfigPanel() {
               <span>Lento</span>
             </div>
           </div>
+        </div>
+
+        <div className="pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="testMode" className="text-sm font-medium">
+              Modo Test
+            </Label>
+            <Checkbox
+              id="testMode"
+              checked={testMode}
+              onCheckedChange={(checked) => setTestMode(checked === true)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Activa solo piezas puzzle y permite atajos G (ganar) / P (perder)
+          </p>
         </div>
       </div>
 

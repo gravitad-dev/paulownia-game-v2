@@ -32,6 +32,7 @@ import MobileControls from "./MobileControls";
 
 const MAX_STACK_HEIGHT = 5;
 const FAST_FORWARD_FACTOR = 0.1;
+const MAX_CLEAR_USES = 3;
 
 // Tipos para el sistema de bloques visuales con animación
 interface BlockColors {
@@ -515,6 +516,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   const [visualBlocks, setVisualBlocks] = useState<VisualBlock[]>([]);
   const [isFastForward, setIsFastForward] = useState(false);
   const lastTickTimeRef = useRef<number>(0);
+  const [clearUsesRemaining, setClearUsesRemaining] = useState(MAX_CLEAR_USES);
 
   // Sistema puzzle - OPTIMIZACIÓN: Selectores específicos en lugar de suscribirse a todo el store
   const currentPuzzlePiece = usePuzzleStore((state) => state.currentPuzzlePiece);
@@ -579,6 +581,14 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
   // Función para limpiar todos los bloques por encima del suelo (Y > 0)
   // Mantiene intactos los bloques en Y=0 (piezas puzzle colocadas)
   const clearAboveFloor = useCallback(() => {
+    // Verificar si hay usos restantes
+    if (clearUsesRemaining <= 0) {
+      return;
+    }
+
+    // Decrementar contador
+    setClearUsesRemaining((prev) => prev - 1);
+
     // Actualizar grid lógico: vaciar todas las celdas con Y > 0
     setGrid((prevGrid) => {
       const newGrid: Grid3D = prevGrid.map((plane) =>
@@ -608,7 +618,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         return block;
       })
     );
-  }, [size]);
+  }, [size, clearUsesRemaining]);
 
   // Parámetros de variante para bloques apilados (basado en altura, como en el original)
   const getBlockVariantParams = useCallback((y: number): CubeVariantParams => {
@@ -692,6 +702,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
+    setClearUsesRemaining(MAX_CLEAR_USES);
     // Resetear estado del juego según si hay imagen de puzzle
     setGameState(puzzleImageUrl ? "waiting" : "playing");
     if (puzzleImageUrl) {
@@ -783,6 +794,7 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     lastTickTimeRef.current = performance.now();
     blockIdCounter = 0;
     setLockedPieces(new Set());
+    setClearUsesRemaining(MAX_CLEAR_USES);
     
     // Limpiar logs y errores al reiniciar
     useGameLogStore.getState().clearAll();
@@ -2271,6 +2283,18 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         case "E":
           action = "clear_upper_layers";
           break;
+        case "g":
+        case "G":
+          if (testMode) {
+            action = "test_win";
+          }
+          break;
+        case "p":
+        case "P":
+          if (testMode) {
+            action = "test_lose";
+          }
+          break;
         case " ":
           setIsFastForward(true);
           event.preventDefault();
@@ -2312,6 +2336,30 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
         case "clear_upper_layers":
           clearAboveFloor();
           break;
+        case "test_win":
+          // Marcar todas las piezas restantes como colocadas
+          const allRemainingPieces = usePuzzleStore.getState().remainingPieces;
+          allRemainingPieces.forEach((piece) => {
+            puzzleActions.placePiece(piece.id);
+          });
+          // Activar estado de victoria
+          setGameState("victory");
+          audioActions.playVictory();
+          // Imprimir resumen del juego
+          setTimeout(() => {
+            printFinalGameSummary();
+          }, 100);
+          break;
+        case "test_lose":
+          // Activar estado de gameover
+          setIsGameOver(true);
+          setGameState("gameover");
+          audioActions.playGameOver();
+          // Imprimir resumen del juego
+          setTimeout(() => {
+            printFinalGameSummary();
+          }, 100);
+          break;
         default:
           break;
       }
@@ -2327,6 +2375,9 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
     isGameOver,
     gameState,
     clearAboveFloor,
+    testMode,
+    puzzleActions,
+    printFinalGameSummary,
   ]);
 
   // Handler para keyup de espacio (desactivar fastForward)
@@ -2411,6 +2462,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       <CameraConfigPanel />
       <FpsCounter />
 
+      {/* Contador de limpiezas - lado izquierdo, mitad altura */}
+      {gameState === "playing" && (
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 px-3 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md text-sm font-mono text-white">
+          <div className="text-muted-foreground">Limpiezas:</div>
+          <div className={clearUsesRemaining > 0 ? "text-green-400" : "text-red-400"}>
+            {clearUsesRemaining}/{MAX_CLEAR_USES}
+          </div>
+        </div>
+      )}
+
       {/* Botones flotantes de control */}
       <div className="fixed top-4 left-4 z-50 flex gap-2">
         {/* Botón de volver a selección de niveles */}
@@ -2466,12 +2527,12 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       {/* Pantalla de inicio - Botón "Iniciar Nivel" */}
       {gameState === "waiting" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 px-10 py-8 shadow-2xl border border-slate-700">
-            <h2 className="text-3xl font-bold text-white tracking-wide">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border">
+            <h2 className="text-3xl font-bold text-card-foreground tracking-wide">
               {puzzleImageUrl ? "Modo Puzzle" : "Tetris 3D"}
             </h2>
             {puzzleImageUrl && (
-              <p className="text-slate-400 text-sm max-w-xs text-center">
+              <p className="text-muted-foreground text-sm max-w-xs text-center">
                 Coloca las piezas puzzle en su posición correcta para completar
                 la imagen
               </p>
@@ -2489,11 +2550,11 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       {/* Pantalla de Game Over - Botón "Reintentar" */}
       {gameState === "gameover" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 px-10 py-8 shadow-2xl border border-red-900/50">
-            <h2 className="text-3xl font-bold text-red-400 tracking-wide">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border">
+            <h2 className="text-3xl font-bold text-card-foreground tracking-wide">
               Game Over
             </h2>
-            <p className="text-slate-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               La pila de bloques ha alcanzado el límite
             </p>
             <button
@@ -2509,11 +2570,16 @@ export default function Game({ difficulty, puzzleImageUrl }: GameProps) {
       {/* Pantalla de Victoria - Puzzle completado */}
       {gameState === "victory" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-6 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 px-10 py-8 shadow-2xl border border-emerald-500/50">
-            <h2 className="text-3xl font-bold text-emerald-400 tracking-wide">
+          <div className="flex flex-col items-center gap-6 rounded-2xl bg-card px-10 py-8 shadow-2xl border">
+            <img
+              src="/game/levels/trofeo.svg"
+              alt="Trofeo"
+              className="w-32 h-32 object-contain"
+            />
+            <h2 className="text-3xl font-bold text-card-foreground tracking-wide">
               ¡Puzzle Completado!
             </h2>
-            <p className="text-slate-400 text-sm max-w-xs text-center">
+            <p className="text-muted-foreground text-sm max-w-xs text-center">
               Has reconstruido la imagen correctamente
             </p>
             <div className="flex gap-4">
