@@ -221,43 +221,42 @@ const MobileControls = memo(function MobileControls({
   );
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-between items-end px-4 sm:px-8 pointer-events-none md:hidden">
+    <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-between items-center px-4 sm:px-8 pointer-events-none md:hidden">
       {/* Lado Izquierdo - Acciones */}
-      <div className="flex flex-col gap-3 pointer-events-auto">
-        {/* Fila Superior - Botón Rotar Pieza (centrado) */}
-        <div className="flex justify-center">
+      <div className="pointer-events-auto">
+        <div className="grid grid-cols-3 grid-rows-3 gap-1 items-center justify-items-center">
+          {/* Fila superior - Solo Rotar Pieza (centrado) */}
+          <div /> {/* Espacio vacío */}
           <ActionButton onPress={onRotate} disabled={disabled}>
             <FiRotateCw className="w-6 h-6 sm:w-7 sm:h-7" />
           </ActionButton>
-        </div>
+          <div /> {/* Espacio vacío */}
 
-        {/* Fila Media - Tres botones horizontales (Cámara Izq, Limpiar, Cámara Der) */}
-        <div className="flex gap-2 justify-center items-center">
+          {/* Fila media - Tres botones horizontales (Cámara Izq, Limpiar, Cámara Der) */}
           <ActionButton
             onPress={onRotateCameraLeft}
             disabled={disabled}
-            className="bg-blue-600/50 hover:bg-blue-600/70 active:bg-blue-600/80 w-12 h-12 sm:w-14 sm:h-14"
+            className="bg-blue-600/50 hover:bg-blue-600/70 active:bg-blue-600/80"
           >
             <FiRefreshCw className="w-5 h-5 sm:w-6 sm:h-6 -scale-x-100" />
           </ActionButton>
           <ActionButton
             onPress={onClearLayers}
             disabled={disabled}
-            className="bg-red-600/50 hover:bg-red-600/70 active:bg-red-600/80 w-12 h-12 sm:w-14 sm:h-14"
+            className="bg-red-600/50 hover:bg-red-600/70 active:bg-red-600/80"
           >
             <FiTrash2 className="w-5 h-5 sm:w-6 sm:h-6" />
           </ActionButton>
           <ActionButton
             onPress={onRotateCameraRight}
             disabled={disabled}
-            className="bg-blue-600/50 hover:bg-blue-600/70 active:bg-blue-600/80 w-12 h-12 sm:w-14 sm:h-14"
+            className="bg-blue-600/50 hover:bg-blue-600/70 active:bg-blue-600/80"
           >
             <FiRefreshCw className="w-5 h-5 sm:w-6 sm:h-6" />
           </ActionButton>
-        </div>
 
-        {/* Fila Inferior - Botón Bajar Rápido (centrado) */}
-        <div className="flex justify-center">
+          {/* Fila inferior - Solo Bajar Rápido (centrado) */}
+          <div /> {/* Espacio vacío */}
           <ActionButton
             onPress={() => {}}
             onPressStart={onFastForwardStart}
@@ -267,12 +266,13 @@ const MobileControls = memo(function MobileControls({
           >
             <FiChevronsDown className="w-7 h-7 sm:w-8 sm:h-8" />
           </ActionButton>
+          <div /> {/* Espacio vacío */}
         </div>
       </div>
 
       {/* Lado Derecho - Cruceta Direccional */}
       <div className="pointer-events-auto">
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-3 gap-1 items-center justify-items-center">
           {/* Fila superior - Solo arriba */}
           <div /> {/* Espacio vacío */}
           <DirectionalButton
