@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useMemo, Suspense } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { useRef, useMemo, Suspense, memo } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   TetrominoType,
@@ -21,8 +21,21 @@ interface NextPiecePreviewProps {
   puzzleCells?: Array<{ x: number; z: number }>;
 }
 
+// ============================================================================
+// OPTIMIZACIÓN: Componente interno que fuerza invalidación continua
+// Solo se usa cuando el frameloop está en "demand"
+// ============================================================================
+function ContinuousInvalidator() {
+  const { invalidate } = useThree();
+  useFrame(() => {
+    invalidate();
+  });
+  return null;
+}
+
 // Componente que contiene la pieza y rota
-function RotatingPiece({
+// OPTIMIZACIÓN: Memoizado para evitar re-renders innecesarios
+const RotatingPiece = memo(function RotatingPiece({
   pieceType,
   rotation,
   isPuzzlePiece,
@@ -62,10 +75,10 @@ function RotatingPiece({
     };
   }, [shape]);
 
-  // Rotación automática lenta
+  // OPTIMIZACIÓN: Rotación con velocidad reducida para menor carga de GPU
   useFrame((_, delta) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.8;
+      groupRef.current.rotation.y += delta * 0.5; // Reducido de 0.8 a 0.5
     }
   });
 
@@ -107,9 +120,10 @@ function RotatingPiece({
       })}
     </group>
   );
-}
+});
 
-export function NextPiecePreview({
+// OPTIMIZACIÓN: Componente principal memoizado
+export const NextPiecePreview = memo(function NextPiecePreview({
   pieceType,
   rotation,
   isPuzzlePiece,
@@ -131,8 +145,16 @@ export function NextPiecePreview({
             near: 0.1,
             far: 100,
           }}
-          gl={{ alpha: true, antialias: true }}
+          gl={{ 
+            alpha: true, 
+            antialias: false, // OPTIMIZACIÓN: Desactivar antialiasing en preview pequeño
+            powerPreference: "low-power", // OPTIMIZACIÓN: Preferir bajo consumo
+          }}
+          frameloop="demand" // OPTIMIZACIÓN: Solo renderizar cuando hay cambios
         >
+          {/* OPTIMIZACIÓN: Fuerza renderizado continuo para la animación */}
+          <ContinuousInvalidator />
+          
           {/* Fondo transparente */}
           <color attach="background" args={["transparent"]} />
 
@@ -155,4 +177,4 @@ export function NextPiecePreview({
       </div>
     </div>
   );
-}
+});

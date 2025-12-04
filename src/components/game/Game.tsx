@@ -88,6 +88,68 @@ const porousTexture = loader.load("/textures/porous.jpg");
 // ============================================================================
 const SHARED_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 
+// ============================================================================
+// OPTIMIZACIÓN: Materiales globales para indicadores (ghost y puzzle target)
+// Evita re-crear ShaderMaterials incluso con useMemo
+// ============================================================================
+const GHOST_MATERIAL = new THREE.ShaderMaterial({
+  uniforms: {
+    u_thickness: { value: 0.03 },
+    u_color: { value: new THREE.Color("#ffff00") },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float u_thickness;
+    uniform vec3 u_color;
+    void main() {
+      float thickness = u_thickness;
+      if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
+          vUv.x < thickness || vUv.x > 1.0 - thickness) {
+        gl_FragColor = vec4(u_color, 0.8);
+      } else {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+      }
+    }
+  `,
+  transparent: true,
+});
+
+const PUZZLE_TARGET_MATERIAL = new THREE.ShaderMaterial({
+  uniforms: {
+    u_thickness: { value: 0.05 },
+    u_color: { value: new THREE.Color("#00ff88") },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float u_thickness;
+    uniform vec3 u_color;
+    void main() {
+      float thickness = u_thickness;
+      if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
+          vUv.x < thickness || vUv.x > 1.0 - thickness) {
+        gl_FragColor = vec4(u_color, 0.9);
+      } else {
+        gl_FragColor = vec4(u_color, 0.2);
+      }
+    }
+  `,
+  transparent: true,
+});
+
 // Interfaz para parámetros de variante de cubo
 interface CubeVariantParams {
   colors: BlockColors;
@@ -452,6 +514,19 @@ interface GridPlaneProps {
   visible?: boolean;
 }
 
+// ============================================================================
+// OPTIMIZACIÓN: Cache de materiales para líneas del grid
+// Evita crear nuevos LineBasicMaterial en cada render
+// ============================================================================
+const lineMaterialCache = new Map<string, THREE.LineBasicMaterial>();
+
+function getCachedLineMaterial(color: string): THREE.LineBasicMaterial {
+  if (!lineMaterialCache.has(color)) {
+    lineMaterialCache.set(color, new THREE.LineBasicMaterial({ color }));
+  }
+  return lineMaterialCache.get(color)!;
+}
+
 // OPTIMIZACIÓN: Memoizado para evitar re-renders innecesarios
 const GridPlane = memo(function GridPlane({
   width,
@@ -467,23 +542,27 @@ const GridPlane = memo(function GridPlane({
     [width, height, segments]
   );
 
+  // OPTIMIZACIÓN: Usar material cacheado en lugar de crear uno nuevo
+  const lineMaterial = useMemo(() => getCachedLineMaterial(color), [color]);
+
   return (
     <group position={position} rotation={rotation} visible={visible}>
       {/* Líneas del grid */}
-      <lineSegments geometry={linesGeometry}>
-        <lineBasicMaterial color={color} />
-      </lineSegments>
+      <lineSegments geometry={linesGeometry} material={lineMaterial} />
     </group>
   );
 });
 
-const LightingRig = () => (
-  <>
-    <color attach="background" args={["#1a1b26"]} />
-    <ambientLight color="#ffffff" intensity={0.5} />
-    <directionalLight color="#ffffff" intensity={0.8} position={[10, 15, 10]} />
-  </>
-);
+// OPTIMIZACIÓN: Memoizado para evitar re-creación de luces en cada render
+const LightingRig = memo(function LightingRig() {
+  return (
+    <>
+      <color attach="background" args={["#1a1b26"]} />
+      <ambientLight color="#ffffff" intensity={0.5} />
+      <directionalLight color="#ffffff" intensity={0.8} position={[10, 15, 10]} />
+    </>
+  );
+});
 
 // Tipo de estado del juego
 type GameState = "waiting" | "playing" | "gameover" | "victory";
@@ -1293,12 +1372,24 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
   const totalLinesClearedRef = useRef(totalLinesCleared);
   const timeRemainingRef = useRef(timeRemaining);
 
-  // OPTIMIZACIÓN: Pool de objetos reutilizables para evitar GC
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _vectorPool = useRef({
-    temp1: new THREE.Vector3(),
-    temp2: new THREE.Vector3(),
-    temp3: new THREE.Vector3(),
+  // OPTIMIZACIÓN: Pool de estructuras reutilizables para evitar GC en el tick loop
+  const reusableDataRef = useRef({
+    // Maps y Sets reutilizables para setVisualBlocks
+    blocksByPosition: new Map<string, VisualBlock>(),
+    processedPositions: new Set<string>(),
+    resultBlocks: [] as VisualBlock[],
+    destroyingBlocks: [] as VisualBlock[],
+    // Para puzzle cells
+    newPuzzleCells: new Map<string, { tileX: number; tileZ: number }>(),
+    currentPlacedPuzzleCellsMap: new Map<string, { tileX: number; tileZ: number }>(),
+    // Pool de vectores Three.js
+    tempVectors: {
+      v1: new THREE.Vector3(),
+      v2: new THREE.Vector3(),
+      v3: new THREE.Vector3(),
+    },
+    // Objeto reutilizable para puzzle info
+    puzzleInfoResult: { isPuzzle: false, tileX: 0, tileZ: 0 },
   });
 
   // OPTIMIZACIÓN: Sincronizar refs con estado en un solo useEffect consolidado
@@ -1457,74 +1548,6 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
   const dropPositionBlocks = useMemo(
     () => calculateDropPosition(),
     [calculateDropPosition]
-  );
-
-  // Material de shader para mostrar solo bordes en los cubos ghost (caída)
-  const ghostMaterial = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: {
-          u_thickness: { value: 0.03 },
-          u_color: { value: new THREE.Color("#ffff00") },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 vUv;
-          uniform float u_thickness;
-          uniform vec3 u_color;
-          void main() {
-            float thickness = u_thickness;
-            if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
-                vUv.x < thickness || vUv.x > 1.0 - thickness) {
-              gl_FragColor = vec4(u_color, 0.8);
-            } else {
-              gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
-            }
-          }
-        `,
-        transparent: true,
-      }),
-    []
-  );
-
-  // Material para el indicador de posición destino de piezas puzzle (verde)
-  const puzzleTargetMaterial = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: {
-          u_thickness: { value: 0.05 },
-          u_color: { value: new THREE.Color("#00ff88") },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec2 vUv;
-          uniform float u_thickness;
-          uniform vec3 u_color;
-          void main() {
-            float thickness = u_thickness;
-            if (vUv.y < thickness || vUv.y > 1.0 - thickness || 
-                vUv.x < thickness || vUv.x > 1.0 - thickness) {
-              gl_FragColor = vec4(u_color, 0.9);
-            } else {
-              gl_FragColor = vec4(u_color, 0.2);
-            }
-          }
-        `,
-        transparent: true,
-      }),
-    []
   );
 
   const cameraCorrection = useCallback(
@@ -1849,19 +1872,16 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
             setTotalLinesCleared(prev => prev + linesCount);
           }
 
-          // Crear mapa de celdas puzzle recién colocadas (si aplica)
-          // Esto captura la info ANTES de setVisualBlocks para evitar problemas de timing
-          const newPuzzleCells = new Map<
-            string,
-            { tileX: number; tileZ: number }
-          >();
+          // OPTIMIZACIÓN: Reutilizar Map para celdas puzzle recién colocadas
+          const reusable = reusableDataRef.current;
+          reusable.newPuzzleCells.clear();
           if (isPuzzleCorrectlyPlaced && currentPuzzlePiece) {
             const patternPiece = currentPattern.find(
               (p) => p.id === currentPuzzlePiece.id
             );
             if (patternPiece) {
               patternPiece.cells.forEach((cell) => {
-                newPuzzleCells.set(`${cell.x},${cell.z}`, {
+                reusable.newPuzzleCells.set(`${cell.x},${cell.z}`, {
                   tileX: cell.x,
                   tileZ: cell.z,
                 });
@@ -1869,18 +1889,21 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
             }
           }
 
-          // OPTIMIZACIÓN: Capturar el Map actualizado antes de setVisualBlocks
-          // Obtener el estado actualizado de Zustand para placedPieces
-          const currentPlacedPuzzleCellsMap = new Map<string, { tileX: number; tileZ: number }>();
+          // OPTIMIZACIÓN: Reutilizar Map para placedPuzzleCellsMap
+          reusable.currentPlacedPuzzleCellsMap.clear();
           const updatedPlacedPiecesForMap = usePuzzleStore.getState().placedPieces;
           updatedPlacedPiecesForMap.forEach((piece) => {
             piece.cells.forEach((cell) => {
-              currentPlacedPuzzleCellsMap.set(`${cell.x},${cell.z}`, {
+              reusable.currentPlacedPuzzleCellsMap.set(`${cell.x},${cell.z}`, {
                 tileX: cell.x,
                 tileZ: cell.z,
               });
             });
           });
+          
+          // Capturar referencias locales de los Maps reutilizables
+          const newPuzzleCells = reusable.newPuzzleCells;
+          const currentPlacedPuzzleCellsMap = reusable.currentPlacedPuzzleCellsMap;
 
           // Actualizar bloques visuales con animaciones
           // REFACTORIZADO: Usar Map por posición exacta para mantener identidad de bloques
@@ -2922,7 +2945,7 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
                     cell.z - halfSize + 0.5,
                   ]}
                   rotation={[-Math.PI / 2, 0, 0]}
-                  material={puzzleTargetMaterial}
+                  material={PUZZLE_TARGET_MATERIAL}
                 >
                   <planeGeometry args={[0.95, 0.95]} />
                 </mesh>
@@ -3032,7 +3055,7 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
                   block.y - halfSize + 0.5,
                   block.z - halfSize + 0.5,
                 ]}
-                material={ghostMaterial}
+                material={GHOST_MATERIAL}
                 geometry={SHARED_BOX_GEOMETRY}
               />
             );
