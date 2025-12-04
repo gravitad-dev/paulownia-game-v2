@@ -618,8 +618,8 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
     setVisualBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
-  // Función para limpiar todos los bloques por encima del suelo (Y > 0)
-  // Mantiene intactos los bloques en Y=0 (piezas puzzle colocadas)
+  // Función para limpiar todos los bloques NO bloqueados en todo el espacio de juego
+  // Mantiene intactos SOLO los bloques de puzzle que ya están bloqueados (colocados correctamente)
   const clearAboveFloor = useCallback(() => {
     // Verificar si hay usos restantes
     if (clearUsesRemaining <= 0) {
@@ -629,26 +629,45 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
     // Decrementar contador
     setClearUsesRemaining((prev) => prev - 1);
 
-    // Actualizar grid lógico: vaciar todas las celdas con Y > 0
+    // Reproducir sonido de poder
+    audioActions.playPowerClear();
+
+    // Calcular posiciones bloqueadas (celdas de piezas puzzle colocadas correctamente)
+    const lockedPositions = new Set<string>();
+    placedPieces.forEach((piece) => {
+      if (lockedPieces.has(piece.id)) {
+        piece.cells.forEach((cell) => {
+          // Las piezas puzzle bloqueadas están en Y=0
+          lockedPositions.add(`${cell.x},0,${cell.z}`);
+        });
+      }
+    });
+
+    // Actualizar grid lógico: vaciar todas las celdas EXCEPTO las bloqueadas
     setGrid((prevGrid) => {
       const newGrid: Grid3D = prevGrid.map((plane) =>
         plane.map((row) => [...row])
       );
       for (let x = 0; x < size; x++) {
-        for (let y = 1; y < size; y++) {
-          // Solo Y > 0
+        for (let y = 0; y < size; y++) {
           for (let z = 0; z < size; z++) {
-            newGrid[x][y][z] = "empty";
+            const posKey = `${x},${y},${z}`;
+            // Solo vaciar si NO está bloqueada
+            if (!lockedPositions.has(posKey)) {
+              newGrid[x][y][z] = "empty";
+            }
           }
         }
       }
       return newGrid;
     });
 
-    // Actualizar bloques visuales: marcar como destroying los que tienen Y > 0
+    // Actualizar bloques visuales: marcar como destroying los que NO son puzzle bloqueados
     setVisualBlocks((prev) =>
       prev.map((block) => {
-        if (block.targetY > 0) {
+        const posKey = `${block.targetX},${block.targetY},${block.targetZ}`;
+        // Destruir el bloque si NO está en una posición bloqueada
+        if (!lockedPositions.has(posKey)) {
           return {
             ...block,
             targetScale: 0,
@@ -658,7 +677,7 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
         return block;
       })
     );
-  }, [size, clearUsesRemaining]);
+  }, [size, clearUsesRemaining, lockedPieces, placedPieces]);
 
   // Parámetros de variante para bloques apilados (basado en altura, como en el original)
   const getBlockVariantParams = useCallback((y: number): CubeVariantParams => {
@@ -2643,66 +2662,83 @@ export default function Game({ levelDifficulty, puzzleImageUrl }: GameProps) {
 
   return (
     <div ref={gameContainerRef} className="relative h-full w-full bg-slate-950">
-      <CameraConfigPanel />
-      <FpsCounter />
+      {/* Barra superior izquierda - Controles */}
+      <div className="fixed top-4 left-4 z-50 flex flex-col gap-2">
+        {/* Fila de botones */}
+        <div className="flex gap-2">
+          {/* Botón de volver a selección de niveles */}
+          <button
+            onClick={() => router.push("/game/levels")}
+            className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+            title="Volver a selección de niveles"
+          >
+            <FiArrowLeft className="w-5 h-5" />
+          </button>
 
-      {/* Timer - esquina superior derecha */}
-      {gameState === "playing" && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg flex items-center gap-2">
-          <FiClock className={`w-5 h-5 ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`} />
-          <span className={`font-mono text-lg font-bold ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`}>
-            {formatTime(timeRemaining)}
-          </span>
+          {/* Botón de pantalla completa */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            {isFullscreen ? (
+              <FiMinimize2 className="w-5 h-5" />
+            ) : (
+              <FiMaximize2 className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Botón de mute/unmute */}
+          <button
+            onClick={toggleMute}
+            className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
+            title={isMuted ? "Activar sonido" : "Silenciar"}
+          >
+            {isMuted ? (
+              <FiVolumeX className="w-5 h-5" />
+            ) : (
+              <FiVolume2 className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Botón de configuración */}
+          <CameraConfigPanel />
+
+          {/* Contador de FPS */}
+          <FpsCounter />
         </div>
-      )}
 
-      {/* Contador de limpiezas - lado izquierdo, mitad altura */}
+        {/* Timer - debajo de los botones */}
+        {gameState === "playing" && (
+          <div className="px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg flex items-center gap-2 w-fit">
+            <FiClock className={`w-5 h-5 ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`} />
+            <span className={`font-mono text-lg font-bold ${timeRemaining < 60 ? "text-red-400 animate-pulse" : "text-white"}`}>
+              {formatTime(timeRemaining)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Puntuación - esquina superior derecha */}
       {gameState === "playing" && (
-        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 px-3 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md text-sm font-mono text-white">
-          <div className="text-muted-foreground">Limpiezas:</div>
-          <div className={clearUsesRemaining > 0 ? "text-green-400" : "text-red-400"}>
-            {clearUsesRemaining}/{difficultyConfig.clearCharges}
+        <div className="fixed top-4 right-4 z-50 px-4 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg text-right">
+          <div className="text-xs text-muted-foreground uppercase tracking-wider">Puntos</div>
+          <div className="font-mono text-2xl font-bold text-white">
+            {totalLinesCleared * 100}
           </div>
         </div>
       )}
 
-      {/* Botones flotantes de control */}
-      <div className="fixed top-4 left-4 z-50 flex gap-2">
-        {/* Botón de volver a selección de niveles */}
-        <button
-          onClick={() => router.push("/game/levels")}
-          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
-          title="Volver a selección de niveles"
-        >
-          <FiArrowLeft className="w-5 h-5" />
-        </button>
-
-        {/* Botón de pantalla completa */}
-        <button
-          onClick={toggleFullscreen}
-          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
-          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-        >
-          {isFullscreen ? (
-            <FiMinimize2 className="w-5 h-5" />
-          ) : (
-            <FiMaximize2 className="w-5 h-5" />
-          )}
-        </button>
-
-        {/* Botón de mute/unmute */}
-        <button
-          onClick={toggleMute}
-          className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10"
-          title={isMuted ? "Activar sonido" : "Silenciar"}
-        >
-          {isMuted ? (
-            <FiVolumeX className="w-5 h-5" />
-          ) : (
-            <FiVolume2 className="w-5 h-5" />
-          )}
-        </button>
-      </div>
+      {/* Contador de poder NOVA - lado izquierdo, mitad altura */}
+      {gameState === "playing" && (
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-50 px-3 py-2 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md text-center">
+          <div className="text-xs text-cyan-400 font-bold tracking-wider">NOVA</div>
+          <div className={`font-mono text-lg font-bold ${clearUsesRemaining > 0 ? "text-cyan-400" : "text-red-400"}`}>
+            {clearUsesRemaining}/{difficultyConfig.clearCharges}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1">[E]</div>
+        </div>
+      )}
 
       {/* Previsualizador de siguiente pieza - centrado arriba */}
       {gameState === "playing" && nextPiece && (

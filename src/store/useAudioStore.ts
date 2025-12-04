@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // Tipos de sonido disponibles
-type SoundType = "move" | "lineClear" | "wallHit" | "pieceLock" | "victory" | "gameOver";
+type SoundType = "move" | "lineClear" | "wallHit" | "pieceLock" | "victory" | "gameOver" | "powerClear";
 
 // Contexto de audio global (singleton)
 let audioContext: AudioContext | null = null;
@@ -218,6 +218,50 @@ const soundGenerators: Record<SoundType, (volume: number) => void> = {
       osc.stop(ctx.currentTime + 0.8);
     }, 800);
   },
+
+  // Poder de limpieza: sonido suave tipo "whoosh" descendente
+  powerClear: (volume: number) => {
+    const ctx = getAudioContext();
+
+    // Sweep suave descendente (whoosh grave)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(400, ctx.currentTime);
+    osc1.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.3);
+    gain1.gain.setValueAtTime(0.08 * volume, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.35);
+
+    // Capa media para cuerpo
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(250, ctx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.25);
+    gain2.gain.setValueAtTime(0.06 * volume, ctx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(ctx.currentTime);
+    osc2.stop(ctx.currentTime + 0.3);
+
+    // Toque grave sutil
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = "sine";
+    osc3.frequency.setValueAtTime(60, ctx.currentTime);
+    osc3.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.2);
+    gain3.gain.setValueAtTime(0.1 * volume, ctx.currentTime);
+    gain3.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc3.connect(gain3);
+    gain3.connect(ctx.destination);
+    osc3.start(ctx.currentTime);
+    osc3.stop(ctx.currentTime + 0.25);
+  },
 };
 
 interface AudioState {
@@ -236,6 +280,7 @@ interface AudioState {
   playPieceLock: () => void;
   playVictory: () => void;
   playGameOver: () => void;
+  playPowerClear: () => void;
 }
 
 // Función para reproducir un sonido
@@ -312,6 +357,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const { isMuted, globalVolume } = get();
     playSound("gameOver", isMuted, globalVolume);
   },
+
+  playPowerClear: () => {
+    const { isMuted, globalVolume } = get();
+    playSound("powerClear", isMuted, globalVolume);
+  },
 }));
 
 // Exportar acciones directas para uso fuera de componentes React
@@ -322,4 +372,5 @@ export const audioActions = {
   playPieceLock: () => useAudioStore.getState().playPieceLock(),
   playVictory: () => useAudioStore.getState().playVictory(),
   playGameOver: () => useAudioStore.getState().playGameOver(),
+  playPowerClear: () => useAudioStore.getState().playPowerClear(),
 };

@@ -27,19 +27,19 @@ export function CameraConfigPanel() {
   if (!isOpen) {
     return (
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         onClick={() => setIsOpen(true)}
-        className="fixed top-4 right-4 z-50"
+        className="p-3 bg-black/50 hover:bg-black/70 text-white rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg border border-white/10 h-auto w-auto"
         title="Configuración"
       >
-        <Settings className="h-4 w-4" />
+        <Settings className="h-5 w-5" />
       </Button>
     );
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-80 bg-card border border-border rounded-lg shadow-lg p-4 space-y-4">
+    <div className="fixed top-16 left-4 z-50 w-80 bg-card border border-border rounded-lg shadow-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Configuración</h3>
         <Button
