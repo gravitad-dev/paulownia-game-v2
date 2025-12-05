@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 import { Input } from "@/components/ui/input";
 import { RankingTable } from "@/components/ranking";
+import { HeroCard } from "@/components/game/HeroCard";
 import { useRanking } from "@/hooks/useRanking";
 import { Trophy } from "lucide-react";
 
@@ -26,7 +27,9 @@ export default function GamePage() {
   } = useRanking();
 
   return (
-    <div className="flex-1 bg-transparent">
+    <div className="flex-1 bg-transparent space-y-6">
+      {/* Hero Card - Introduction Banner */}
+      <HeroCard />
       <Card className="overflow-hidden">
         <CardHeaderSticky
           title="Ranking de Jugadores"
