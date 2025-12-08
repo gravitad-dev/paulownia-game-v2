@@ -85,7 +85,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         return (
           <Badge
             variant="secondary"
-            className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
+            className="bg-yellow-500/90 text-white border-yellow-400/50"
           >
             Bloqueado
           </Badge>
@@ -94,7 +94,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         return (
           <Badge
             variant="secondary"
-            className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+            className="bg-green-500/90 text-white border-green-400/50"
           >
             Disponible
           </Badge>
@@ -103,7 +103,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         return (
           <Badge
             variant="secondary"
-            className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+            className="bg-blue-500/90 text-white border-blue-400/50"
           >
             Completado
           </Badge>
@@ -112,7 +112,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         return (
           <Badge
             variant="secondary"
-            className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+            className="bg-gray-500/90 text-white border-gray-400/50"
           >
             Deshabilitado
           </Badge>
@@ -125,31 +125,46 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
   return (
     <>
       <Card
+        data-level-card
         className={cn(
-          "flex flex-col overflow-hidden hover:shadow-lg transition-shadow",
+          "flex flex-col overflow-hidden shadow-none hover:shadow-lg transition-shadow h-full min-h-[260px]",
           isDisabled && "opacity-60"
         )}
       >
         <div className="relative w-full aspect-video bg-muted overflow-hidden">
           {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt={level.name}
-              fill
-              className={cn(
-                "object-cover",
-                isBlocked && "grayscale opacity-75"
-              )}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            />
+            <>
+              <Image
+                src={coverUrl}
+                alt={level.name}
+                fill
+                className={cn(
+                  "object-cover",
+                  isBlocked && "grayscale opacity-75"
+                )}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
+              {/* Degradado oscuro sobre la imagen para mejorar legibilidad del badge */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/80 to-[#0B7431]/50 pointer-events-none" />
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               Sin imagen
             </div>
           )}
+          {/* Badge de estado en esquina superior izquierda */}
+          {getStatusBadge() && (
+            <div className="absolute top-2 left-2 z-10">{getStatusBadge()}</div>
+          )}
           {isBlocked && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <Lock className="h-8 w-8 text-white" />
+              <img
+                src="/game/levels/cerradura.svg"
+                alt="Bloqueado"
+                width={70}
+                height={85}
+                className="drop-shadow-lg"
+              />
             </div>
           )}
         </div>
@@ -158,7 +173,6 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
             <h3 className="font-semibold text-lg line-clamp-2 flex-1">
               {level.name}
             </h3>
-            {getStatusBadge()}
           </div>
           {level.description && (
             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
@@ -197,6 +211,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         onOpenChange={setIsDifficultyModalOpen}
         levelUuid={level.uuid}
         levelName={level.name}
+        coverImageUrl={level.cover?.url}
       />
 
       <LevelUnlockModal

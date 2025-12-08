@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { LevelsGrid } from "@/components/levels/LevelsGrid";
 import { LevelService } from "@/services/level.service";
@@ -9,6 +9,8 @@ import { UserLevel } from "@/types/user-level";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Level } from "@/types/level";
+import { Loader2 } from "lucide-react";
+import gsap from "gsap";
 
 const PAGE_SIZE = 12;
 
@@ -33,6 +35,9 @@ export default function LevelsPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef(false);
+  const gsapCtxRef = useRef<gsap.Context | null>(null);
 
   useEffect(() => {
     const fetchUserLevels = async () => {
@@ -156,25 +161,95 @@ export default function LevelsPage() {
     }));
   };
 
+  // Animaciones GSAP dobles: contenedor + cards individuales
+  useEffect(() => {
+    // Si aún cargando o ya se animó, no hacer nada
+    if (loading || hasAnimatedRef.current) return;
+
+    // Solo animar cuando hay datos y el contenedor está listo
+    if (containerRef.current && userLevels.length > 0) {
+      // Limpiar animación anterior si existe
+      if (gsapCtxRef.current) {
+        gsapCtxRef.current.revert();
+        gsapCtxRef.current = null;
+      }
+
+      const rafId = requestAnimationFrame(() => {
+        if (!containerRef.current) return;
+
+        hasAnimatedRef.current = true;
+        const ctx = gsap.context(() => {
+          // Primera animación: contenedor principal
+          gsap.fromTo(
+            containerRef.current,
+            {
+              opacity: 0,
+              y: 30,
+            },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.5,
+              ease: "power2.out",
+              onComplete: () => {
+                // Segunda animación: cards individuales con stagger
+                const cards =
+                  containerRef.current?.querySelectorAll("[data-level-card]");
+                if (cards && cards.length > 0) {
+                  gsap.fromTo(
+                    cards,
+                    {
+                      opacity: 0,
+                      scale: 0.8,
+                      y: 30,
+                    },
+                    {
+                      opacity: 1,
+                      scale: 1,
+                      y: 0,
+                      duration: 0.4,
+                      stagger: 0.05,
+                      ease: "power2.out",
+                    }
+                  );
+                }
+              },
+            }
+          );
+        }, containerRef);
+
+        gsapCtxRef.current = ctx;
+      });
+
+      return () => {
+        cancelAnimationFrame(rafId);
+        if (gsapCtxRef.current) {
+          gsapCtxRef.current.revert();
+          gsapCtxRef.current = null;
+        }
+      };
+    }
+  }, [loading, userLevels.length]);
+
   return (
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Niveles" />
 
       <div className="flex-1 p-4 space-y-4">
-        {/* Subtítulo descriptivo */}
-        <div>
-          <p className="text-sm text-muted-foreground">
-            Selecciona un nivel para comenzar a jugar
-          </p>
-        </div>
-
         {/* Contenido principal */}
         {error ? (
           <div className="text-center py-12">
             <p className="text-destructive">{error}</p>
           </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-muted-foreground">Cargando niveles...</p>
+            </div>
+          </div>
         ) : (
-          <div className="space-y-6 flex-1">
+          <div ref={containerRef} className="space-y-6 flex-1">
             <LevelsGrid
               userLevels={userLevels}
               isLoading={loading}
