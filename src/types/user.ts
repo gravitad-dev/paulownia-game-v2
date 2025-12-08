@@ -128,6 +128,7 @@ export interface User {
   blocked: boolean;
   role?: Role;
   avatar?: Media;
+  isPremium?: boolean;
   name?: string;
   lastname?: string;
   phone?: string;

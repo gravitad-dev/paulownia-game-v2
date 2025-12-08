@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import { useRewardStore } from "@/store/useRewardStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { RewardService } from "@/services/reward.service";
 import { useToast } from "@/hooks/useToast";
 import type { RouletteHistoryItem } from "@/types/reward";
@@ -13,6 +14,7 @@ import {
   RewardRevealModal,
   SessionRewardsList,
 } from "@/components/game/rewards/discover";
+import { PremiumAccessModal } from "@/components/profile/PremiumAccessModal";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
 
 // Duración de la animación de la ruleta (en ms)
@@ -21,6 +23,7 @@ const SPIN_ANIMATION_DURATION = 3000;
 const REVEAL_DELAY = 500;
 
 export default function DiscoverRewardsPage() {
+  const { user } = useAuthStore();
   const playerStats = usePlayerStatsStore((state) => state.stats);
   const {
     phase,
@@ -34,6 +37,7 @@ export default function DiscoverRewardsPage() {
   } = useRewardStore();
 
   const [history, setHistory] = useState<RouletteHistoryItem[]>([]);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const toast = useToast();
 
@@ -83,6 +87,12 @@ export default function DiscoverRewardsPage() {
 
   // Manejar click en girar
   const handleSpin = async () => {
+    // Verificación de usuario Premium
+    if (!user?.isPremium) {
+      setShowPremiumModal(true);
+      return;
+    }
+
     const success = await spin();
 
     if (!success) {
@@ -144,6 +154,7 @@ export default function DiscoverRewardsPage() {
               disabled={phase !== "idle"}
               isSpinning={isSpinning}
               ticketCount={ticketCount}
+              requiresPremium={!user?.isPremium}
             />
 
             {/* Mensaje si no tiene tickets */}
@@ -174,6 +185,14 @@ export default function DiscoverRewardsPage() {
           reward={currentReward}
           userReward={currentUserReward}
           onClose={handleCloseReveal}
+        />
+
+        {/* Modal de Acceso Premium */}
+        <PremiumAccessModal
+          open={showPremiumModal}
+          onOpenChange={setShowPremiumModal}
+          title="Desbloquea la Ruleta"
+          description="Girar la ruleta es un beneficio exclusivo para usuarios Premium. Activa tu cuenta para ganar premios increíbles."
         />
       </div>
     </div>

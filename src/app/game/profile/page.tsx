@@ -248,10 +248,18 @@ export default function ProfilePage() {
 
           {/* Info del usuario */}
           <div className="pt-14 sm:pt-20 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">
-                {user?.username || "Usuario"}
-              </h1>
+            <div className="mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-bold">
+                  {user?.username || "Usuario"}
+                </h1>
+                {user?.isPremium && (
+                  <div className="inline-flex items-center gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-amber-600 text-sm font-semibold">
+                    <Star className="h-4 w-4 text-amber-500" />
+                    Premium
+                  </div>
+                )}
+              </div>
               {user?.name && user?.lastname && (
                 <p className="text-muted-foreground">
                   {user.name} {user.lastname}
