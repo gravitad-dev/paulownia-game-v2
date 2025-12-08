@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,10 @@ import {
 import Game from "@/components/game/Game";
 import { DIFFICULTY_CONFIGS } from "@/lib/game/difficultyConfig";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import {
+  useGameSessionStore,
+  gameSessionSelectors,
+} from "@/store/useGameSessionStore";
 
 // Obtener labels y colores desde la configuración centralizada
 const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = Object.fromEntries(
@@ -27,6 +31,42 @@ const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = Object.fromEntries(
 const DIFFICULTY_COLORS: Record<LevelDifficulty, string> = Object.fromEntries(
   Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => [key, config.badgeColor])
 ) as Record<LevelDifficulty, string>;
+
+function GameLoadingCard({
+  levelName,
+  difficultyLabel,
+  message = "Preparando partida...",
+}: {
+  levelName?: string | null;
+  difficultyLabel?: string | null;
+  message?: string;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <CardHeaderSticky title="Niveles" />
+      <div className="flex-1 w-full flex items-center justify-center px-4">
+        <div className="flex flex-col items-center justify-center gap-3 text-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-muted-foreground">{message}</span>
+          {(levelName || difficultyLabel) && (
+            <div className="space-y-1">
+              {levelName && (
+                <p className="text-base font-semibold leading-tight">
+                  {levelName}
+                </p>
+              )}
+              {difficultyLabel && (
+                <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium border border-primary/40 text-primary">
+                  {difficultyLabel}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LevelDetailPage() {
   const params = useParams();
@@ -39,6 +79,9 @@ export default function LevelDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCardExpanded, setIsCardExpanded] = useState(true);
+  const sessionStatus = useGameSessionStore(gameSessionSelectors.status);
+  const session = useGameSessionStore(gameSessionSelectors.session);
+  const sessionError = useGameSessionStore(gameSessionSelectors.error);
 
   useEffect(() => {
     const fetchLevel = async () => {
@@ -66,6 +109,10 @@ export default function LevelDetailPage() {
 
   const coverUrl = getStrapiImageUrl(level?.cover?.url);
   const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty || "easy";
+  const difficultyLabel = useMemo(
+    () => (difficulty ? DIFFICULTY_LABELS[difficulty] : null),
+    [difficulty]
+  );
   const puzzleImages = level?.puzzleImage || [];
   const puzzleImageUrl =
     puzzleImages.length > 0
@@ -78,10 +125,57 @@ export default function LevelDetailPage() {
         ) || undefined
       : undefined;
 
-  if (loading) {
+  const isSessionPreparing =
+    sessionStatus === "starting" && !session;
+
+  if (loading || isSessionPreparing) {
     return (
-      <div className="flex w-full h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <GameLoadingCard
+        levelName={level?.name || "Preparando nivel..."}
+        difficultyLabel={difficultyLabel}
+        message="Preparando partida..."
+      />
+    );
+  }
+
+  if (!session && sessionStatus === "idle") {
+    return (
+      <div className="flex flex-col h-full">
+        <CardHeaderSticky title="Niveles" />
+        <div className="flex-1 w-full px-4 flex items-center justify-center">
+          <Card className="w-full max-w-xl">
+            <CardContent className="py-10 text-center space-y-4">
+              <p className="text-muted-foreground">
+                Prepara la partida seleccionando una dificultad.
+              </p>
+              <Button variant="outline" onClick={() => router.push("/game/levels")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver a niveles
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if ((sessionStatus === "error" || sessionError) && !session) {
+    return (
+      <div className="flex flex-col h-full">
+        <CardHeaderSticky title="Niveles" />
+        <div className="flex-1 w-full px-4 flex items-center justify-center">
+          <Card className="w-full max-w-xl">
+            <CardContent className="py-10 text-center space-y-4">
+              <p className="text-destructive font-semibold">
+                {sessionError || "No se pudo iniciar la partida."}
+              </p>
+              <Button variant="outline" onClick={() => router.push("/game/levels")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver a niveles
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }

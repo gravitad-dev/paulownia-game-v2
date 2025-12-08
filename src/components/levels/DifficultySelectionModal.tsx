@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -98,6 +98,7 @@ export function DifficultySelectionModal({
     useState<LevelDifficulty | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   // Store de sesión de juego
   const {
@@ -107,6 +108,12 @@ export function DifficultySelectionModal({
     reset,
   } = useGameSessionStore();
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleStartGame = async () => {
     if (!selectedDifficulty) return;
 
@@ -114,44 +121,53 @@ export function DifficultySelectionModal({
     setError(null);
     setStarting();
 
-    try {
-      // 1. Llamar al backend para iniciar la sesión
-      const response = await GameService.startGame(
-        levelUuid,
-        selectedDifficulty
-      );
+    // Lanzar la llamada y navegar sin bloquear la UX
+    const url = `/game/levels/${levelUuid}?difficulty=${selectedDifficulty}`;
 
-      // 2. Validar que la seed sea apta para generar el tablero
-      if (!isValidSeed(response.seed)) {
-        throw new Error("La seed recibida no es válida para generar el nivel");
+    (async () => {
+      try {
+        // 1. Llamar al backend para iniciar la sesión
+        const response = await GameService.startGame(
+          levelUuid,
+          selectedDifficulty
+        );
+
+        // 2. Validar que la seed sea apta para generar el tablero
+        if (!isValidSeed(response.seed)) {
+          throw new Error(
+            "La seed recibida no es válida para generar el nivel"
+          );
+        }
+
+        // 3. Guardar la sesión en el store
+        setSession({
+          levelUuid,
+          difficulty: selectedDifficulty,
+          hash: response.hash,
+          seed: response.seed,
+          gridSize: response.gridSize,
+          startedAt: response.startedAt,
+          gameHistoryId: response.gameHistoryId,
+        });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Error de conexión. Por favor, inténtalo de nuevo.";
+        if (isMountedRef.current) {
+          setError(errorMessage);
+        }
+        setStoreError(errorMessage);
+        reset(); // Limpiar sesión si hay error
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
+    })();
 
-      // 3. Guardar la sesión en el store
-      setSession({
-        levelUuid,
-        difficulty: selectedDifficulty,
-        hash: response.hash,
-        seed: response.seed,
-        gridSize: response.gridSize,
-        startedAt: response.startedAt,
-        gameHistoryId: response.gameHistoryId,
-      });
-
-      // 4. Navegar a la página del juego con los parámetros
-      const url = `/game/levels/${levelUuid}?difficulty=${selectedDifficulty}`;
-      router.push(url);
-      onOpenChange(false);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Error de conexión. Por favor, inténtalo de nuevo.";
-      setError(errorMessage);
-      setStoreError(errorMessage);
-      reset(); // Limpiar sesión si hay error
-    } finally {
-      setIsLoading(false);
-    }
+    router.push(url);
+    onOpenChange(false);
   };
 
   const handleDifficultySelect = (difficulty: LevelDifficulty) => {
@@ -172,7 +188,7 @@ export function DifficultySelectionModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="p-0 [&>button]:z-[100] [&>button]:bg-background/80 [&>button]:backdrop-blur-sm [&>button]:rounded-full [&>button]:p-1">
+      <DialogContent className="p-0 [&>button]:z-20 [&>button]:bg-background/80 [&>button]:backdrop-blur-sm [&>button]:rounded-full [&>button]:p-1">
         {/* Banner con cover image */}
         {coverUrl && (
           <div className="relative w-full h-32 sm:h-40 overflow-hidden rounded-t-lg z-0">
@@ -184,7 +200,7 @@ export function DifficultySelectionModal({
               sizes="(max-width: 640px) 100vw, 500px "
             />
             {/* Gradiente oscuro para legibilidad (mismo que en la card) */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/80 to-[#0B7431]/60 pointer-events-none z-0" />
+            <div className="absolute inset-0 bg-linear-to-br from-black/80 to-[#0B7431]/60 pointer-events-none z-0" />
             {/* Texto sobre la imagen */}
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4 pointer-events-none">
               <DialogHeader>
