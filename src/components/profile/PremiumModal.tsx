@@ -91,8 +91,8 @@ export function PremiumModal() {
     // 1. Obtener valor y quitar todo lo que no sea alfanumérico
     const rawValue = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
-    // 2. Limitar a 24 caracteres reales
-    const truncatedValue = rawValue.slice(0, 29);
+    // 2. Limitar a 24 caracteres reales (sin contar guiones)
+    const truncatedValue = rawValue.slice(0, 24);
 
     // 3. Insertar guiones cada 4 caracteres
     //    Usamos una regex para agrupar de 4 en 4
