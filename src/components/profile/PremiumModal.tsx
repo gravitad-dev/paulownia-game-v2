@@ -30,6 +30,7 @@ export function PremiumModal() {
     e.preventDefault();
     e.stopPropagation();
 
+    // Limpiamos espacios por si acaso, pero mantenemos los guiones
     const cleanCode = code.trim();
 
     if (!cleanCode) {
@@ -37,15 +38,16 @@ export function PremiumModal() {
       return;
     }
 
-    // Validación básica de formato
-    if (cleanCode.length !== 24) {
-      toast.error("El código debe tener 24 caracteres.");
+    // Validación básica de formato (29 caracteres: 24 alfanuméricos + 5 guiones)
+    if (cleanCode.length !== 29) {
+      toast.error("El código debe tener el formato correcto (XXXX-XXXX-...).");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await PremiumService.redeemCode(cleanCode);
+      // Enviamos el código CON guiones, ya que el backend lo soporta
+      await PremiumService.redeemCode(cleanCode);
 
       updateUser({ isPremium: true });
       // Ignoramos el mensaje del backend para asegurar que sea en español y amigable
@@ -86,9 +88,17 @@ export function PremiumModal() {
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Permitir pegar código con espacios y limpiarlos
-    const v = e.target.value.replace(/\s/g, "");
-    setCode(v);
+    // 1. Obtener valor y quitar todo lo que no sea alfanumérico
+    const rawValue = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+    // 2. Limitar a 24 caracteres reales
+    const truncatedValue = rawValue.slice(0, 29);
+
+    // 3. Insertar guiones cada 4 caracteres
+    //    Usamos una regex para agrupar de 4 en 4
+    const formattedValue = truncatedValue.match(/.{1,4}/g)?.join("-") || "";
+
+    setCode(formattedValue);
   };
 
   // If user is already premium, show a non-interactive badge instead of trigger
@@ -139,9 +149,9 @@ export function PremiumModal() {
                 onChange={handleCodeChange}
                 required
                 disabled={loading}
-                placeholder="Ingresa tu código de 24 caracteres"
-                maxLength={24}
-                className="font-mono"
+                placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+                maxLength={29} // 24 chars + 5 hyphens
+                className="font-mono uppercase"
               />
             </div>
           </div>
@@ -157,7 +167,7 @@ export function PremiumModal() {
             </Button>
             <Button
               type="submit"
-              disabled={loading || code.length !== 24}
+              disabled={loading || code.length !== 29}
               className="gap-2"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
