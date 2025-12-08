@@ -23,6 +23,7 @@ import { GuardianService } from "@/services/guardian.service";
 import { MediaService, UploadedFile } from "@/services/media.service";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { ChangePasswordModal } from "@/components/profile/ChangePasswordModal";
+import { PremiumModal } from "@/components/profile/PremiumModal";
 import {
   Collapsible,
   CollapsibleContent,
@@ -110,14 +111,12 @@ export default function ProfilePage() {
     const fetchData = async () => {
       try {
         const userData = await UserService.getMe();
-        console.log("[DEBUG] User data received:", userData);
         updateUser(userData);
         const formData = mapUserToFormData(userData);
         form.reset(formData);
 
         if (userData.id) {
           const userGuardians = await GuardianService.listByUser(userData.id);
-          console.log("[DEBUG] Guardians loaded:", userGuardians);
           setServerGuardiansSnapshot(userGuardians);
         }
         setIsEditing(false);
@@ -176,7 +175,6 @@ export default function ProfilePage() {
     );
 
     if (currentDataStr !== newDataStr) {
-      console.log("[DEBUG] Syncing guardians to fieldArray");
       replace(guardiansFormData);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,7 +247,6 @@ export default function ProfilePage() {
       let avatarMediaId: number | null = null;
       if (pendingAvatarFile) {
         try {
-          console.log("[DEBUG] Uploading pending avatar...");
           const uploadedFile: UploadedFile = await MediaService.uploadAvatar(
             pendingAvatarFile,
           );
@@ -292,11 +289,9 @@ export default function ProfilePage() {
       });
 
       // Actualizar usuario
-      console.log("[DEBUG] Updating user data...");
       await UserService.update(String(user.id), userPayload);
 
       // Recargar usuario completo con avatar populado para obtener todos los datos actualizados
-      console.log("[DEBUG] Reloading user data with avatar...");
       const refreshedUser = await UserService.getById(user.id);
       updateUser(refreshedUser);
       const formData = mapUserToFormData(refreshedUser);
@@ -400,7 +395,6 @@ export default function ProfilePage() {
 
       // 2.1 Eliminar guardians (primero para evitar conflictos)
       for (const documentId of toDelete) {
-        console.log("[DEBUG] Deleting guardian...", documentId);
         try {
           await GuardianService.deleteByDocumentId(documentId);
         } catch (error) {
@@ -411,7 +405,6 @@ export default function ProfilePage() {
 
       // 2.2 Crear nuevos guardians
       for (const guardianData of toCreate) {
-        console.log("[DEBUG] Creating guardian...", guardianData);
         try {
           await GuardianService.create(user.id, guardianData);
         } catch (error) {
@@ -422,7 +415,6 @@ export default function ProfilePage() {
 
       // 2.3 Actualizar guardians existentes
       for (const { documentId, data } of toUpdate) {
-        console.log("[DEBUG] Updating guardian...", documentId, data);
         try {
           await GuardianService.updateByDocumentId(documentId, data);
         } catch (error) {
@@ -588,7 +580,10 @@ export default function ProfilePage() {
               onFileSelected={handleFileSelected}
               previewUrl={avatarPreviewUrl}
             />
-            <ChangePasswordModal />
+            <div className="flex flex-col items-end gap-2 w-full">
+              <PremiumModal />
+              <ChangePasswordModal />
+            </div>
           </div>
           <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
             <div className="rounded-lg border border-border/30 p-3 sm:p-4">
