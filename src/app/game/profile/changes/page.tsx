@@ -8,6 +8,7 @@ import {
   TransactionHistorySummary,
   TransactionHistoryFilters,
 } from "@/components/game/transactions";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { TransactionService } from "@/services/transaction.service";
 import type {
   UserTransactionHistory,
@@ -79,32 +80,38 @@ export default function ChangesPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Canjes" />
       <div className="flex-1 p-4 flex flex-col gap-4">
-        <TransactionHistorySummary
-          transactions={transactions}
-          selectedType={selectedType}
-        />
+        {loading ? (
+          <ContentLoading message="Cargando canjes..." />
+        ) : (
+          <>
+            <TransactionHistorySummary
+              transactions={transactions}
+              selectedType={selectedType}
+            />
 
-        <TransactionHistoryFilters
-          selectedType={selectedType}
-          onTypeChange={handleTypeChange}
-        />
+            <TransactionHistoryFilters
+              selectedType={selectedType}
+              onTypeChange={handleTypeChange}
+            />
 
-        <div className="flex-1 min-h-0">
-          <TransactionHistoryTable
-            data={transactions}
-            isLoading={loading}
-            error={error || undefined}
-          />
-        </div>
+            <div className="flex-1 min-h-0">
+              <TransactionHistoryTable
+                data={transactions}
+                isLoading={loading}
+                error={error || undefined}
+              />
+            </div>
 
-        <TablePagination
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          pageSize={pagination.pageSize}
-          total={pagination.total}
-          onPageChange={handlePageChange}
-          label="canjes"
-        />
+            <TablePagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              label="canjes"
+            />
+          </>
+        )}
       </div>
     </div>
   );

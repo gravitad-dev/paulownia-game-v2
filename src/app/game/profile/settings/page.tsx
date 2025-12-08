@@ -30,10 +30,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [isMinor, setIsMinor] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   // Snapshot del servidor para comparar cambios al submit
@@ -110,6 +112,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsFetching(true);
         const userData = await UserService.getMe();
         updateUser(userData);
         const formData = mapUserToFormData(userData);
@@ -135,10 +138,13 @@ export default function ProfilePage() {
           }
         }
       }
+      setIsFetching(false);
     };
 
     if (user) {
       fetchData();
+    } else {
+      setIsFetching(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -572,80 +578,86 @@ export default function ProfilePage() {
           }
         />
 
-        <div className="flex-1 p-4 space-y-6">
-          <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <AvatarUpload
-              user={user ?? null}
-              disabled={!isEditing || loading}
-              onFileSelected={handleFileSelected}
-              previewUrl={avatarPreviewUrl}
-            />
-            <div className="flex flex-col items-end gap-2 w-full">
-              <PremiumModal />
-              <ChangePasswordModal />
-            </div>
+        {isFetching ? (
+          <div className="flex-1 p-4">
+            <ContentLoading message="Cargando configuración..." />
           </div>
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-            <div className="rounded-lg border border-border/30 p-3 sm:p-4">
-              <PersonalDataForm disabled={!isEditing} />
+        ) : (
+          <div className="flex-1 p-4 space-y-6">
+            <div className="flex flex-col gap-4 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <AvatarUpload
+                user={user ?? null}
+                disabled={!isEditing || loading}
+                onFileSelected={handleFileSelected}
+                previewUrl={avatarPreviewUrl}
+              />
+              <div className="flex flex-col items-end gap-2 w-full">
+                <PremiumModal />
+                <ChangePasswordModal />
+              </div>
             </div>
-            <div className="rounded-lg border border-border/30 p-3 sm:p-4">
-              <ContactDataForm disabled={!isEditing} />
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+              <div className="rounded-lg border border-border/30 p-3 sm:p-4">
+                <PersonalDataForm disabled={!isEditing} />
+              </div>
+              <div className="rounded-lg border border-border/30 p-3 sm:p-4">
+                <ContactDataForm disabled={!isEditing} />
+              </div>
             </div>
-          </div>
 
-          {isMinor && (
-            <Collapsible
-              open={guardiansOpen}
-              onOpenChange={setGuardiansOpen}
-              className="rounded-lg border border-border/30"
-            >
-              <div className="flex flex-col gap-3 border-b border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Responsables legales
-                  </p>
-                  <h3 className="text-base font-medium sm:text-lg">Padres</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={addGuardian}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 flex-1 sm:flex-initial"
-                    disabled={!isEditing}
-                  >
-                    <Plus className="h-4 w-4" /> Añadir
-                  </Button>
-                  <CollapsibleTrigger asChild>
+            {isMinor && (
+              <Collapsible
+                open={guardiansOpen}
+                onOpenChange={setGuardiansOpen}
+                className="rounded-lg border border-border/30"
+              >
+                <div className="flex flex-col gap-3 border-b border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Responsables legales
+                    </p>
+                    <h3 className="text-base font-medium sm:text-lg">Padres</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
+                      onClick={addGuardian}
                       size="sm"
+                      variant="outline"
                       className="gap-2 flex-1 sm:flex-initial"
+                      disabled={!isEditing}
                     >
-                      {guardiansOpen ? "Ocultar" : "Mostrar"}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${
-                          guardiansOpen ? "rotate-180" : ""
-                        }`}
-                      />
+                      <Plus className="h-4 w-4" /> Añadir
                     </Button>
-                  </CollapsibleTrigger>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2 flex-1 sm:flex-initial"
+                      >
+                        {guardiansOpen ? "Ocultar" : "Mostrar"}
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            guardiansOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
                 </div>
-              </div>
-              <CollapsibleContent className="px-3 py-3 sm:px-4 sm:py-4">
-                <GuardiansList
-                  isMinor={isMinor}
-                  removeGuardian={removeGuardian}
-                  disabled={!isEditing}
-                  fields={guardiansFieldArray.fields}
-                />
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </div>
+                <CollapsibleContent className="px-3 py-3 sm:px-4 sm:py-4">
+                  <GuardiansList
+                    isMinor={isMinor}
+                    removeGuardian={removeGuardian}
+                    disabled={!isEditing}
+                    fields={guardiansFieldArray.fields}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+        )}
       </form>
 
       <ConfirmDialog

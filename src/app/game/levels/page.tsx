@@ -1,21 +1,15 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  useRef,
-  useLayoutEffect,
-  useMemo,
-} from "react";
+import { useEffect, useState, useRef } from "react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { LevelsGrid } from "@/components/levels/LevelsGrid";
 import { LevelService } from "@/services/level.service";
 import { UserLevelsResponse } from "@/types/user-level";
 import { UserLevel } from "@/types/user-level";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Level } from "@/types/level";
-import gsap from "gsap";
 
 const PAGE_SIZE = 12;
 
@@ -62,10 +56,7 @@ export default function LevelsPage() {
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
-  const gsapCtxRef = useRef<gsap.Context | null>(null);
-  const lastAnimationKeyRef = useRef<string | null>(null);
   const fetchKeyRef = useRef<string | null>(null);
-  const devEffectGuardRef = useRef(false);
 
   useEffect(() => {
     const fetchUserLevels = async () => {
@@ -135,11 +126,6 @@ export default function LevelsPage() {
     fetchUserLevels();
   }, [pagination.page, pagination.pageSize, user]);
 
-  const animationKey = useMemo(() => {
-    const uuids = userLevels.map((item) => item.uuid).join(",");
-    return `${pagination.page}-${pagination.pageSize}-${uuids}`;
-  }, [pagination.page, pagination.pageSize, userLevels]);
-
   const handleUnlockSuccess = () => {
     // Recargar los niveles después de desbloquear
     if (user) {
@@ -194,151 +180,7 @@ export default function LevelsPage() {
     }));
   };
 
-  // Animación fade-in/out del loading
-  useEffect(() => {
-    if (!loadingRef.current) return;
-
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
-    if (prefersReducedMotion) {
-      gsap.set(loadingRef.current, { opacity: loading ? 1 : 0 });
-      return;
-    }
-
-    if (loading) {
-      gsap.fromTo(
-        loadingRef.current,
-        { opacity: 0 },
-        {
-          opacity: 1,
-          duration: 0.3,
-          ease: "power2.out",
-          immediateRender: false,
-        }
-      );
-    } else {
-      gsap.to(loadingRef.current, {
-        opacity: 0,
-        duration: 0.2,
-        ease: "power2.in",
-        immediateRender: false,
-      });
-    }
-  }, [loading]);
-
-  // Animaciones GSAP para el contenido: contenedor + cards individuales
-  useLayoutEffect(() => {
-    // En dev con StrictMode, el efecto se ejecuta dos veces.
-    // Saltamos la primera ejecución fantasma para evitar animación doble.
-    if (process.env.NODE_ENV !== "production" && !devEffectGuardRef.current) {
-      devEffectGuardRef.current = true;
-      return;
-    }
-
-    // Verificar si el usuario prefiere movimiento reducido
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
-    // Si está cargando, no animar
-    if (loading) {
-      // Limpiar animación anterior si existe
-      if (gsapCtxRef.current) {
-        gsapCtxRef.current.revert();
-        gsapCtxRef.current = null;
-      }
-      lastAnimationKeyRef.current = null;
-      return;
-    }
-
-    // Solo animar cuando hay datos y el contenedor está listo
-    if (!containerRef.current || userLevels.length === 0) {
-      return;
-    }
-
-    // Si ya se animó con esta key, asegurar estado final y salir
-    if (lastAnimationKeyRef.current === animationKey) {
-      gsap.set(containerRef.current, { opacity: 1, y: 0 });
-      const cards = containerRef.current.querySelectorAll("[data-level-card]");
-      gsap.set(cards, { opacity: 1, scale: 1, y: 0 });
-      return;
-    }
-
-    // Limpiar animación anterior si existe
-    if (gsapCtxRef.current) {
-      gsapCtxRef.current.revert();
-      gsapCtxRef.current = null;
-    }
-
-    // Si el usuario prefiere movimiento reducido, solo mostrar sin animación
-    if (prefersReducedMotion) {
-      gsap.set(containerRef.current, { opacity: 1, y: 0 });
-      const cards = containerRef.current.querySelectorAll("[data-level-card]");
-      gsap.set(cards, { opacity: 1, scale: 1, y: 0 });
-      lastAnimationKeyRef.current = animationKey;
-      return;
-    }
-
-    // Crear contexto GSAP para limpieza automática
-    const ctx = gsap.context(() => {
-      // Primera animación: contenedor principal
-      gsap.fromTo(
-        containerRef.current,
-        {
-          opacity: 0,
-          y: 30,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          ease: "power2.out",
-          immediateRender: false,
-          lazy: false,
-          onComplete: () => {
-            // Segunda animación: cards individuales con stagger
-            const cards =
-              containerRef.current?.querySelectorAll("[data-level-card]");
-            if (cards && cards.length > 0) {
-              gsap.fromTo(
-                cards,
-                {
-                  opacity: 0,
-                  scale: 0.8,
-                  y: 30,
-                },
-                {
-                  opacity: 1,
-                  scale: 1,
-                  y: 0,
-                  duration: 0.4,
-                  stagger: 0.05,
-                  ease: "power2.out",
-                  immediateRender: false,
-                  lazy: false,
-                }
-              );
-            }
-          },
-        }
-      );
-
-      // Guardar la key de animación actual
-      lastAnimationKeyRef.current = animationKey;
-    }, containerRef);
-
-    gsapCtxRef.current = ctx;
-
-    // Cleanup: revertir animaciones al desmontar o cambiar de datos
-    return () => {
-      if (gsapCtxRef.current) {
-        gsapCtxRef.current.revert();
-        gsapCtxRef.current = null;
-      }
-    };
-  }, [loading, animationKey, userLevels.length]);
+  // Se removieron animaciones GSAP para mantener la UI simple
 
   return (
     <div className="flex flex-col h-full">
@@ -351,14 +193,8 @@ export default function LevelsPage() {
             <p className="text-destructive">{error}</p>
           </div>
         ) : loading ? (
-          <div
-            ref={loadingRef}
-            className="flex items-center justify-center min-h-[400px]"
-          >
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 rounded-full border-b-2 border-primary animate-spin" />
-              <p className="text-muted-foreground">Cargando niveles...</p>
-            </div>
+          <div ref={loadingRef} className="flex-1 min-h-[400px]">
+            <ContentLoading message="Cargando niveles..." />
           </div>
         ) : (
           <div ref={containerRef} className="space-y-6 flex-1 min-h-[400px]">

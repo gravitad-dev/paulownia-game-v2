@@ -8,6 +8,7 @@ import {
   AchievementsSummary,
   AchievementsFilters,
 } from "@/components/game/achievements";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { AchievementsService } from "@/services/achievements.service";
 import { useToast } from "@/hooks/useToast";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
@@ -125,31 +126,37 @@ export default function AchievementsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Logros" />
       <div className="flex-1 p-4 flex flex-col gap-4">
-        <AchievementsSummary achievements={achievements} />
+        {loading ? (
+          <ContentLoading message="Cargando logros..." />
+        ) : (
+          <>
+            <AchievementsSummary achievements={achievements} />
 
-        <AchievementsFilters
-          selectedStatus={selectedStatus}
-          onStatusChange={handleStatusChange}
-        />
+            <AchievementsFilters
+              selectedStatus={selectedStatus}
+              onStatusChange={handleStatusChange}
+            />
 
-        <div className="flex-1 min-h-0">
-          <AchievementsTable
-            data={achievements}
-            isLoading={loading}
-            error={error || undefined}
-            onClaim={handleClaim}
-            claiming={claiming}
-          />
-        </div>
+            <div className="flex-1 min-h-0">
+              <AchievementsTable
+                data={achievements}
+                isLoading={loading}
+                error={error || undefined}
+                onClaim={handleClaim}
+                claiming={claiming}
+              />
+            </div>
 
-        <TablePagination
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          pageSize={pagination.pageSize}
-          total={pagination.total}
-          onPageChange={handlePageChange}
-          label="logros"
-        />
+            <TablePagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              label="logros"
+            />
+          </>
+        )}
       </div>
     </div>
   );

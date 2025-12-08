@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Coins,
-  Ticket,
-  Loader2,
-  AlertCircle,
-  ArrowRightLeft,
-} from "lucide-react";
+import { Coins, Ticket, AlertCircle, ArrowRightLeft } from "lucide-react";
 import { useExchangeStore } from "@/store/useExchangeStore";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
 import { Button } from "@/components/ui/button";
@@ -20,6 +14,7 @@ import {
   ExchangeHistory,
   ExchangeConfirmModal,
 } from "@/components/game/rewards/exchange";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 
 export default function ExchangePage() {
   const playerStats = usePlayerStatsStore((state) => state.stats);
@@ -108,11 +103,11 @@ export default function ExchangePage() {
   // Estado de carga inicial
   if (isLoading && !rate) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6 min-h-[400px]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">
-          Cargando información del canje...
-        </p>
+      <div className="flex flex-col h-full">
+        <CardHeaderSticky title="Canjear Monedas" subtitle="" />
+        <div className="flex-1 p-4">
+          <ContentLoading message="Cargando información del canje..." />
+        </div>
       </div>
     );
   }

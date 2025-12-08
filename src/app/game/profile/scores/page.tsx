@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { ScoresSummary } from "@/components/scores/ScoresSummary";
 import { ScoresTable } from "@/components/scores/ScoresTable";
 import { TablePagination } from "@/components/ui/TablePagination";
@@ -74,7 +75,9 @@ export default function ScoresPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Puntajes" />
       <div className="flex-1 p-4 flex flex-col">
-        {!hasUserDocumentId ? (
+        {loading ? (
+          <ContentLoading message="Cargando puntajes..." />
+        ) : !hasUserDocumentId ? (
           <div className="flex h-full flex-col items-center justify-center text-center py-8">
             <p className="text-sm text-muted-foreground max-w-md">
               No se pudo obtener la información del usuario. Inicia sesión de

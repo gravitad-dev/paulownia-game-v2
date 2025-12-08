@@ -8,6 +8,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { RewardService } from "@/services/reward.service";
 import { useToast } from "@/hooks/useToast";
 import type { RouletteHistoryItem } from "@/types/reward";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import {
   SpinnerAnimation,
   SpinButton,
@@ -37,6 +38,7 @@ export default function DiscoverRewardsPage() {
   } = useRewardStore();
 
   const [history, setHistory] = useState<RouletteHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const toast = useToast();
@@ -44,8 +46,13 @@ export default function DiscoverRewardsPage() {
   // Cargar historial al montar y limpiar al salir
   useEffect(() => {
     const loadHistory = async () => {
-      const data = await RewardService.getHistory();
-      setHistory(data);
+      try {
+        setIsLoadingHistory(true);
+        const data = await RewardService.getHistory();
+        setHistory(data);
+      } finally {
+        setIsLoadingHistory(false);
+      }
     };
 
     loadHistory();
@@ -137,46 +144,50 @@ export default function DiscoverRewardsPage() {
       <CardHeaderSticky title="Descubrir Premio" />
 
       <div className="flex-1 p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full max-w-6xl mx-auto">
-          {/* Columna principal: Ruleta */}
-          <div className="lg:col-span-8 flex flex-col items-center justify-center">
-            {/* Animación de la ruleta */}
-            <SpinnerAnimation
-              isSpinning={isSpinning}
-              onSpinComplete={handleSpinComplete}
-              duration={SPIN_ANIMATION_DURATION}
-              className="mb-8"
-            />
+        {isLoadingHistory ? (
+          <ContentLoading message="Cargando ruleta..." />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full max-w-6xl mx-auto">
+            {/* Columna principal: Ruleta */}
+            <div className="lg:col-span-8 flex flex-col items-center justify-center">
+              {/* Animación de la ruleta */}
+              <SpinnerAnimation
+                isSpinning={isSpinning}
+                onSpinComplete={handleSpinComplete}
+                duration={SPIN_ANIMATION_DURATION}
+                className="mb-8"
+              />
 
-            {/* Botón para girar */}
-            <SpinButton
-              onClick={handleSpin}
-              disabled={phase !== "idle"}
-              isSpinning={isSpinning}
-              ticketCount={ticketCount}
-              requiresPremium={!user?.isPremium}
-            />
+              {/* Botón para girar */}
+              <SpinButton
+                onClick={handleSpin}
+                disabled={phase !== "idle"}
+                isSpinning={isSpinning}
+                ticketCount={ticketCount}
+                requiresPremium={!user?.isPremium}
+              />
 
-            {/* Mensaje si no tiene tickets */}
-            {ticketCount === 0 && phase === "idle" && (
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed border-border text-center max-w-sm">
-                <AlertCircle className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  No tienes tickets disponibles.{" "}
-                  <span className="font-medium text-foreground">
-                    Canjea tus monedas
-                  </span>{" "}
-                  para obtener tickets y poder girar la ruleta.
-                </p>
-              </div>
-            )}
+              {/* Mensaje si no tiene tickets */}
+              {ticketCount === 0 && phase === "idle" && (
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed border-border text-center max-w-sm">
+                  <AlertCircle className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    No tienes tickets disponibles.{" "}
+                    <span className="font-medium text-foreground">
+                      Canjea tus monedas
+                    </span>{" "}
+                    para obtener tickets y poder girar la ruleta.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Columna secundaria: Historial */}
+            <div className="lg:col-span-4">
+              <SessionRewardsList rewards={history} />
+            </div>
           </div>
-
-          {/* Columna secundaria: Historial */}
-          <div className="lg:col-span-4">
-            <SessionRewardsList rewards={history} />
-          </div>
-        </div>
+        )}
 
         {/* Modal de revelación del premio */}
         <RewardRevealModal

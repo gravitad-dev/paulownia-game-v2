@@ -29,7 +29,10 @@ const DIFFICULTY_LABELS: Record<LevelDifficulty, string> = Object.fromEntries(
 ) as Record<LevelDifficulty, string>;
 
 const DIFFICULTY_COLORS: Record<LevelDifficulty, string> = Object.fromEntries(
-  Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => [key, config.badgeColor])
+  Object.entries(DIFFICULTY_CONFIGS).map(([key, config]) => [
+    key,
+    config.badgeColor,
+  ])
 ) as Record<LevelDifficulty, string>;
 
 function GameLoadingCard({
@@ -49,7 +52,7 @@ function GameLoadingCard({
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="text-muted-foreground">{message}</span>
           {(levelName || difficultyLabel) && (
-            <div className="space-y-1">
+            <div className="space-y-1 hidden">
               {levelName && (
                 <p className="text-base font-semibold leading-tight">
                   {levelName}
@@ -108,7 +111,8 @@ export default function LevelDetailPage() {
   }, [levelId]);
 
   const coverUrl = getStrapiImageUrl(level?.cover?.url);
-  const difficulty = (difficultyParam as LevelDifficulty) || level?.difficulty || "easy";
+  const difficulty =
+    (difficultyParam as LevelDifficulty) || level?.difficulty || "easy";
   const difficultyLabel = useMemo(
     () => (difficulty ? DIFFICULTY_LABELS[difficulty] : null),
     [difficulty]
@@ -125,8 +129,7 @@ export default function LevelDetailPage() {
         ) || undefined
       : undefined;
 
-  const isSessionPreparing =
-    sessionStatus === "starting" && !session;
+  const isSessionPreparing = sessionStatus === "starting" && !session;
 
   if (loading || isSessionPreparing) {
     return (
@@ -148,7 +151,10 @@ export default function LevelDetailPage() {
               <p className="text-muted-foreground">
                 Prepara la partida seleccionando una dificultad.
               </p>
-              <Button variant="outline" onClick={() => router.push("/game/levels")}>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/game/levels")}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Volver a niveles
               </Button>
@@ -169,7 +175,10 @@ export default function LevelDetailPage() {
               <p className="text-destructive font-semibold">
                 {sessionError || "No se pudo iniciar la partida."}
               </p>
-              <Button variant="outline" onClick={() => router.push("/game/levels")}>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/game/levels")}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Volver a niveles
               </Button>
@@ -209,9 +218,9 @@ export default function LevelDetailPage() {
       <div className="flex-1 flex flex-col gap-4 ">
         <div className="w-full h-full flex items-center justify-center">
           <div id="game-container" className=" w-full h-full bg-gray-700">
-            <Game 
-              levelDifficulty={difficulty} 
-              puzzleImageUrl={puzzleImageUrl} 
+            <Game
+              levelDifficulty={difficulty}
+              puzzleImageUrl={puzzleImageUrl}
               levelUuid={levelId}
             />
           </div>

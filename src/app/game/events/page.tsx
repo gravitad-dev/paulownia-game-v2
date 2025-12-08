@@ -10,6 +10,7 @@ import { GridContainer } from "@/components/ui/GridContainer";
 import { useToast } from "@/hooks/useToast";
 import { Gift } from "lucide-react";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 
 export default function DailyRewardsPage() {
   const { rewards, isLoading, error, claimReward, fetchStatus } =
@@ -70,6 +71,17 @@ export default function DailyRewardsPage() {
   } else {
     subtitle =
       "¡Completaste la racha de 7 días! Has reclamado todas las recompensas.";
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full">
+        <CardHeaderSticky title="Recompensas Diarias" />
+        <div className="flex-1 p-4 pt-2">
+          <ContentLoading message="Cargando recompensas diarias..." />
+        </div>
+      </div>
+    );
   }
 
   return (

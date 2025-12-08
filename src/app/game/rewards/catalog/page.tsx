@@ -8,6 +8,7 @@ import type { CatalogReward, StrapiPagination } from "@/types/reward";
 import { AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 
 const PAGE_SIZE = 8;
 
@@ -90,28 +91,34 @@ export default function CatalogPage() {
       <CardHeaderSticky title={title} />
 
       <div className="flex-1 p-4 space-y-2">
-        {/* Filtros arriba del grid */}
-        <div className="flex justify-start">
-          <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
-        </div>
+        {isLoading && rewards.length === 0 ? (
+          <ContentLoading message="Cargando catálogo..." />
+        ) : (
+          <>
+            {/* Filtros arriba del grid */}
+            <div className="flex justify-start">
+              <CatalogFilters activeFilter={filter} onFilterChange={setFilter} />
+            </div>
 
-        {/* Grid de premios - ocupa todo el ancho disponible */}
-        <div className="flex-1">
-          <CatalogGrid rewards={rewards} isLoading={isLoading} />
-        </div>
+            {/* Grid de premios - ocupa todo el ancho disponible */}
+            <div className="flex-1">
+              <CatalogGrid rewards={rewards} isLoading={isLoading} />
+            </div>
 
-        {/* Paginación - siempre al fondo */}
-        {pagination && pagination.total > 0 && (
-          <div className="pt-3">
-            <TablePagination
-              page={pagination.page}
-              pageCount={pagination.pageCount}
-              pageSize={pagination.pageSize}
-              total={pagination.total}
-              onPageChange={handlePageChange}
-              label="premios"
-            />
-          </div>
+            {/* Paginación - siempre al fondo */}
+            {pagination && pagination.total > 0 && (
+              <div className="pt-3">
+                <TablePagination
+                  page={pagination.page}
+                  pageCount={pagination.pageCount}
+                  pageSize={pagination.pageSize}
+                  total={pagination.total}
+                  onPageChange={handlePageChange}
+                  label="premios"
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

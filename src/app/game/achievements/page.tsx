@@ -2,10 +2,11 @@
 
 import { AchievementsList } from "@/components/game/achievements";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { useAchievementsStore } from "@/store/useAchievementsStore";
 
 export default function AchievementsPage() {
-  const { availableCount } = useAchievementsStore();
+  const { availableCount, isLoading, achievements } = useAchievementsStore();
 
   // Subtítulo dinámico según logros disponibles
   const subtitle =
@@ -20,6 +21,10 @@ export default function AchievementsPage() {
       <CardHeaderSticky title="Logros" />
 
       <div className="flex-1 p-4 space-y-4">
+        {isLoading && achievements.length === 0 && (
+          <ContentLoading message="Cargando logros..." />
+        )}
+
         {/* Info de logros disponibles */}
         <div>
           <p className="text-sm text-muted-foreground">{subtitle}</p>

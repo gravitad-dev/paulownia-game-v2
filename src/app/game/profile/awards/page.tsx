@@ -8,6 +8,7 @@ import {
   UserRewardsSummary,
   UserRewardsFilters,
 } from "@/components/game/rewards";
+import { ContentLoading } from "@/components/ui/ContentLoading";
 import { RewardService } from "@/services/reward.service";
 import type {
   UserRewardDetailed,
@@ -75,30 +76,36 @@ export default function AwardsPage() {
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Premios" />
       <div className="flex-1 p-4 flex flex-col gap-4">
-        <UserRewardsSummary rewards={rewards} />
+        {loading ? (
+          <ContentLoading message="Cargando premios..." />
+        ) : (
+          <>
+            <UserRewardsSummary rewards={rewards} />
 
-        <UserRewardsFilters
-          selectedStatus={selectedStatus}
-          onStatusChange={handleStatusChange}
-        />
+            <UserRewardsFilters
+              selectedStatus={selectedStatus}
+              onStatusChange={handleStatusChange}
+            />
 
-        <div className="flex-1 min-h-0">
-          <UserRewardsTable
-            data={rewards}
-            isLoading={loading}
-            error={error || undefined}
-            onClaimSuccess={fetchRewards}
-          />
-        </div>
+            <div className="flex-1 min-h-0">
+              <UserRewardsTable
+                data={rewards}
+                isLoading={loading}
+                error={error || undefined}
+                onClaimSuccess={fetchRewards}
+              />
+            </div>
 
-        <TablePagination
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          pageSize={pagination.pageSize}
-          total={pagination.total}
-          onPageChange={handlePageChange}
-          label="premios"
-        />
+            <TablePagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onPageChange={handlePageChange}
+              label="premios"
+            />
+          </>
+        )}
       </div>
     </div>
   );
