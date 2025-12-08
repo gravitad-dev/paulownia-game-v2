@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { UserLevel } from "@/types/user-level";
 import { LevelCard } from "./LevelCard";
 import { Card } from "@/components/ui/card";
@@ -16,6 +17,50 @@ export function LevelsGrid({
   isLoading,
   onUnlockSuccess,
 }: LevelsGridProps) {
+  const [isSmallGrid, setIsSmallGrid] = useState(false);
+
+  // Detectar si el viewport muestra 3 columnas o menos (xl: 1280px es 4 cols)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsSmallGrid(event.matches);
+    };
+
+    // Estado inicial
+    handleChange(mediaQuery);
+
+    // Suscribir cambios
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+    } else {
+      // Compatibilidad Safari (API antigua)
+      (mediaQuery as MediaQueryList & {
+        addListener: (listener: (event: MediaQueryListEvent | MediaQueryList) => void) => void;
+      }).addListener(handleChange);
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", handleChange);
+      } else {
+        // Compatibilidad Safari (API antigua)
+        (mediaQuery as MediaQueryList & {
+          removeListener: (listener: (event: MediaQueryListEvent | MediaQueryList) => void) => void;
+        }).removeListener(handleChange);
+      }
+    };
+  }, []);
+
+  const visibleLevels = useMemo(
+    () => (isSmallGrid ? userLevels.slice(0, 6) : userLevels),
+    [isSmallGrid, userLevels]
+  );
+
+  const targetSlots = isSmallGrid ? 6 : 8;
+  const skeletonCount = Math.max(0, targetSlots - visibleLevels.length);
+
   if (userLevels.length === 0 && !isLoading) {
     return (
       <div className="text-center py-12">
@@ -26,12 +71,9 @@ export function LevelsGrid({
     );
   }
 
-  // Calcular cuántas skeleton cards se necesitan para llegar a 8
-  const skeletonCount = Math.max(0, 8 - userLevels.length);
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
-      {userLevels.map((userLevel) => (
+      {visibleLevels.map((userLevel) => (
         <LevelCard
           key={userLevel.uuid}
           userLevel={userLevel}

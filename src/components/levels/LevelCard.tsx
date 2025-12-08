@@ -10,6 +10,7 @@ import { getStrapiImageUrl } from "@/lib/image-utils";
 import { DifficultySelectionModal } from "./DifficultySelectionModal";
 import { LevelUnlockModal } from "./LevelUnlockModal";
 import { UnlockResultModal } from "./UnlockResultModal";
+import { StarsIndicator } from "./StarsIndicator";
 import { LevelService } from "@/services/level.service";
 import { Play, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -156,9 +157,15 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
           {getStatusBadge() && (
             <div className="absolute top-2 left-2 z-10">{getStatusBadge()}</div>
           )}
+          {/* Indicador de estrellas en esquina inferior izquierda (solo si no está bloqueado) */}
+          {!isBlocked && (
+            <div className="absolute bottom-2 left-2 z-10">
+              <StarsIndicator wonDifficulties={userLevel.wonDifficulties || []} />
+            </div>
+          )}
           {isBlocked && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <img
+              <Image
                 src="/game/levels/cerradura.svg"
                 alt="Bloqueado"
                 width={70}

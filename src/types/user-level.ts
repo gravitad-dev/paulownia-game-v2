@@ -9,6 +9,7 @@ export interface UserLevel {
   levelStatus: LevelStatus;
   level?: Level | number | null;
   lastPlayed?: string | null;
+  wonDifficulties?: string[];
   users_permissions_user?: number | { id: number } | null;
   createdAt?: string;
   updatedAt?: string;
