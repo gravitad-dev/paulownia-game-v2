@@ -225,6 +225,7 @@ export function LevelCard({ userLevel, onUnlockSuccess }: LevelCardProps) {
         open={isUnlockModalOpen}
         onOpenChange={setIsUnlockModalOpen}
         levelName={level.name}
+        coverImageUrl={level.cover?.url}
         onUnlock={handleUnlock}
       />
 

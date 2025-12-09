@@ -7,7 +7,7 @@ export interface ScoresSummaryStats {
   totalCoins: number;
 }
 
-export const DEFAULT_SUMMARY_LIMIT = 50;
+export const DEFAULT_SUMMARY_LIMIT = 100;
 
 /**
  * Calcula estadísticas agregadas sobre las últimas N partidas.

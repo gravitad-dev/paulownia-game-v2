@@ -1,6 +1,7 @@
 "use client";
 
 import { UserGameHistory } from "@/types/user";
+import { StandardTable } from "@/components/ui/StandardTable";
 import { cn } from "@/lib/utils";
 
 interface ScoresTableProps {
@@ -35,28 +36,6 @@ const getLevelLabel = (level: UserGameHistory["level"]) => {
 };
 
 export function ScoresTable({ data, isLoading, error }: ScoresTableProps) {
-  if (isLoading) {
-    return (
-      <div className="w-full py-10 text-center text-sm text-muted-foreground">
-        Cargando historial de partidas...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full py-6 text-sm text-destructive">
-        {error}
-      </div>
-    );
-  }
-
-  const safeData = data ?? [];
-  const MIN_ROWS = 6;
-  const realRowsCount = safeData.length;
-  const emptyRowsCount =
-    realRowsCount < MIN_ROWS ? MIN_ROWS - realRowsCount : 0;
-
   return (
     <section className="w-full">
       <div className="flex items-center justify-between mb-3">
@@ -65,103 +44,64 @@ export function ScoresTable({ data, isLoading, error }: ScoresTableProps) {
         </h2>
       </div>
 
-      <div className="w-full overflow-x-auto rounded-lg border border-border/60 bg-card/40">
-        <table className="min-w-full text-xs sm:text-sm">
-          <thead className="bg-muted/60">
-            <tr>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-medium text-muted-foreground"
-              >
-                Nivel
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-medium text-muted-foreground"
-              >
-                Puntaje
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-medium text-muted-foreground"
-              >
-                Duración
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-medium text-muted-foreground"
-              >
-                Completado
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-medium text-muted-foreground"
-              >
-                Monedas
-              </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-medium text-muted-foreground"
-              >
-                Fecha
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {safeData.map((game) => (
-              <tr
-                key={game.uuid}
+      <StandardTable
+        headers={[
+          { key: "level", label: "Nivel", align: "left" },
+          { key: "score", label: "Puntaje", align: "right" },
+          { key: "duration", label: "Duración", align: "right" },
+          { key: "completed", label: "Completado", align: "left" },
+          { key: "coins", label: "Monedas", align: "right" },
+          { key: "date", label: "Fecha", align: "left" },
+        ]}
+        rows={data || []}
+        isLoading={isLoading}
+        error={error}
+        minRows={5}
+        loadingContent={
+          <div className="w-full py-10 text-center text-sm text-muted-foreground">
+            Cargando historial de partidas...
+          </div>
+        }
+        emptyState={
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Aún no hay partidas registradas.
+            </p>
+          </div>
+        }
+        renderRow={(game) => (
+          <tr
+            key={game.uuid}
+            className={cn(
+              "border-t border-border/40 transition-colors hover:bg-muted/40",
+            )}
+          >
+            <td className="p-3 align-middle">{getLevelLabel(game.level)}</td>
+            <td className="p-3 text-right align-middle font-medium">
+              {game.score}
+            </td>
+            <td className="p-3 text-right align-middle text-muted-foreground">
+              {formatDuration(game.duration)}
+            </td>
+            <td className="p-3 align-middle">
+              <span
                 className={cn(
-                  "border-t border-border/40 hover:bg-muted/40 transition-colors"
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+                  game.completed
+                    ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                    : "border border-amber-500/40 bg-amber-500/10 text-amber-500",
                 )}
               >
-                <td className="px-3 py-2 align-middle">
-                  {getLevelLabel(game.level)}
-                </td>
-                <td className="px-3 py-2 text-right align-middle font-medium">
-                  {game.score}
-                </td>
-                <td className="px-3 py-2 text-right align-middle text-muted-foreground">
-                  {formatDuration(game.duration)}
-                </td>
-                <td className="px-3 py-2 align-middle">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      game.completed
-                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/40"
-                        : "bg-amber-500/10 text-amber-500 border border-amber-500/40"
-                    )}
-                  >
-                    {game.completed ? "Sí" : "No"}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right align-middle">
-                  {game.coinsEarned}
-                </td>
-                <td className="px-3 py-2 align-middle text-muted-foreground">
-                  {formatDateTime(game.completedAt)}
-                </td>
-              </tr>
-            ))}
-
-            {emptyRowsCount > 0 &&
-              Array.from({ length: emptyRowsCount }).map((_, index) => (
-                <tr
-                  key={`empty-row-${index}`}
-                  className="border-t border-border/40"
-                >
-                  <td className="px-3 py-2 align-middle">&nbsp;</td>
-                  <td className="px-3 py-2 text-right align-middle">&nbsp;</td>
-                  <td className="px-3 py-2 text-right align-middle">&nbsp;</td>
-                  <td className="px-3 py-2 align-middle">&nbsp;</td>
-                  <td className="px-3 py-2 text-right align-middle">&nbsp;</td>
-                  <td className="px-3 py-2 align-middle">&nbsp;</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
+                {game.completed ? "Sí" : "No"}
+              </span>
+            </td>
+            <td className="p-3 text-right align-middle">{game.coinsEarned}</td>
+            <td className="p-3 align-middle text-muted-foreground">
+              {formatDateTime(game.completedAt)}
+            </td>
+          </tr>
+        )}
+      />
     </section>
   );
 }

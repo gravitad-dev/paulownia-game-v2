@@ -12,13 +12,17 @@ import {
   UserGameHistoriesResponse,
 } from "@/services/user-game-history.service";
 import { CardHeaderSticky } from "@/components/ui/CardHeaderSticky";
+import { DEFAULT_SUMMARY_LIMIT } from "@/lib/scores";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 5;
 
 export default function ScoresPage() {
   const { user } = useAuthStore();
 
   const [histories, setHistories] = useState<UserGameHistory[]>([]);
+  const [summaryHistories, setSummaryHistories] = useState<UserGameHistory[]>(
+    [],
+  );
   const [pagination, setPagination] = useState<
     UserGameHistoriesResponse["meta"]["pagination"]
   >({
@@ -41,16 +45,20 @@ export default function ScoresPage() {
         setLoading(true);
         setError(null);
 
-        const res = await UserGameHistoryService.listByUserDocumentId(
-          userDocumentId,
-          {
+        const [tableRes, summaryRes] = await Promise.all([
+          UserGameHistoryService.listByUserDocumentId(userDocumentId, {
             page: pagination.page,
             pageSize: pagination.pageSize,
-          },
-        );
+          }),
+          UserGameHistoryService.listByUserDocumentId(userDocumentId, {
+            page: 1,
+            pageSize: DEFAULT_SUMMARY_LIMIT,
+          }),
+        ]);
 
-        setHistories(res.data || []);
-        setPagination(res.meta.pagination);
+        setHistories(tableRes.data || []);
+        setPagination(tableRes.meta.pagination);
+        setSummaryHistories(summaryRes.data || []);
       } catch (err) {
         console.error("[ScoresPage] Error fetching user game histories", err);
         setError(
@@ -86,7 +94,10 @@ export default function ScoresPage() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col gap-4">
-            <ScoresSummary histories={histories} />
+            <ScoresSummary
+              histories={summaryHistories}
+              limit={DEFAULT_SUMMARY_LIMIT}
+            />
 
             <div className="flex-1 min-h-0">
               <ScoresTable

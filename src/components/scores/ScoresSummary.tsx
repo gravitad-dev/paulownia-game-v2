@@ -16,16 +16,6 @@ export function ScoresSummary({
 
   return (
     <section className="w-full mb-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
-        <div>
-          <h2 className="text-base font-semibold leading-tight">Resumen</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Estadísticas calculadas sobre las últimas{" "}
-            <span className="font-medium">{limit}</span> partidas jugadas.
-          </p>
-        </div>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="relative overflow-hidden rounded-2xl border border-emerald-400/60 bg-linear-to-br from-emerald-500/15 via-emerald-400/10 to-emerald-300/20 px-4 py-3 shadow-sm">
           <div className="pointer-events-none absolute -right-3 -top-3 h-12 w-12 rounded-full bg-emerald-300/30 blur-xl" />

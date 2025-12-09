@@ -3,6 +3,7 @@
 import { UserRewardDetailed } from "@/types/reward";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StandardTable } from "@/components/ui/StandardTable";
 import { Gift, Package, Coins, Ticket, FileText, Clock } from "lucide-react";
 import Image from "next/image";
 import { FALLBACK_IMAGES } from "@/constants/images";
@@ -99,202 +100,144 @@ export function UserRewardsTable({
     setIsClaimInfoModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
-    );
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Gift className="h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-sm text-muted-foreground">
-          No se encontraron premios
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left p-3 font-medium">Premio</th>
-              <th className="text-center p-3 font-medium hidden sm:table-cell">
-                Tipo
-              </th>
-              <th className="text-center p-3 font-medium">Cantidad</th>
-              <th className="text-center p-3 font-medium">Estado</th>
-              <th className="text-center p-3 font-medium hidden md:table-cell">
-                Obtenido
-              </th>
-              <th className="text-center p-3 font-medium hidden lg:table-cell">
-                Reclamado
-              </th>
-              <th className="text-center p-3 font-medium">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((userReward) => {
-              const TypeIcon = getRewardIcon(
-                userReward.reward.typeReward,
-                userReward.reward.name,
-              );
-              const typeLabel = getRewardTypeLabel(
-                userReward.reward.typeReward,
-                userReward.reward.name,
-              );
-              // El premio se puede reclamar si:
-              // 1. Es de tipo consumable
-              // 2. El estado es pending o available
-              // 3. No tiene un reclamo activo (hasClaim es false)
-              // 4. No ha sido reclamado (claimed es false)
-              // Nota: Si canBeClaimed es explícitamente true, lo usamos.
-              // Si es false o undefined, calculamos basándonos en el tipo y estado.
-              const hasActiveClaim = userReward.hasClaim === true;
-              // Si ya tiene un reclamo activo, NO se puede reclamar de nuevo visualmente
-              const canClaim =
-                userReward.canBeClaimed === true && !hasActiveClaim;
+      <StandardTable
+        headers={[
+          { key: "reward", label: "Premio", align: "left" },
+          { key: "type", label: "Tipo", align: "center", className: "hidden sm:table-cell" },
+          { key: "amount", label: "Cantidad", align: "center" },
+          { key: "status", label: "Estado", align: "center" },
+          { key: "obtained", label: "Obtenido", align: "center", className: "hidden md:table-cell" },
+          { key: "claimed", label: "Reclamado", align: "center", className: "hidden lg:table-cell" },
+          { key: "actions", label: "Acciones", align: "center" },
+        ]}
+        rows={data || []}
+        isLoading={isLoading}
+        error={error}
+        minRows={5}
+        emptyState={
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Gift className="mb-4 h-12 w-12 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              No se encontraron premios
+            </p>
+          </div>
+        }
+        renderRow={(userReward) => {
+          const TypeIcon = getRewardIcon(
+            userReward.reward.typeReward,
+            userReward.reward.name,
+          );
+          const typeLabel = getRewardTypeLabel(
+            userReward.reward.typeReward,
+            userReward.reward.name,
+          );
+          const hasActiveClaim = userReward.hasClaim === true;
+          const canClaim = userReward.canBeClaimed === true && !hasActiveClaim;
 
-              return (
-                <tr
-                  key={userReward.uuid}
-                  className="border-t hover:bg-muted/20"
+          return (
+            <tr key={userReward.uuid} className="border-t hover:bg-muted/20">
+              <td className="p-3">
+                <div className="flex items-start gap-3">
+                  <div className="relative h-12 w-12 shrink-0">
+                    <Image
+                      src={
+                        userReward.reward.image?.url || FALLBACK_IMAGES.reward
+                      }
+                      alt={userReward.reward.name}
+                      fill
+                      className="rounded-md object-cover"
+                      sizes="48px"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="line-clamp-1 text-sm font-medium">
+                      {userReward.reward.name}
+                    </p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {userReward.reward.description}
+                    </p>
+                  </div>
+                </div>
+              </td>
+              <td className="hidden p-3 text-center sm:table-cell">
+                <div className="flex items-center justify-center gap-1">
+                  <TypeIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs">{typeLabel}</span>
+                </div>
+              </td>
+              <td className="p-3 text-center">
+                <span className="font-medium">
+                  {userReward.reward.typeReward === "currency"
+                    ? userReward.reward.value
+                    : userReward.quantity}
+                </span>
+              </td>
+              <td className="p-3 text-center">
+                <Badge
+                  variant={statusVariants[userReward.rewardStatus]}
+                  className={`text-xs ${statusStyles[userReward.rewardStatus]}`}
                 >
-                  {/* Premio */}
-                  <td className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="relative w-12 h-12 shrink-0">
-                        <Image
-                          src={
-                            userReward.reward.image?.url ||
-                            FALLBACK_IMAGES.reward
-                          }
-                          alt={userReward.reward.name}
-                          fill
-                          className="object-cover rounded-md"
-                          sizes="48px"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm line-clamp-1">
-                          {userReward.reward.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {userReward.reward.description}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Tipo */}
-                  <td className="p-3 text-center hidden sm:table-cell">
-                    <div className="flex items-center justify-center gap-1">
-                      <TypeIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs">{typeLabel}</span>
-                    </div>
-                  </td>
-
-                  {/* Cantidad */}
-                  <td className="p-3 text-center">
-                    <span className="font-medium">
-                      {userReward.reward.typeReward === "currency"
-                        ? userReward.reward.value
-                        : userReward.quantity}
-                    </span>
-                  </td>
-
-                  {/* Estado */}
-                  <td className="p-3 text-center">
-                    <Badge
-                      variant={statusVariants[userReward.rewardStatus]}
-                      className={`text-xs ${
-                        statusStyles[userReward.rewardStatus]
-                      }`}
-                    >
-                      {statusLabels[userReward.rewardStatus]}
-                    </Badge>
-                  </td>
-
-                  {/* Obtenido */}
-                  <td className="p-3 text-center hidden md:table-cell">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(userReward.obtainedAt).toLocaleDateString(
-                        "es-ES",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
-                    </span>
-                  </td>
-
-                  {/* Reclamado */}
-                  <td className="p-3 text-center hidden lg:table-cell">
-                    {userReward.claimedAt ? (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(userReward.claimedAt).toLocaleDateString(
-                          "es-ES",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          },
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                  {statusLabels[userReward.rewardStatus]}
+                </Badge>
+              </td>
+              <td className="hidden p-3 text-center md:table-cell">
+                <span className="text-xs text-muted-foreground">
+                  {new Date(userReward.obtainedAt).toLocaleDateString("es-ES", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </td>
+              <td className="hidden p-3 text-center lg:table-cell">
+                {userReward.claimedAt ? (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(userReward.claimedAt).toLocaleDateString(
+                      "es-ES",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      },
                     )}
-                  </td>
-
-                  {/* Acciones */}
-                  <td className="p-3 text-center">
-                    {canClaim && (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleClaimClick(userReward)}
-                        className="text-xs"
-                      >
-                        <FileText className="h-3 w-3 mr-1" />
-                        Reclamar
-                      </Button>
-                    )}
-                    {hasActiveClaim && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewClaimClick(userReward.uuid)}
-                        className="text-xs"
-                      >
-                        <Clock className="h-3 w-3 mr-1" />
-                        Ver estado
-                      </Button>
-                    )}
-                    {!canClaim && !hasActiveClaim && (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">-</span>
+                )}
+              </td>
+              <td className="p-3 text-center">
+                {canClaim && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => handleClaimClick(userReward)}
+                    className="text-xs"
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    Reclamar
+                  </Button>
+                )}
+                {hasActiveClaim && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewClaimClick(userReward.uuid)}
+                    className="text-xs"
+                  >
+                    <Clock className="mr-1 h-3 w-3" />
+                    Ver estado
+                  </Button>
+                )}
+                {!canClaim && !hasActiveClaim && (
+                  <span className="text-xs text-muted-foreground">-</span>
+                )}
+              </td>
+            </tr>
+          );
+        }}
+      />
 
       {selectedReward && (
         <ClaimRewardModal

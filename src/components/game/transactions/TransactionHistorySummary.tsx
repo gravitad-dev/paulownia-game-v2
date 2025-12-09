@@ -11,10 +11,6 @@ export function TransactionHistorySummary({
   transactions,
 }: TransactionHistorySummaryProps) {
   const total = transactions.length;
-  const completed = transactions.filter(
-    (t) => t.statusTransaction === "completed",
-  ).length;
-
   const totalCoinsSpent = transactions
     .filter((t) => t.statusTransaction === "completed")
     .reduce((sum, t) => sum + t.coinsExchanged, 0);
@@ -37,7 +33,7 @@ export function TransactionHistorySummary({
     .reduce((sum, t) => sum + t.amountDelivered, 0);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div className="relative overflow-hidden rounded-2xl border border-purple-400/60 bg-linear-to-br from-purple-500/15 via-purple-400/10 to-purple-300/20 px-4 py-3 shadow-sm">
         <div className="pointer-events-none absolute -right-3 -top-3 h-12 w-12 rounded-full bg-purple-300/30 blur-xl" />
         <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-200">
@@ -45,16 +41,6 @@ export function TransactionHistorySummary({
         </p>
         <p className="mt-1 text-2xl font-extrabold text-purple-700 dark:text-purple-200 drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]">
           {total}
-        </p>
-      </div>
-
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-400/60 bg-linear-to-br from-emerald-500/15 via-emerald-400/10 to-emerald-300/20 px-4 py-3 shadow-sm">
-        <div className="pointer-events-none absolute -right-4 -bottom-4 h-14 w-14 rounded-full bg-emerald-300/30 blur-xl" />
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-200">
-          Completados
-        </p>
-        <p className="mt-1 text-2xl font-extrabold text-emerald-700 dark:text-emerald-200 drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]">
-          {completed}
         </p>
       </div>
 
