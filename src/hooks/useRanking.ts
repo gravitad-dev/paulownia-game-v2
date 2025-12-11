@@ -15,30 +15,32 @@ import {
 const DEFAULT_PAGE_SIZE = 10;
 
 const normalizeTopPlayers = (items: RankingApiTopPlayer[]): TopPlayer[] => {
-  return items.map((item) => ({
-    rank: Number(item.rank) || 0,
-    username: item.user?.username || "Jugador",
-    score: Number(item.score) || 0,
-    xp: Number(item.xp ?? 0) || 0,
-    gamesWon: Number(item.victories ?? item.gamesWon ?? 0) || 0,
-    gamesPlayed: Number(item.gamesPlayed ?? 0) || 0,
-    winRate: (() => {
-      const raw = item.winRate;
-      if (typeof raw === "number") {
-        return raw > 1 ? raw : raw * 100;
-      }
-      const formatted = item.winRateFormatted;
-      if (typeof formatted === "string") {
-        const num = parseFloat(formatted.replace("%", ""));
-        return isNaN(num) ? 0 : num;
-      }
-      return 0;
-    })(),
-    coins: Number(item.coins ?? 0) || 0,
-    tickets: Number(item.tickets ?? 0) || 0,
-    country: item.user?.country ?? item.country ?? null,
-    avatar: item.avatar ?? null,
-  }));
+  return items
+    .filter((item) => item.user && item.user.username)
+    .map((item) => ({
+      rank: Number(item.rank) || 0,
+      username: item.user?.username || "Jugador",
+      score: Number(item.score) || 0,
+      xp: Number(item.xp ?? 0) || 0,
+      gamesWon: Number(item.victories ?? item.gamesWon ?? 0) || 0,
+      gamesPlayed: Number(item.gamesPlayed ?? 0) || 0,
+      winRate: (() => {
+        const raw = item.winRate;
+        if (typeof raw === "number") {
+          return raw > 1 ? raw : raw * 100;
+        }
+        const formatted = item.winRateFormatted;
+        if (typeof formatted === "string") {
+          const num = parseFloat(formatted.replace("%", ""));
+          return isNaN(num) ? 0 : num;
+        }
+        return 0;
+      })(),
+      coins: Number(item.coins ?? 0) || 0,
+      tickets: Number(item.tickets ?? 0) || 0,
+      country: item.user?.country ?? item.country ?? null,
+      avatar: item.avatar ?? null,
+    }));
 };
 
 interface UseRankingOptions {
@@ -219,7 +221,7 @@ export function useRanking(options: UseRankingOptions = {}): UseRankingReturn {
       }
       setPage(1);
     },
-    [sortBy]
+    [sortBy],
   );
 
   const handleSetSearch = useCallback((value: string) => {

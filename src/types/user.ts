@@ -155,3 +155,13 @@ export interface AuthResponse {
   jwt: string;
   user: User;
 }
+
+// Respuestas de autenticación relacionadas con recuperación y confirmación de email
+export interface ForgotPasswordResponse {
+  ok: boolean;
+}
+
+export interface SendEmailConfirmationResponse {
+  email: string;
+  sent: boolean;
+}

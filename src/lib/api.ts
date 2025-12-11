@@ -1,5 +1,4 @@
 import axios from "axios";
-import { useAuthStore } from "@/store/useAuthStore";
 import { useConnectionStore } from "@/store/useConnectionStore";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1337";
@@ -11,13 +10,20 @@ export const api = axios.create({
   },
 });
 
+// Obtener token directamente desde cookie para evitar dependencia circular con el store
+const getTokenFromCookie = (): string | null => {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )auth_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 api.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().token;
+    const token = getTokenFromCookie();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Debug: Log temporal para verificar token en peticiones a /api/game
     if (config.url?.includes("/api/game")) {
       console.log("[API Interceptor] Request a /api/game:", {
@@ -26,18 +32,20 @@ api.interceptors.request.use(
         hasToken: !!token,
         tokenPreview: token ? `${token.substring(0, 20)}...` : "N/A",
         headers: {
-          Authorization: config.headers.Authorization ? "Bearer ***" : "No token",
+          Authorization: config.headers.Authorization
+            ? "Bearer ***"
+            : "No token",
           "Content-Type": config.headers["Content-Type"],
         },
         data: config.data,
       });
     }
-    
+
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Tipos de error personalizados para mejor manejo
@@ -53,7 +61,7 @@ const createApiError = (
   message: string,
   code: ApiError["code"],
   status?: number,
-  originalError?: unknown
+  originalError?: unknown,
 ): ApiError => ({
   message,
   code,
@@ -75,6 +83,19 @@ api.interceptors.response.use(
 
     // Error de red (servidor no disponible, sin conexión, etc.)
     if (error.code === "ERR_NETWORK" || error.message === "Network Error") {
+      // Permitir saltar el modal global de conexión si se especifica en la config
+      if (
+        (error.config as { skipConnectionCheck?: boolean })?.skipConnectionCheck
+      ) {
+        const apiError = createApiError(
+          "No se pudo conectar con el servidor",
+          "NETWORK_ERROR",
+          undefined,
+          error,
+        );
+        return Promise.reject(apiError);
+      }
+
       const message =
         "No se pudo conectar con el servidor. Por favor, verifica tu conexión o intenta más tarde.";
       connectionStore.setDisconnected(message);
@@ -82,7 +103,7 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
@@ -92,6 +113,18 @@ api.interceptors.response.use(
       error.code === "ECONNREFUSED" ||
       error.code === "ERR_CONNECTION_REFUSED"
     ) {
+      if (
+        (error.config as { skipConnectionCheck?: boolean })?.skipConnectionCheck
+      ) {
+        const apiError = createApiError(
+          "El servidor no está disponible",
+          "NETWORK_ERROR",
+          undefined,
+          error,
+        );
+        return Promise.reject(apiError);
+      }
+
       const message =
         "El servidor no está disponible en este momento. Por favor, intenta más tarde.";
       connectionStore.setDisconnected(message);
@@ -99,13 +132,25 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
 
     // Timeout
     if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+      if (
+        (error.config as { skipConnectionCheck?: boolean })?.skipConnectionCheck
+      ) {
+        const apiError = createApiError(
+          "La solicitud tardó demasiado",
+          "NETWORK_ERROR",
+          undefined,
+          error,
+        );
+        return Promise.reject(apiError);
+      }
+
       const message =
         "La solicitud tardó demasiado. Por favor, intenta nuevamente.";
       connectionStore.setDisconnected(message);
@@ -113,20 +158,22 @@ api.interceptors.response.use(
         message,
         "NETWORK_ERROR",
         undefined,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
 
     // Manejar error 401 (token expirado o inválido)
     if (error.response?.status === 401) {
-      const authStore = useAuthStore.getState();
+      const reqUrl: string =
+        (error.config && (error.config as { url?: string }).url) ||
+        (error.response &&
+          (error.response as { config?: { url?: string } }).config?.url) ||
+        "";
+      const isAuthEndpoint = reqUrl.includes("/api/auth/");
 
-      // Solo mostrar modal si hay un usuario autenticado
-      // (evita loops infinitos en la página de login)
-      if (authStore.isAuthenticated) {
-        // Mostrar modal de sesión expirada ANTES de logout
-        // El logout se hará cuando el usuario haga clic en el botón del modal
+      const hasToken = !!getTokenFromCookie();
+      if (hasToken && !isAuthEndpoint) {
         connectionStore.setSessionExpired();
       }
 
@@ -134,7 +181,7 @@ api.interceptors.response.use(
         "Tu sesión ha expirado",
         "AUTH_ERROR",
         401,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
@@ -145,7 +192,7 @@ api.interceptors.response.use(
         "Ocurrió un error en el servidor. Por favor, intenta más tarde.",
         "SERVER_ERROR",
         error.response.status,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
@@ -160,7 +207,7 @@ api.interceptors.response.use(
         message,
         "UNKNOWN_ERROR",
         error.response.status,
-        error
+        error,
       );
       return Promise.reject(apiError);
     }
@@ -170,10 +217,10 @@ api.interceptors.response.use(
       "Ocurrió un error inesperado. Por favor, intenta nuevamente.",
       "UNKNOWN_ERROR",
       undefined,
-      error
+      error,
     );
     return Promise.reject(apiError);
-  }
+  },
 );
 
 // Helper para verificar si un error es de tipo ApiError

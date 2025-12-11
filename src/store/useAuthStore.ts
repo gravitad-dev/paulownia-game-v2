@@ -10,7 +10,7 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (user: User, token: string) => void;
+  login: (user: User, token: string, remember?: boolean) => void;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
 }
@@ -32,12 +32,20 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      login: (user, token) => {
-        Cookies.set("auth_token", token, {
-          expires: 7,
+      login: (user, token, remember) => {
+        const cookieOptions: Cookies.CookieAttributes = {
           sameSite: "Lax",
           secure: window.location.protocol === "https:",
-        });
+        };
+        
+        // Si remember es true, la cookie dura 30 días.
+        // Si es false, no seteamos expires, convirtiéndola en "Session Cookie" (se borra al cerrar navegador).
+        // Si es undefined (por defecto), mantenemos el comportamiento de sesión (false).
+        if (remember) {
+          cookieOptions.expires = 30; 
+        }
+
+        Cookies.set("auth_token", token, cookieOptions);
         set({
           user,
           token,
@@ -68,7 +76,12 @@ export const useAuthStore = create<AuthState>()(
       // Rehydrate and check authentication on load
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.isAuthenticated = checkIsAuthenticated(state.token, state.user);
+          const isAuth = checkIsAuthenticated(state.token, state.user);
+          state.isAuthenticated = isAuth;
+          if (!isAuth) {
+            state.user = null;
+            state.token = null;
+          }
         }
       },
     },
