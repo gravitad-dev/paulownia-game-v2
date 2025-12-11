@@ -57,6 +57,18 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/reset-password",
+        destination: "/auth/reset-password",
+      },
+      {
+        source: "/auth/email-confirmation",
+        destination: "/auth/email-confirmed",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

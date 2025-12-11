@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
-import { api } from "@/lib/api";
+import { api, getErrorMessage, isApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { gsap } from "gsap";
+import { AuthService } from "@/services/auth.service";
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
@@ -158,19 +159,56 @@ export default function LoginPage() {
       // Note: Zustand persist middleware uses localStorage by default, which acts like "Remember Me".
       // If we wanted strict session-only, we'd need to configure storage dynamically, but for this UI request
       // we will just visually implement it. In a real app, we might toggle storage type.
-      login(user, jwt);
-      toast.success("Bienvenido de nuevo");
+      login(user, jwt, rememberMe);
+      const displayName = user?.username || user?.email || "";
+      toast.success(
+        displayName ? `¡Bienvenido, ${displayName}!` : "¡Bienvenido!",
+        "Has iniciado sesión correctamente",
+      );
       router.push("/game");
     } catch (err: unknown) {
-      console.error("Login error:", err);
-      const errorMessage =
-        (
-          err as {
-            response?: { data?: { error?: { message?: string } } };
+      const message = getErrorMessage(err);
+      if (
+        isApiError(err) &&
+        err.status === 400 &&
+        message === "Your account email is not confirmed"
+      ) {
+        const isEmail = /.+@.+\..+/.test(identifier);
+        if (isEmail) {
+          try {
+            await AuthService.sendEmailConfirmation(identifier);
+            toast.warning(
+              "Tu email no está confirmado",
+              "Te reenviamos el correo de confirmación",
+            );
+          } catch (e: unknown) {
+            const resendMsg =
+              getErrorMessage(e) ||
+              "No pudimos reenviar el correo de confirmación";
+            toast.error(resendMsg);
           }
-        )?.response?.data?.error?.message ||
-        "Error al iniciar sesión. Verifica tus credenciales.";
-      toast.error(errorMessage);
+        } else {
+          toast.warning(
+            "Tu email no está confirmado",
+            "Ingresa tu email para reenviar la confirmación",
+          );
+        }
+      } else if (
+        isApiError(err) &&
+        err.status === 400 &&
+        (message === "Invalid identifier or password" ||
+          message === "Invalid password" ||
+          message === "Invalid identifier")
+      ) {
+        toast.error(
+          "Usuario o contraseña incorrectos",
+          "Verifica tus credenciales e intenta nuevamente.",
+        );
+      } else {
+        toast.error(
+          message || "Error al iniciar sesión. Verifica tus credenciales.",
+        );
+      }
 
       // Animación de shake en caso de error
       if (formRef.current) {
@@ -280,12 +318,12 @@ export default function LoginPage() {
           </div>
 
           <div className="text-sm">
-            <a
-              href="#"
+            <Link
+              href="/auth/forgot-password"
               className="font-medium text-primary hover:text-primary/80"
             >
               ¿Olvidaste tu contraseña?
-            </a>
+            </Link>
           </div>
         </div>
 

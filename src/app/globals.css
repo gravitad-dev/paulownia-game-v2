@@ -184,6 +184,21 @@
   }
 }
 
+/* Ocultar controles nativos de mostrar/ocultar contraseña (evitar doble ícono) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-textfield-decoration-container {
+  display: none;
+}
+
+input[type="password"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Estilos para react-phone-input-2 */
 .phone-input-container {
   width: 100%;

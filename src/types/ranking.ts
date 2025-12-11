@@ -19,12 +19,14 @@ export interface RankingApiTopPlayer {
     username?: string;
     country?: string;
   } | null;
+  username?: string | null;
   score: number;
   xp?: number | null;
   gamesWon?: number | null;
   victories?: number | null;
   gamesPlayed?: number | null;
   winRate?: number | null;
+  winRatePercent?: number | null;
   winRateFormatted?: string | null;
   coins?: number | null;
   tickets?: number | null;
