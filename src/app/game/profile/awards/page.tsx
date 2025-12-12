@@ -10,6 +10,7 @@ import {
 } from "@/components/game/rewards";
 import { ContentLoading } from "@/components/ui/ContentLoading";
 import { RewardService } from "@/services/reward.service";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import type {
   UserRewardDetailed,
   RewardStatus,
@@ -72,6 +73,12 @@ export default function AwardsPage() {
     }));
   };
 
+  const handleClaimSuccess = () => {
+    fetchRewards();
+    // Forzar actualización de notificaciones para reflejar el nuevo estado
+    useNotificationStore.getState().fetchNotifications();
+  };
+
   return (
     <div className="flex flex-col h-full">
       <CardHeaderSticky title="Premios" />
@@ -92,7 +99,7 @@ export default function AwardsPage() {
                 data={rewards}
                 isLoading={loading}
                 error={error || undefined}
-                onClaimSuccess={fetchRewards}
+                onClaimSuccess={handleClaimSuccess}
               />
             </div>
 

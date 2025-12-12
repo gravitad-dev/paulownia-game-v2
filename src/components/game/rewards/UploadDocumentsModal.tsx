@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hooks/useToast";
 import { RewardClaimService } from "@/services/reward-claim.service";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import type {
   UploadDocumentsData,
   IdentityDocumentType,
@@ -50,6 +51,9 @@ export function UploadDocumentsModal({
 }: UploadDocumentsModalProps) {
   const { user } = useAuthStore();
   const toast = useToast();
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMinor, setIsMinor] = useState(false);
   const [useExistingGuardian, setUseExistingGuardian] = useState(false);
@@ -301,6 +305,9 @@ export function UploadDocumentsModal({
         "Documentos recibidos",
         "Tu reclamo está en espera de verificación.",
       );
+
+      // Refrescar notificaciones del store
+      fetchNotifications();
 
       onSuccess?.();
       onClose();

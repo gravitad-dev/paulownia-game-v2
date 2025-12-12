@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/useToast";
 import { RewardClaimService } from "@/services/reward-claim.service";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import type { RewardClaim } from "@/types/reward-claim";
 import {
   Calendar,
@@ -96,6 +97,10 @@ export function ClaimInfoModal({
 
   const [isReopening, setIsReopening] = useState(false);
 
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications,
+  );
+
   useEffect(() => {
     if (isOpen && (claimCode || userRewardUuid)) {
       loadClaim();
@@ -132,6 +137,10 @@ export function ClaimInfoModal({
       setIsCancelling(true);
       await RewardClaimService.cancelClaim(claim.claimCode);
       toast.success("Reclamo cancelado exitosamente");
+      
+      // Refrescar notificaciones del store
+      fetchNotifications();
+      
       setShowCancelConfirm(false);
       onCancelSuccess?.();
       onClose();
@@ -312,7 +321,7 @@ export function ClaimInfoModal({
                 claim.claimStatus === "cancelled") &&
                 claim.adminNotes && (
                   <div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg">
-                    <p className="text-xs text-destructive font-medium mb-1">
+                    <p className="text-xs text-destructive font-medium mb-1 text-white">
                       {claim.claimStatus === "rejected"
                         ? "Motivo de rechazo"
                         : "Motivo de cancelación"}

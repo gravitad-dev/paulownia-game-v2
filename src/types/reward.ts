@@ -10,7 +10,9 @@ export type RewardStatus =
   | "expired"
   | "blocked"
   | "pending"
-  | "in_claim";
+  | "in_claim"
+  | "processing"
+  | "cancelled";
 
 export interface RewardImage {
   id: number;

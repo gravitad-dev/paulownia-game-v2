@@ -5,6 +5,7 @@ import { User } from "@/types/user";
 import { useDailyRewardsStore } from "./useDailyRewardsStore";
 import { useAchievementsStore } from "./useAchievementsStore";
 import { usePlayerStatsStore } from "./usePlayerStatsStore";
+import { useNotificationStore } from "./useNotificationStore";
 
 interface AuthState {
   user: User | null;
@@ -58,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
         useDailyRewardsStore.getState().reset();
         useAchievementsStore.getState().reset();
         usePlayerStatsStore.getState().reset();
+        useNotificationStore.getState().reset();
         set({ user: null, token: null, isAuthenticated: false });
       },
       updateUser: (updatedUser) =>

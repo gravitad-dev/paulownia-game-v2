@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { RewardService } from "@/services/reward.service";
 import { usePlayerStatsStore } from "@/store/usePlayerStatsStore";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import type { Reward, UserReward, SpinResponse } from "@/types/reward";
 
 type SpinPhase = "idle" | "spinning" | "revealing" | "revealed";
@@ -165,6 +166,8 @@ export const useRewardStore = create<RewardState>()((set, get) => ({
     // Actualizar playerStats solo cuando se revela el premio
     if (phase === "revealed" && pendingPlayerStats) {
       usePlayerStatsStore.getState().setStats(pendingPlayerStats);
+      // Refrescar notificaciones ahora que el usuario ve el premio
+      useNotificationStore.getState().fetchNotifications();
     }
 
     set({ phase });
