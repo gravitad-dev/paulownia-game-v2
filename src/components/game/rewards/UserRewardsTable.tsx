@@ -52,6 +52,8 @@ const statusLabels = {
   blocked: "Bloqueado",
   pending: "Pendiente",
   in_claim: "En trámite",
+  processing: "Procesando",
+  cancelled: "Cancelado",
 };
 
 const statusVariants = {
@@ -62,6 +64,8 @@ const statusVariants = {
   blocked: "destructive",
   pending: "secondary",
   in_claim: "default",
+  processing: "default",
+  cancelled: "destructive",
 } as const;
 
 const statusStyles = {
@@ -74,6 +78,8 @@ const statusStyles = {
   pending:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   in_claim: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  processing: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
 };
 
 export function UserRewardsTable({

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { NotificationItem, Toast, ToastType } from "@/types/notification";
+import { NotificationService } from "@/services/notification.service";
 
 interface NotificationState {
   notifications: NotificationItem[];
@@ -7,17 +8,35 @@ interface NotificationState {
   addToast: (toast: Omit<Toast, "id"> & { id?: string }) => void;
   removeToast: (toastId: string) => void;
   setNotifications: (items: NotificationItem[]) => void;
-  markAsRead: (documentId: string) => void;
+  fetchNotifications: () => Promise<void>;
+  markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   unreadCount: number;
+  reset: () => void;
 }
 
 const DEFAULT_DURATION = 4000;
 
-export const useNotificationStore = create<NotificationState>((set, get) => ({
+/**
+ * Mapea una notificación del backend para agregar isRead (compat con UI)
+ */
+const mapNotification = (
+  item: NotificationItem,
+  isRead: boolean,
+): NotificationItem => ({
+  ...item,
+  isRead,
+  read: isRead,
+});
+
+const initialState = {
   notifications: [],
   toasts: [],
   unreadCount: 0,
+};
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
+  ...initialState,
   addToast: (toast) => {
     const id = toast.id ?? crypto.randomUUID();
     const newToast: Toast = {
@@ -42,16 +61,32 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   setNotifications: (items) =>
     set(() => ({
       notifications: items,
-      unreadCount: items.filter((item) => !item.isRead).length,
+      unreadCount: items.filter((item) => !item.read && !item.isRead).length,
     })),
-  markAsRead: (documentId) =>
+  fetchNotifications: async () => {
+    try {
+      const { data, meta } = await NotificationService.list(1, 10);
+      const unread = data.unread.map((item) => mapNotification(item, false));
+      const read = data.read.map((item) => mapNotification(item, true));
+
+      const items = [...unread, ...read];
+      set(() => ({
+        notifications: items,
+        unreadCount: meta.unreadCount,
+      }));
+    } catch (error) {
+      console.error("Error fetching notifications in store:", error);
+    }
+  },
+  markAsRead: (id) =>
     set((state) => {
       const notifications = state.notifications.map((item) =>
-        item.documentId === documentId ? { ...item, isRead: true } : item
+        item.id === id ? { ...item, isRead: true, read: true } : item,
       );
       return {
         notifications,
-        unreadCount: notifications.filter((item) => !item.isRead).length,
+        unreadCount: notifications.filter((item) => !item.read && !item.isRead)
+          .length,
       };
     }),
   markAllAsRead: () =>
@@ -59,30 +94,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       notifications: state.notifications.map((item) => ({
         ...item,
         isRead: true,
+        read: true,
       })),
       unreadCount: 0,
     })),
+  reset: () => set(initialState),
 }));
 
 export const createToastPayload = (
   type: ToastType,
   title: string,
-  description?: string
+  description?: string,
 ) => ({
   type,
   title,
   description,
 });
-
-
-
-
-
-
-
-
-
-
-
-
-

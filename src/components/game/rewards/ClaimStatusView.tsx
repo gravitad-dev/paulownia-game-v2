@@ -46,7 +46,7 @@ const statusConfig = {
   rejected: {
     label: "Rechazado",
     icon: XCircle,
-    color: "bg-red-500",
+    color: "bg-red-500 text-white",
     variant: "destructive" as const,
   },
   cancelled: {

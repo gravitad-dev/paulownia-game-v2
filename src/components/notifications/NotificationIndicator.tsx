@@ -11,6 +11,7 @@ import { NotificationService } from "@/services/notification.service";
 import { NotificationItem } from "@/types/notification";
 import { cn } from "@/lib/utils";
 import { FiBell } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 
 const formatDate = (dateString: string) =>
   new Intl.DateTimeFormat("es-ES", {
@@ -22,11 +23,14 @@ interface NotificationIndicatorProps {
   className?: string;
 }
 
-export function NotificationIndicator({ className }: NotificationIndicatorProps) {
+export function NotificationIndicator({
+  className,
+}: NotificationIndicatorProps) {
+  const router = useRouter();
   const notifications = useNotificationStore((state) => state.notifications);
   const unreadCount = useNotificationStore((state) => state.unreadCount);
-  const setNotifications = useNotificationStore(
-    (state) => state.setNotifications
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications,
   );
   const markAsRead = useNotificationStore((state) => state.markAsRead);
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
@@ -34,41 +38,37 @@ export function NotificationIndicator({ className }: NotificationIndicatorProps)
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Si ya hay notificaciones cargadas, no recargar automáticamente para respetar caché
+    // (o podríamos decidir recargar siempre si queremos frescura absoluta)
     if (notifications.length) return;
 
-    const loadNotifications = async () => {
+    const initLoad = async () => {
       setLoading(true);
-      try {
-        const data = await NotificationService.list();
-        setNotifications(data);
-      } catch (error) {
-        console.error("Error loading notifications:", error);
-      } finally {
-        setLoading(false);
-      }
+      await fetchNotifications();
+      setLoading(false);
     };
 
-    loadNotifications();
-  }, [notifications.length, setNotifications]);
+    initLoad();
+  }, [notifications.length, fetchNotifications]);
 
   const sortedNotifications = useMemo(
     () =>
       [...notifications].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
-    [notifications]
+    [notifications],
   );
 
   const unreadNotifications = sortedNotifications.filter(
-    (item) => !item.isRead
+    (item) => !item.isRead,
   );
   const readNotifications = sortedNotifications.filter((item) => item.isRead);
 
-  const handleMarkAsRead = async (documentId: string) => {
-    markAsRead(documentId);
+  const handleMarkAsRead = async (id: string) => {
+    markAsRead(id);
     try {
-      await NotificationService.markAsRead(documentId);
+      await NotificationService.markAsRead(id);
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
@@ -83,23 +83,45 @@ export function NotificationIndicator({ className }: NotificationIndicatorProps)
     }
   };
 
-  const renderNotification = (item: NotificationItem) => (
-    <button
-      key={item.documentId}
-      type="button"
-      className={cn(
-        "w-full text-left rounded-lg border border-transparent px-4 py-3 transition hover:border-border",
-        item.isRead ? "bg-muted/20" : "bg-white"
-      )}
-      onClick={() => handleMarkAsRead(item.documentId)}
-    >
-      <p className="text-sm font-semibold text-foreground">{item.title}</p>
-      <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-      <span className="text-[11px] text-muted-foreground/80 mt-2 block">
-        {formatDate(item.createdAt)}
-      </span>
-    </button>
-  );
+  const renderNotification = (item: NotificationItem) => {
+    const isRewardNotification =
+      item.type === "REWARD_AVAILABLE" || item.type === "REWARD_STATUS_UPDATE";
+    const isProfileNotification = item.type === "PROFILE_INCOMPLETE";
+
+    // Es clickeable si tiene un link O si no está leída (para marcarla como leída)
+    const isClickable =
+      isRewardNotification || isProfileNotification || !item.isRead;
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        disabled={!isClickable}
+        className={cn(
+          "w-full text-left rounded-lg border border-transparent px-4 py-3 transition hover:border-border",
+          item.isRead ? "bg-muted/20" : "bg-white",
+          isClickable && "hover:bg-muted/50 cursor-pointer",
+          !isClickable && "cursor-default",
+        )}
+        onClick={() => {
+          if (!isClickable) return;
+
+          handleMarkAsRead(item.id);
+          if (isRewardNotification) {
+            router.push("/game/profile/awards");
+          } else if (isProfileNotification) {
+            router.push("/game/profile/settings");
+          }
+        }}
+      >
+        <p className="text-sm font-semibold text-foreground">{item.title}</p>
+        <p className="text-xs text-muted-foreground mt-1">{item.message}</p>
+        <span className="text-[11px] text-muted-foreground/80 mt-2 block">
+          {formatDate(item.createdAt)}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div className={className}>
