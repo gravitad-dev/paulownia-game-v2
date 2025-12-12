@@ -1,8 +1,9 @@
 services:
   paulownia-game:
+    container_name: paulownia-frontend
     build: .
-    ports:
-      - "${PORT}:3000"
+#    ports:
+#      - "${PORT}:3000"
     environment:
       - NODE_ENV=production
     restart: unless-stopped
